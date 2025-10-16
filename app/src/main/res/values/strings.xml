@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">YourAssistant(Yora)</string>
+    <string name="app_name_yora">YORA</string>
+    <string name="app_logo">YORA Logo</string>
+    <string name="tagline">YOUR ASSISTANCE</string>
+
 </resources>
