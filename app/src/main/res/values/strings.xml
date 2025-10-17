@@ -3,5 +3,14 @@
     <string name="app_name_yora">YORA</string>
     <string name="app_logo">YORA Logo</string>
     <string name="tagline">YOUR ASSISTANCE</string>
+    <string name="login">Login</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="your_personal_assistant_awaits">Your personal assistant awaits</string>
+    <string name="welcome_to_yora">Welcome to YORA</string>
+    <string name="enter_your_email">Enter your email</string>
+    <string name="enter_your_password">Enter your password</string>
+    <string name="remember">Remember</string>
+    <string name="google">Google</string>
 
 </resources>
