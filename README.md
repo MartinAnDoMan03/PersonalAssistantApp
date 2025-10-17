@@ -8,7 +8,7 @@ Aplikasi mobile berbasis Android yang membantu pengguna mengatur jadwal, catatan
 
 | Nama                           | NIM       |
 |--------------------------------|-----------|
-| Martin Anugrah Dominick Manalu | 231402025 |
+| Martin Anugrah Dominick Manalu | 231402045 |
 | Rama Davy Fahrezy Kacaribu     | 231402054 |
 | Reka Oktavia                   | 231402063 |
 | Fahri Alhamda                  | 231402066 |
