@@ -57,7 +57,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="36dp"
-        android:hint=""
+        android:hint="@string/enter_your_email"
         app:boxBackgroundMode="outline"
         app:boxCornerRadiusBottomEnd="8dp"
         app:boxCornerRadiusBottomStart="8dp"
@@ -71,7 +71,6 @@
         <com.google.android.material.textfield.TextInputEditText
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:hint="@string/enter_your_email"
             android:inputType="textEmailAddress"
             android:padding="8dp" />
     </com.google.android.material.textfield.TextInputLayout>
@@ -83,8 +82,9 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint=""
+        android:hint="@string/enter_your_password"
         app:boxBackgroundMode="outline"
+        app:endIconMode="password_toggle"
         app:boxCornerRadiusBottomEnd="8dp"
         app:boxCornerRadiusBottomStart="8dp"
         app:boxCornerRadiusTopEnd="8dp"
@@ -97,7 +97,6 @@
         <com.google.android.material.textfield.TextInputEditText
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:hint="@string/enter_your_password"
             android:inputType="textPassword"
             android:padding="8dp" />
     </com.google.android.material.textfield.TextInputLayout>
