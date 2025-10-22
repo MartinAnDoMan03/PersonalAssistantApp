@@ -50,7 +50,7 @@
 
 
 
-            <!-- Back button -->
+                <!-- Back button -->
 
                 <!-- Title -->
                 <TextView
@@ -145,8 +145,6 @@
                     app:layout_constraintStart_toStartOf="parent" />
 
                 <!-- Password Input -->
-
-                <!-- Password Strength Bar -->
                 <EditText
                     android:id="@+id/et_password"
                     android:layout_width="0dp"
@@ -154,13 +152,13 @@
                     android:layout_marginTop="6dp"
                     android:background="@drawable/input_background"
                     android:hint="Enter your Password"
-                    android:inputType="textPassword"
                     android:padding="12dp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintHorizontal_bias="0.0"
+                    android:inputType="textPassword"
+                    app:layout_constraintTop_toBottomOf="@id/tv_password_label"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tv_password_label" />
+                    app:layout_constraintEnd_toEndOf="parent" />
 
+                <!-- Password Strength Bar -->
                 <ProgressBar
                     android:id="@+id/password_progress"
                     style="?android:attr/progressBarStyleHorizontal"
