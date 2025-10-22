@@ -15,5 +15,4 @@
     <string name="title_activity_register">RegisterActivity</string>
     <string name="by_signing">By signing up, you agree to our <a href="https://example.com/terms">Terms Of Service</a> and <a href="https://example.com/privacy">Privacy Policy</a></string>
     <string name="create_account">Create Account</string>
-
 </resources>
