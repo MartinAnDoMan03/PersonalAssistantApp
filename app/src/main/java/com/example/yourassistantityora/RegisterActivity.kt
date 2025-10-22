@@ -1,12 +1,10 @@
-package com.example.yourassistantityora
+package com.example.yourassistantyora
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import com.example.yourassistantyora.R
 import android.widget.TextView
 import android.content.Intent
-import com.example.yourassistantyora.LoginActivity
 
 
 class RegisterActivity : AppCompatActivity() {
