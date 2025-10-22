@@ -12,7 +12,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.YourAssistantYora">
         <activity
-            android:name="com.example.yourassistantityora.RegisterActivity"
+            android:name="com.example.yourassistantyora.RegisterActivity"
             android:exported="true"
             android:label="@string/title_activity_register"
             android:theme="@style/Theme.YourAssistantYora">
