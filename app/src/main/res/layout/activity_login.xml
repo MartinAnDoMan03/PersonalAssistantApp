@@ -51,8 +51,9 @@
         app:layout_constraintTop_toBottomOf="@id/titleText" />
 
     <!-- Email / Username -->
+    <!-- Email / Username (single component with id on TextInputLayout) -->
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/emailLayout"
+        android:id="@+id/emailInput"
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -69,7 +70,6 @@
         app:layout_constraintTop_toBottomOf="@id/subtitleText">
 
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/edit_username"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:hint="@string/enter_your_email"
@@ -77,9 +77,9 @@
             android:padding="8dp" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <!-- Password -->
+    <!-- Password (single component with id on TextInputLayout) -->
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/passwordLayout"
+        android:id="@+id/passwordInput"
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -93,10 +93,9 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/emailLayout">
+        app:layout_constraintTop_toBottomOf="@id/emailInput">
 
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/edit_password"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:hint="@string/enter_your_password"
@@ -104,7 +103,7 @@
             android:padding="8dp" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <!-- Remember + Forgot row -->
+    <!-- Remember + Forgot row (updated reference to new password id) -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/rowRemember"
         android:layout_width="0dp"
@@ -113,7 +112,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/passwordLayout">
+        app:layout_constraintTop_toBottomOf="@id/passwordInput">
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/check_remember"
