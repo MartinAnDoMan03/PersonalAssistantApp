@@ -37,6 +37,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+////    Tambahan
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.1"
+    }
 }
 
 dependencies {
@@ -60,6 +65,14 @@ dependencies {
         implementation("androidx.appcompat:appcompat:1.6.1")
         implementation("androidx.constraintlayout:constraintlayout:2.1.4")
         implementation("com.google.android.material:material:1.11.0")
+
+////      Jetpack Compose (Dependency tambahan)
+        implementation(platform("androidx.compose:compose-bom:2024.04.01"))
+        implementation("androidx.compose.ui:ui")
+        implementation("androidx.compose.ui:ui-tooling-preview")
+        implementation("androidx.compose.material3:material3")
+        debugImplementation("androidx.compose.ui:ui-tooling")
+
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
