@@ -16,11 +16,12 @@
             android:exported="true"
             android:label="@string/title_activity_register"
             android:theme="@style/Theme.YourAssistantYora">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+<!--            iki pain jadi LAUNCHER coek-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.MAIN" />-->
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+<!--                <category android:name="android.intent.category.LAUNCHER" />-->
+<!--            </intent-filter>-->
         </activity>
 
         <!-- SPLASH ACTIVITY - Set as LAUNCHER -->
