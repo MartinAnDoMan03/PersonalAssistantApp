@@ -5,185 +5,237 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Scaffold
+import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 
-
-@Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun RegisterScreen(onLoginClick: () -> Unit = {}, onBackClick: () -> Unit = {}) {
-    //Input State
+fun RegisterScreen(
+    modifier: Modifier = Modifier,
+    onLoginClick: () -> Unit = {},
+    onBackClick: () -> Unit = {}
+) {
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
     var termsAccepted by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    //Color State
-    val pageBg = Color(0xFFFFFFFF)
-    val inputBg = Color(0xFFF5F7FA)
-    val linkColor = Color(0xFF1976D2)
-
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .padding(paddingValues)
+            modifier = modifier
                 .fillMaxSize()
-                .background(pageBg) // ⬅️ Tambahkan ini
-                .padding(16.dp)
+                .background(Color(0xFFF5F7FA))
+                .padding(paddingValues)
+                .padding(horizontal = 28.dp)
                 .verticalScroll(rememberScrollState())
+                .statusBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-        // Small Title
-        Text(
-            text = "Regis Form",
-            fontSize = 12.sp,
-            color = Color.Gray
-        )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 16.dp)
+            // --- LOGO UTAMA ---
+            Box(
+                modifier = Modifier
+                    .size(90.dp)
+                    .rotate(degrees = -5f)
+                    .shadow(18.dp, RoundedCornerShape(24.dp), clip = false)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color(0xFF9B81FF), Color(0xFF6C63FF))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.ionic_ionicons_arrow_back_circle_outline),
-                    contentDescription = "Back",
+                    painter = painterResource(id = R.drawable.ic_checkmark),
+                    contentDescription = "Logo",
                     modifier = Modifier
-                        .size(40.dp)
-                        .clickable { onBackClick() }
+                        .size(50.dp)
+                        .rotate(-5f)
                 )
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
 
+            Text(
+                text = "Create Account",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-        // Title
-        Text(
-            text = "Create Account",
-            fontSize = 40.sp,
-            fontWeight = FontWeight.Bold
-        )
+            Text(
+                text = "Fill in the details to get started",
+                color = Color(0xFF757575),
+                fontSize = 14.sp
+            )
 
-        Text(
-            text = "Fill in the details to get started",
-            fontSize = 20.sp,
-            color = Color.DarkGray
-        )
+            Spacer(modifier = Modifier.height(32.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Username
-        Text("Username", fontSize = 12.sp, color = Color.Gray)
+            // Username Field
+            Text(
+                text = "Username",
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF757575),
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                placeholder = { Text("Enter your Username") },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = inputBg,
-                    unfocusedContainerColor = inputBg,
-                    unfocusedBorderColor = Color.LightGray,
-                    focusedBorderColor = linkColor
-                ),
+                placeholder = { Text(text = "Enter your username", color = Color(0xFFB0B0B0)) },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF6C63FF),
+                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                )
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-        // Email
-        Text("Email", fontSize = 12.sp, color = Color.Gray)
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            placeholder = { Text("Enter your Email") },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = inputBg,
-                unfocusedContainerColor = inputBg,
-                unfocusedBorderColor = Color.LightGray,
-                focusedBorderColor = linkColor
-            ),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Password
-        Text("Password", fontSize = 12.sp, color = Color.Gray)
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            placeholder = { Text("Enter your Password") },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = inputBg,
-                unfocusedContainerColor = inputBg,
-                unfocusedBorderColor = Color.LightGray,
-                focusedBorderColor = linkColor
-            ),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation()
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-// Confirm Password
-        Text("Confirm Password", fontSize = 12.sp, color = Color.Gray)
-        OutlinedTextField(
-            value = confirmPassword,
-            onValueChange = { confirmPassword = it },
-            placeholder = { Text("Confirm your Password") },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = inputBg,
-                unfocusedContainerColor = inputBg,
-                unfocusedBorderColor = Color.LightGray,
-                focusedBorderColor = linkColor
-            ),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation()
-        )
-
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Terms and Conditions
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
-                checked = termsAccepted,
-                onCheckedChange = { termsAccepted = it }
+            // Email Field
+            Text(
+                text = "Email",
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF757575),
+                fontSize = 14.sp
             )
-            Text("I agree to Terms and Conditions")
-        }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                placeholder = { Text(text = "Enter your email", color = Color(0xFFB0B0B0)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF6C63FF),
+                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                )
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Button
+            // Password Field
+            Text(
+                text = "Password",
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF757575),
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                placeholder = { Text(text = "Enter your password", color = Color(0xFFB0B0B0)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF6C63FF),
+                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                ),
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    val description = if (passwordVisible) "Hide password" else "Show password"
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(imageVector = image, contentDescription = description)
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Confirm Password Field
+            Text(
+                text = "Confirm Password",
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF757575),
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = confirmPassword,
+                onValueChange = { confirmPassword = it },
+                placeholder = { Text(text = "Confirm your password", color = Color(0xFFB0B0B0)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF6C63FF),
+                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                ),
+                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    val description = if (confirmPasswordVisible) "Hide password" else "Show password"
+                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                        Icon(imageVector = image, contentDescription = description)
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Terms and Conditions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = termsAccepted,
+                    onCheckedChange = { termsAccepted = it },
+                    colors = CheckboxDefaults.colors(checkedColor = Color(0xFF6C63FF))
+                )
+                Text(
+                    text = "I agree to Terms & Conditions",
+                    color = Color(0xFF757575),
+                    fontSize = 14.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Create Account Button
             Button(
                 onClick = {
                     when {
@@ -219,27 +271,54 @@ fun RegisterScreen(onLoginClick: () -> Unit = {}, onBackClick: () -> Unit = {}) 
                             scope.launch {
                                 snackbarHostState.showSnackbar("Account created! ✅")
                             }
-//                             TODO: lanjut proses register ke backend nanti
+                            // TODO: lanjut proses register ke backend nanti
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                contentPadding = PaddingValues()
             ) {
-                Text("Create Account")
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(Color(0xFF9B81FF), Color(0xFF6C63FF))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "Create Account", fontSize = 16.sp, color = Color.White)
+                }
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-        // Footer
-        Text("Already have an account?", modifier = Modifier.align(Alignment.CenterHorizontally))
-        Text(
-            "Login",
-            color = Color(0xFF1976D2),
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .clickable { onLoginClick() }
-        )
+            // Login Link
+            Row(
+                modifier = Modifier.padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(text = "Already have an account? ", color = Color(0xFF757575))
+                Text(
+                    text = "Login",
+                    color = Color(0xFF6C63FF),
+                    modifier = Modifier.clickable { onLoginClick() },
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
-}}
+}
 
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+private fun RegisterScreenPreview() {
+    YourAssistantYoraTheme {
+        RegisterScreen()
+    }
+}
