@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.imePadding
 
 @Composable
 fun RegisterScreen(
@@ -58,7 +59,8 @@ fun RegisterScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 28.dp)
                 .verticalScroll(rememberScrollState())
-                .statusBarsPadding(),
+                .statusBarsPadding()
+                .imePadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(24.dp))

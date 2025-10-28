@@ -15,7 +15,8 @@
             android:name="com.example.yourassistantyora.RegisterActivity"
             android:exported="true"
             android:label="@string/title_activity_register"
-            android:theme="@style/Theme.YourAssistantYora">
+            android:theme="@style/Theme.YourAssistantYora"
+            android:windowSoftInputMode="adjustResize|stateHidden" >
 <!--            iki pain jadi LAUNCHER coek-->
 <!--            <intent-filter>-->
 <!--                <action android:name="android.intent.action.MAIN" />-->
@@ -36,10 +37,26 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".LoginActivity" />
+        <activity
+            android:name=".LoginActivity"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
         <activity
             android:name=".MainActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ForgotPasswordActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
+        <activity
+            android:name=".CheckEmailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
     </application>
 
 

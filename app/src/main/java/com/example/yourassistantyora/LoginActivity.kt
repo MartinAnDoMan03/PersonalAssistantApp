@@ -10,20 +10,19 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-
         setContent {
             YourAssistantYoraTheme {
                 LoginScreen(
                     onSignIn = { email, password ->
                         startActivity(Intent(this, MainActivity::class.java))
-                        finish() // Tutup LoginActivity agar tidak bisa kembali
+                        finish()
                     },
                     onSignUp = {
-                        // Arahkan ke RegisterActivity saat "Sign Up" diklik
                         startActivity(Intent(this, RegisterActivity::class.java))
                     },
                     onForgot = {
-                        // placeholder untuk Forgot Password
+                        // 👈 INI YANG DITAMBAHKAN
+                        startActivity(Intent(this, ForgotPasswordActivity::class.java))
                     },
                     onGoogle = {
                         // placeholder untuk Google Sign-In
