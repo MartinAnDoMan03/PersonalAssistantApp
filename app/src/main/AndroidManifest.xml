@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Tambahkan permission untuk internet (jika belum ada) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -10,55 +13,50 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.YourAssistantYora">
-        <activity
-            android:name="com.example.yourassistantyora.RegisterActivity"
-            android:exported="true"
-            android:label="@string/title_activity_register"
-            android:theme="@style/Theme.YourAssistantYora"
-            android:windowSoftInputMode="adjustResize|stateHidden" >
-<!--            iki pain jadi LAUNCHER coek-->
-<!--            <intent-filter>-->
-<!--                <action android:name="android.intent.action.MAIN" />-->
+        android:theme="@style/Theme.YourAssistantYora"
+        tools:targetApi="31">
 
-<!--                <category android:name="android.intent.category.LAUNCHER" />-->
-<!--            </intent-filter>-->
-        </activity>
-
-        <!-- SPLASH ACTIVITY - Set as LAUNCHER -->
-        <activity
-            android:name=".SplashActivity"
-            android:exported="true"
-            android:screenOrientation="portrait"
-            android:theme="@style/SplashTheme">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity
-            android:name=".LoginActivity"
-            android:windowSoftInputMode="adjustResize|stateHidden" />
-
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
+            android:theme="@style/Theme.YourAssistantYora" />
 
+        <!-- Login Activity - LAUNCHER -->
+        <activity
+            android:name=".LoginActivity"
+            android:exported="true"
+            android:theme="@style/Theme.YourAssistantYora">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Register Activity -->
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
+        <!-- Forgot Password Activity -->
         <activity
             android:name=".ForgotPasswordActivity"
             android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora"
-            android:windowSoftInputMode="adjustResize|stateHidden" />
+            android:theme="@style/Theme.YourAssistantYora" />
 
+        <!-- Check Email Activity -->
         <activity
             android:name=".CheckEmailActivity"
             android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora"
-            android:windowSoftInputMode="adjustResize|stateHidden" />
+            android:theme="@style/Theme.YourAssistantYora" />
+
+        <!-- Home Activity -->
+        <activity
+            android:name=".HomeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
     </application>
-
-
 
 </manifest>

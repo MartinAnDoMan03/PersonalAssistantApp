@@ -14,18 +14,22 @@ class LoginActivity : AppCompatActivity() {
             YourAssistantYoraTheme {
                 LoginScreen(
                     onSignIn = { email, password ->
-                        startActivity(Intent(this, MainActivity::class.java))
-                        finish()
+                        // TODO: Validate credentials, call API
+
+                        // Navigasi ke HomeActivity
+                        val intent = Intent(this, HomeActivity::class.java)
+                        intent.putExtra("USER_NAME", "Tom Holland") // atau ambil dari response API
+                        startActivity(intent)
+                        finish() // Tutup LoginActivity agar tidak bisa kembali
                     },
                     onSignUp = {
                         startActivity(Intent(this, RegisterActivity::class.java))
                     },
                     onForgot = {
-                        // 👈 INI YANG DITAMBAHKAN
                         startActivity(Intent(this, ForgotPasswordActivity::class.java))
                     },
                     onGoogle = {
-                        // placeholder untuk Google Sign-In
+                        // TODO: Implementasi Google Sign-In
                     }
                 )
             }

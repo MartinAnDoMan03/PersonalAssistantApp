@@ -81,9 +81,9 @@ fun CheckEmailScreen(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.ic_checkmark),
+                painter = painterResource(id = R.drawable.ic_check_icon),
                 contentDescription = "Checkmark",
-                modifier = Modifier.size(50.dp)
+                modifier = Modifier.size(65.dp)
             )
         }
 
