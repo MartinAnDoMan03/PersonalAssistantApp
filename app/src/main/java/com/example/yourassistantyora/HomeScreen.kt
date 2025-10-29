@@ -7,6 +7,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,13 +25,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import com.example.yourassistantyora.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -47,7 +53,7 @@ data class Task(
 )
 
 // ---------- SCREEN ----------
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
@@ -72,9 +78,21 @@ fun HomeScreen(
         )
     }
 
-    // State untuk undo
+    // State untuk undo completion
     var lastCompletedTask by remember { mutableStateOf<Task?>(null) }
     var showUndoSnackbar by remember { mutableStateOf(false) }
+
+    // State untuk undo deletion
+    var lastDeletedTask by remember { mutableStateOf<Task?>(null) }
+    var showDeleteSnackbar by remember { mutableStateOf(false) }
+
+    // State untuk dialog restore (memindahkan completed ke active)
+    var showRestoreDialog by remember { mutableStateOf(false) }
+    var taskToRestore by remember { mutableStateOf<Task?>(null) }
+
+    // State untuk delete confirmation
+    var deletingTask by remember { mutableStateOf<Task?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     // Pisahkan task yang aktif dan selesai
     val activeTasks = tasks.filter { !it.isCompleted }
@@ -84,10 +102,9 @@ fun HomeScreen(
     val totalTasks = tasks.size
     val progressPercentage = if (totalTasks > 0) (completedTasks.size * 100) / totalTasks else 0
 
-    // Function untuk handle checkbox click
+    // Function untuk handle checkbox click (complete task)
     fun onCheckboxClick(task: Task) {
         if (!task.isCompleted) {
-            // Update task
             tasks = tasks.map {
                 if (it.id == task.id) {
                     it.copy(isCompleted = true)
@@ -99,6 +116,7 @@ fun HomeScreen(
             // Simpan untuk undo
             lastCompletedTask = task
             showUndoSnackbar = true
+            showDeleteSnackbar = false
 
             // Auto hide setelah 8 detik
             scope.launch {
@@ -109,19 +127,52 @@ fun HomeScreen(
         }
     }
 
-    // Function untuk undo
+    // Function untuk undo completion
     fun undoCompletion() {
-        lastCompletedTask?.let { task ->
-            tasks = tasks.map {
-                if (it.id == task.id) {
-                    it.copy(isCompleted = false)
-                } else {
-                    it
-                }
-            }
-            showUndoSnackbar = false
-            lastCompletedTask = null
+        lastCompletedTask?.let { t ->
+            tasks = tasks.map { if (it.id == t.id) it.copy(isCompleted = false) else it }
         }
+        showUndoSnackbar = false
+        lastCompletedTask = null
+    }
+
+    // Function untuk delete task (dipanggil setelah konfirmasi)
+    fun deleteTaskConfirmed(task: Task) {
+        lastDeletedTask = task
+        tasks = tasks.filter { it.id != task.id }
+        showDeleteSnackbar = true
+        showUndoSnackbar = false
+
+        scope.launch {
+            delay(8000)
+            showDeleteSnackbar = false
+            lastDeletedTask = null
+        }
+    }
+
+    // Function untuk undo deletion
+    fun undoDelete() {
+        lastDeletedTask?.let { t ->
+            // masukkan kembali ke list (sederhana: append lalu sort berdasarkan id supaya deterministik)
+            tasks = (tasks + t).sortedBy { it.id }
+        }
+        showDeleteSnackbar = false
+        lastDeletedTask = null
+    }
+
+    // show restore dialog
+    fun showRestoreConfirmation(task: Task) {
+        taskToRestore = task
+        showRestoreDialog = true
+    }
+
+    // restore task (pindahkan completed -> active)
+    fun restoreTask() {
+        taskToRestore?.let { t ->
+            tasks = tasks.map { if (it.id == t.id) it.copy(isCompleted = false) else it }
+        }
+        showRestoreDialog = false
+        taskToRestore = null
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -147,6 +198,7 @@ fun HomeScreen(
                         )
                         .padding(horizontal = 20.dp, vertical = 16.dp)
                 ) {
+                    val inspection = LocalInspectionMode.current
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -159,9 +211,11 @@ fun HomeScreen(
                                     color = Color.White,
                                     fontSize = 14.sp
                                 )
-                                Text(
-                                    text = "👋",
-                                    fontSize = 14.sp
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Image(
+                                    painter = painterResource(id = R.drawable.day_icon),
+                                    contentDescription = "Day Icon",
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                             Spacer(Modifier.height(4.dp))
@@ -305,17 +359,21 @@ fun HomeScreen(
                         }
                     }
 
-                    // Active Task list
+                    // Active Task list -> gunakan TaskCardWithTrailingDelete untuk men-support delete
                     items(activeTasks, key = { it.id }) { task ->
                         AnimatedVisibility(
                             visible = true,
                             enter = fadeIn() + expandVertically(),
                             exit = fadeOut() + shrinkVertically()
                         ) {
-                            TaskCard(
+                            TaskCardWithTrailingDelete(
                                 task = task,
                                 onTaskClick = { onTaskClick(task) },
-                                onCheckboxClick = { onCheckboxClick(task) }
+                                onCheckboxClick = { onCheckboxClick(task) },
+                                onDeleteIconClick = {
+                                    deletingTask = task
+                                    showDeleteConfirmDialog = true
+                                }
                             )
                         }
                     }
@@ -332,17 +390,21 @@ fun HomeScreen(
                             )
                         }
 
-                        // Completed Task list
+                        // Completed Task list -> juga pakai TaskCardWithTrailingDelete sehingga bisa restore/delete
                         items(completedTasks, key = { it.id }) { task ->
                             AnimatedVisibility(
                                 visible = true,
                                 enter = fadeIn() + expandVertically(),
                                 exit = fadeOut() + shrinkVertically()
                             ) {
-                                TaskCard(
+                                TaskCardWithTrailingDelete(
                                     task = task,
                                     onTaskClick = { onTaskClick(task) },
-                                    onCheckboxClick = { },
+                                    onCheckboxClick = { showRestoreConfirmation(task) }, // akan memunculkan dialog restore
+                                    onDeleteIconClick = {
+                                        deletingTask = task
+                                        showDeleteConfirmDialog = true
+                                    },
                                     isCompleted = true
                                 )
                             }
@@ -352,7 +414,7 @@ fun HomeScreen(
             }
         }
 
-        // Undo Snackbar
+        // Undo Snackbar (completion)
         AnimatedVisibility(
             visible = showUndoSnackbar,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -405,6 +467,96 @@ fun HomeScreen(
                 }
             }
         }
+
+        // Undo Delete Snackbar
+        AnimatedVisibility(
+            visible = showDeleteSnackbar,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = null,
+                            tint = Color(0xFFF44336),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Task deleted",
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                    }
+                    TextButton(
+                        onClick = { undoDelete() },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            "UNDO",
+                            color = Color(0xFF6A70D7),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Restore Confirmation Dialog (AlertDialog)
+        if (showRestoreDialog) {
+            AlertDialog(
+                onDismissRequest = { showRestoreDialog = false; taskToRestore = null },
+                title = { Text("Restore Task?") },
+                text = { Text("Do you want to move this task back to active tasks?") },
+                confirmButton = {
+                    TextButton(onClick = { restoreTask() }) { Text("Yes") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRestoreDialog = false; taskToRestore = null }) { Text("Cancel") }
+                }
+            )
+        }
+
+        // Delete Confirmation Dialog
+        if (showDeleteConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = false; deletingTask = null },
+                title = { Text("Hapus tugas?") },
+                text = { Text("Apakah kamu yakin ingin menghapus tugas ini?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        deletingTask?.let { deleteTaskConfirmed(it) }
+                        showDeleteConfirmDialog = false
+                        deletingTask = null
+                    }) {
+                        Text("Hapus", color = Color(0xFFF44336))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmDialog = false; deletingTask = null }) { Text("Batal") }
+                }
+            )
+        }
     }
 }
 
@@ -431,7 +583,7 @@ private fun Chip(
     }
 }
 
-// ---------- TASK CARD ----------
+// ---------- TASK CARD (original, masih ada jika diperlukan) ----------
 @Composable
 fun TaskCard(
     task: Task,
@@ -615,7 +767,7 @@ fun TaskCard(
                     .clip(RoundedCornerShape(6.dp))
                     .clickable(enabled = !isCompleted) { onCheckboxClick() }
                     .then(
-                        if (task.isCompleted) {
+                        if (isCompleted) {
                             Modifier.background(Color(0xFF6A70D7))
                         } else {
                             Modifier.border(2.dp, Color(0xFFE0E0E0), RoundedCornerShape(6.dp))
@@ -623,13 +775,177 @@ fun TaskCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (task.isCompleted) {
+                if (isCompleted) {
                     Icon(
                         imageVector = Icons.Filled.Check,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
+                }
+            }
+        }
+    }
+}
+
+// ---------- Task card with trailing delete pill (diperbaiki: menampilkan status) ----------
+@Composable
+fun TaskCardWithTrailingDelete(
+    task: Task,
+    onTaskClick: () -> Unit,
+    onCheckboxClick: () -> Unit,
+    onDeleteIconClick: () -> Unit,
+    isCompleted: Boolean = false
+) {
+    val trailingGradient = if (task.category == "Team") {
+        listOf(Color(0xFFF093FB), Color(0xFFEE9AE5))
+    } else {
+        listOf(Color(0xFF667EEA), Color(0xFF6A70D7))
+    }
+
+    var offsetX by remember { mutableStateOf(0f) }
+    val minOffset = -180f
+    val maxOffset = 0f
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // trailing pill with delete icon (behind card)
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 8.dp)
+                .height(72.dp)
+                .width(56.dp)
+                .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
+                .background(brush = Brush.verticalGradient(trailingGradient)),
+            contentAlignment = Alignment.Center
+        ) {
+            IconButton(onClick = onDeleteIconClick, modifier = Modifier.size(40.dp)) {
+                Icon(imageVector = Icons.Filled.Delete, contentDescription = "Delete", tint = Color.White)
+            }
+        }
+
+        // draggable card
+        Box(
+            modifier = Modifier
+                .offset { androidx.compose.ui.unit.IntOffset(offsetX.toInt(), 0) }
+                .fillMaxWidth()
+                .pointerInput(task.id) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            offsetX = if (offsetX < minOffset / 2) minOffset else 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            val newOffset = offsetX + dragAmount
+                            offsetX = newOffset.coerceIn(minOffset, maxOffset)
+                        }
+                    )
+                }
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(2.dp, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                onClick = onTaskClick
+            ) {
+                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(end = 12.dp), verticalAlignment = Alignment.Top) {
+                    // left accent strip
+                    Box(modifier = Modifier.width(6.dp).fillMaxHeight().clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp)).background(
+                        brush = Brush.verticalGradient(
+                            colors = if (isCompleted) listOf(Color(0xFF9E9E9E), Color(0xFF9E9E9E)) else if (task.category == "Team") listOf(Color(0xFFF093FB), Color(0xFFF093FB)) else listOf(Color(0xFF667EEA), Color(0xFF667EEA))
+                        )
+                    ))
+
+                    Spacer(Modifier.width(10.dp))
+
+                    Column(modifier = Modifier.weight(1f).padding(vertical = 14.dp)) {
+                        Text(task.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (isCompleted) Color(0xFF9E9E9E) else Color(0xFF2D2D2D), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Outlined.AccessTime, contentDescription = null, tint = Color(0xFF9E9E9E), modifier = Modifier.size(14.dp))
+                            Text(task.time, fontSize = 11.sp, color = Color(0xFF9E9E9E))
+
+                            // priority chip (simple)
+                            Spacer(Modifier.width(6.dp))
+                            Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFFFE5E5).copy(alpha = if (isCompleted) 0.5f else 1f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                                Text(task.priority, fontSize = 10.sp, color = Color(0xFFE53935).copy(alpha = if (isCompleted) 0.5f else 1f))
+                            }
+
+                            // category chip
+                            if (task.category == "Team") {
+                                Spacer(Modifier.width(6.dp))
+                                Row(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFFFF0F5).copy(alpha = if (isCompleted) 0.5f else 1f)).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(imageVector = Icons.Outlined.People, contentDescription = null, tint = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.5f else 1f), modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Team", fontSize = 10.sp, color = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.5f else 1f))
+                                }
+                            } else {
+                                Spacer(Modifier.width(6.dp))
+                                Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFE3F2FD).copy(alpha = if (isCompleted) 0.5f else 1f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                                    Text("Personal", fontSize = 10.sp, color = Color(0xFF1976D2).copy(alpha = if (isCompleted) 0.5f else 1f))
+                                }
+                            }
+
+                            // status chip (dikembalikan)
+                            task.status?.let {
+                                Spacer(Modifier.width(6.dp))
+                                Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFF3E5F5).copy(alpha = if (isCompleted) 0.5f else 1f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                                    Text(it, fontSize = 10.sp, color = Color(0xFF9C27B0).copy(alpha = if (isCompleted) 0.5f else 1f))
+                                }
+                            }
+                        }
+
+                        task.teamName?.let {
+                            Spacer(Modifier.height(8.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Team: ", fontSize = 11.sp, color = Color(0xFF9E9E9E))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(it, fontSize = 11.sp, color = Color(0xFF6A70D7), fontWeight = FontWeight.Medium)
+                                }
+
+                                if (task.teamMembers > 0) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy((-6).dp)) {
+                                        repeat(minOf(task.teamMembers, 3)) { idx ->
+                                            Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(
+                                                when (idx) {
+                                                    0 -> Color(0xFFE91E63)
+                                                    1 -> Color(0xFF9C27B0)
+                                                    else -> Color(0xFF673AB7)
+                                                }
+                                            ), contentAlignment = Alignment.Center) {
+                                                Text(('A' + idx).toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Checkbox (selalu clickable; untuk completed daftar, HomeScreen mengirim showRestoreConfirmation)
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .size(22.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .then(
+                                if (task.isCompleted) {
+                                    Modifier.background(Color(0xFF6A70D7))
+                                } else {
+                                    Modifier.border(2.dp, Color(0xFFE0E0E0), RoundedCornerShape(6.dp))
+                                }
+                            )
+                            .clickable { onCheckboxClick() }, // <-- selalu clickable
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (task.isCompleted) {
+                            Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        } else {
+                            Icon(Icons.Outlined.CheckBoxOutlineBlank, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(16.dp))
+                        }
+                    }
                 }
             }
         }

@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Tambahkan permission untuk internet (jika belum ada) -->
+    <!-- permission (jika butuh internet) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
@@ -16,44 +16,48 @@
         android:theme="@style/Theme.YourAssistantYora"
         tools:targetApi="31">
 
-        <!-- Main Activity -->
+        <!-- SPLASH ACTIVITY - LAUNCHER (entry point app) -->
         <activity
-            android:name=".MainActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <!-- Login Activity - LAUNCHER -->
-        <activity
-            android:name=".LoginActivity"
+            android:name=".SplashActivity"
             android:exported="true"
-            android:theme="@style/Theme.YourAssistantYora">
+            android:screenOrientation="portrait"
+            android:theme="@style/SplashTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Register Activity -->
+        <!-- Login Activity -->
         <activity
-            android:name=".RegisterActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <!-- Forgot Password Activity -->
-        <activity
-            android:name=".ForgotPasswordActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <!-- Check Email Activity -->
-        <activity
-            android:name=".CheckEmailActivity"
-            android:exported="false"
+            android:name=".LoginActivity"
+            android:exported="true"
             android:theme="@style/Theme.YourAssistantYora" />
 
         <!-- Home Activity -->
         <activity
             android:name=".HomeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
+        <!-- Optional other activities -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
+        <activity
+            android:name=".ForgotPasswordActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
+        <activity
+            android:name=".CheckEmailActivity"
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
 
