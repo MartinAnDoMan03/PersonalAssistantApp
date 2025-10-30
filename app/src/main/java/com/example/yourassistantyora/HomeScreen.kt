@@ -3,6 +3,7 @@ package com.example.yourassistantyora
 import android.content.Context
 import android.media.MediaPlayer
 import androidx.compose.animation.*
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,17 +28,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import com.example.yourassistantyora.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 // ---------- DATA ----------
 data class Task(
@@ -63,7 +67,6 @@ fun HomeScreen(
     onTaskClick: (Task) -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(0) }
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     // State untuk tasks yang bisa diubah
@@ -77,6 +80,9 @@ fun HomeScreen(
             )
         )
     }
+
+    // STATE BARU: Melacak Task ID yang sedang di-slide (untuk Single Slide)
+    var swipedTaskId by remember { mutableStateOf<Int?>(null) }
 
     // State untuk undo completion
     var lastCompletedTask by remember { mutableStateOf<Task?>(null) }
@@ -118,6 +124,9 @@ fun HomeScreen(
             showUndoSnackbar = true
             showDeleteSnackbar = false
 
+            // Tutup slide jika ada
+            swipedTaskId = null
+
             // Auto hide setelah 8 detik
             scope.launch {
                 delay(8000)
@@ -143,6 +152,9 @@ fun HomeScreen(
         showDeleteSnackbar = true
         showUndoSnackbar = false
 
+        // Tutup slide jika ada
+        swipedTaskId = null
+
         scope.launch {
             delay(8000)
             showDeleteSnackbar = false
@@ -164,6 +176,7 @@ fun HomeScreen(
     fun showRestoreConfirmation(task: Task) {
         taskToRestore = task
         showRestoreDialog = true
+        swipedTaskId = null // Tutup slide sebelum menampilkan dialog
     }
 
     // restore task (pindahkan completed -> active)
@@ -359,7 +372,7 @@ fun HomeScreen(
                         }
                     }
 
-                    // Active Task list -> gunakan TaskCardWithTrailingDelete untuk men-support delete
+                    // Active Task list
                     items(activeTasks, key = { it.id }) { task ->
                         AnimatedVisibility(
                             visible = true,
@@ -373,6 +386,14 @@ fun HomeScreen(
                                 onDeleteIconClick = {
                                     deletingTask = task
                                     showDeleteConfirmDialog = true
+                                },
+                                swipedTaskId = swipedTaskId,
+                                onSwipeChange = { id, isSwiped ->
+                                    if (isSwiped) {
+                                        swipedTaskId = id
+                                    } else if (swipedTaskId == id) {
+                                        swipedTaskId = null
+                                    }
                                 }
                             )
                         }
@@ -390,7 +411,7 @@ fun HomeScreen(
                             )
                         }
 
-                        // Completed Task list -> juga pakai TaskCardWithTrailingDelete sehingga bisa restore/delete
+                        // Completed Task list
                         items(completedTasks, key = { it.id }) { task ->
                             AnimatedVisibility(
                                 visible = true,
@@ -405,7 +426,15 @@ fun HomeScreen(
                                         deletingTask = task
                                         showDeleteConfirmDialog = true
                                     },
-                                    isCompleted = true
+                                    isCompleted = true,
+                                    swipedTaskId = swipedTaskId,
+                                    onSwipeChange = { id, isSwiped ->
+                                        if (isSwiped) {
+                                            swipedTaskId = id
+                                        } else if (swipedTaskId == id) {
+                                            swipedTaskId = null
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -583,12 +612,13 @@ private fun Chip(
     }
 }
 
-// ---------- TASK CARD (original, masih ada jika diperlukan) ----------
+// ---------- TASK CARD (Dasar) ----------
 @Composable
 fun TaskCard(
     task: Task,
     onTaskClick: () -> Unit,
     onCheckboxClick: () -> Unit,
+    modifier: Modifier = Modifier,
     isCompleted: Boolean = false
 ) {
     val accentColors = if (task.category == "Personal") {
@@ -600,7 +630,7 @@ fun TaskCard(
     val cardAlpha = if (isCompleted) 0.6f else 1f
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .shadow(2.dp, RoundedCornerShape(14.dp)),
         shape = RoundedCornerShape(14.dp),
@@ -753,299 +783,258 @@ fun TaskCard(
                                         )
                                     }
                                 }
+                                if (task.teamMembers > 3) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF9E9E9E).copy(alpha = if (isCompleted) 0.5f else 1f))
+                                            .border(1.dp, Color.White, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            "+${task.teamMembers - 3}",
+                                            color = Color.White,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // Checkbox - Clickable
-            Box(
+            Spacer(Modifier.width(10.dp))
+
+            // Checkbox
+            Column(
                 modifier = Modifier
-                    .padding(top = 12.dp)
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .clickable(enabled = !isCompleted) { onCheckboxClick() }
-                    .then(
-                        if (isCompleted) {
-                            Modifier.background(Color(0xFF6A70D7))
-                        } else {
-                            Modifier.border(2.dp, Color(0xFFE0E0E0), RoundedCornerShape(6.dp))
-                        }
-                    ),
-                contentAlignment = Alignment.Center
+                    .fillMaxHeight()
+                    .padding(top = 14.dp, bottom = 14.dp, end = 4.dp),
+                horizontalAlignment = Alignment.End
             ) {
-                if (isCompleted) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+                Checkbox(
+                    checked = isCompleted,
+                    onCheckedChange = { onCheckboxClick() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = if (isCompleted) Color(0xFF9E9E9E) else Color(0xFF6A70D7),
+                        uncheckedColor = if (isCompleted) Color(0xFF9E9E9E).copy(alpha = 0.5f) else Color(0xFF9E9E9E)
+                    ),
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }
 }
 
-// ---------- Task card with trailing delete pill (diperbaiki: menampilkan status) ----------
+// ---------- TASK CARD WITH SWIPE (Modifikasi) ----------
 @Composable
 fun TaskCardWithTrailingDelete(
     task: Task,
     onTaskClick: () -> Unit,
     onCheckboxClick: () -> Unit,
     onDeleteIconClick: () -> Unit,
-    isCompleted: Boolean = false
+    modifier: Modifier = Modifier,
+    isCompleted: Boolean = false,
+    // PARAMETER BARU: State dari luar dan callback
+    swipedTaskId: Int? = null,
+    onSwipeChange: (Int, Boolean) -> Unit = { _, _ -> }
 ) {
-    val trailingGradient = if (task.category == "Team") {
-        listOf(Color(0xFFF093FB), Color(0xFFEE9AE5))
+    // Lebar "Hapus" icon
+    val deleteWidth = 80.dp
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+
+    // Ganti remember { mutableStateOf(0f) } dengan remember { Animatable(0f) }
+    val deleteOffset = remember { Animatable(0f) }
+
+    // Tentukan warna berdasarkan kategori task
+    val accentColors = if (task.category == "Personal") {
+        listOf(Color(0xFF667EEA), Color(0xFF667EEA))
     } else {
-        listOf(Color(0xFF667EEA), Color(0xFF6A70D7))
+        listOf(Color(0xFFF093FB), Color(0xFFF093FB))
     }
 
-    var offsetX by remember { mutableStateOf(0f) }
-    val minOffset = -180f
-    val maxOffset = 0f
+    // EFEK BARU: Mengamati swipedTaskId dari luar.
+    // Jika ada ID yang berbeda yang sedang digeser, tutup kartu ini.
+    LaunchedEffect(swipedTaskId) {
+        val deleteWidthPx = with(density) { deleteWidth.toPx() }
+        val isCardCurrentlyOpen = deleteOffset.value < 0f
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        // trailing pill with delete icon (behind card)
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 8.dp)
-                .height(72.dp)
-                .width(56.dp)
-                .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
-                .background(brush = Brush.verticalGradient(trailingGradient)),
-            contentAlignment = Alignment.Center
-        ) {
-            IconButton(onClick = onDeleteIconClick, modifier = Modifier.size(40.dp)) {
-                Icon(imageVector = Icons.Filled.Delete, contentDescription = "Delete", tint = Color.White)
+        if (swipedTaskId != null && swipedTaskId != task.id) {
+            // Jika ada kartu lain yang terbuka, tutup kartu ini
+            if (isCardCurrentlyOpen) {
+                scope.launch {
+                    deleteOffset.animateTo(0f, animationSpec = tween(300))
+                }
+            }
+        } else if (swipedTaskId == null && isCardCurrentlyOpen) {
+            // Jika swipedTaskId di set null dari luar (misal setelah delete/complete)
+            // dan kartu ini masih terbuka, tutup juga (ini opsional, tapi amannya)
+            scope.launch {
+                deleteOffset.animateTo(0f, animationSpec = tween(300))
             }
         }
+    }
 
-        // draggable card
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                val deleteWidthPx = with(density) { deleteWidth.toPx() }
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        scope.launch {
+                            // Hitung apakah pergeseran cukup untuk membuka/menutup
+                            val target = if (deleteOffset.value < -deleteWidthPx / 2) {
+                                -deleteWidthPx
+                            } else {
+                                0f
+                            }
+                            deleteOffset.animateTo(target, animationSpec = tween(300))
+
+                            // Beri tahu HomeScreen tentang perubahan state slide
+                            onSwipeChange(task.id, target != 0f)
+                        }
+                    },
+                    onDragCancel = {
+                        // Sama seperti onDragEnd, pastikan offset final dihitung
+                        scope.launch {
+                            val target = if (deleteOffset.value < -deleteWidthPx / 2) {
+                                -deleteWidthPx
+                            } else {
+                                0f
+                            }
+                            deleteOffset.animateTo(target, animationSpec = tween(300))
+                            onSwipeChange(task.id, target != 0f)
+                        }
+                    },
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        val newOffset = deleteOffset.value + dragAmount
+                        // Batasi slide dari 0 hingga -deleteWidthPx
+                        val clampedOffset = newOffset.coerceIn(-deleteWidthPx, 0f)
+                        scope.launch {
+                            deleteOffset.snapTo(clampedOffset)
+                        }
+                    }
+                )
+            }
+    ) {
+        // Ikon Hapus di latar belakang (BELAKANG CARD)
         Box(
             modifier = Modifier
-                .offset { androidx.compose.ui.unit.IntOffset(offsetX.toInt(), 0) }
-                .fillMaxWidth()
-                .pointerInput(task.id) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            offsetX = if (offsetX < minOffset / 2) minOffset else 0f
-                        },
-                        onHorizontalDrag = { _, dragAmount ->
-                            val newOffset = offsetX + dragAmount
-                            offsetX = newOffset.coerceIn(minOffset, maxOffset)
+                .matchParentSize()
+                .clip(RoundedCornerShape(14.dp))
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = if (isCompleted) {
+                            listOf(Color(0xFF9E9E9E), Color(0xFF9E9E9E))
+                        } else {
+                            accentColors
                         }
                     )
-                }
+                ),
+            contentAlignment = Alignment.CenterEnd
         ) {
-            Card(
+            // PERUBAHAN TINGGI ICON HAPUS: Gunakan fillMaxHeight()
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(2.dp, RoundedCornerShape(14.dp)),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                onClick = onTaskClick
+                    .width(deleteWidth)
+                    .fillMaxHeight() // Membuat Box setinggi Card
+                    .clickable(onClick = onDeleteIconClick)
+                    .background(Color.Transparent),
+                contentAlignment = Alignment.Center // Memposisikan konten (Icon) di tengah vertikal
             ) {
-                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(end = 12.dp), verticalAlignment = Alignment.Top) {
-                    // left accent strip
-                    Box(modifier = Modifier.width(6.dp).fillMaxHeight().clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp)).background(
-                        brush = Brush.verticalGradient(
-                            colors = if (isCompleted) listOf(Color(0xFF9E9E9E), Color(0xFF9E9E9E)) else if (task.category == "Team") listOf(Color(0xFFF093FB), Color(0xFFF093FB)) else listOf(Color(0xFF667EEA), Color(0xFF667EEA))
-                        )
-                    ))
-
-                    Spacer(Modifier.width(10.dp))
-
-                    Column(modifier = Modifier.weight(1f).padding(vertical = 14.dp)) {
-                        Text(task.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (isCompleted) Color(0xFF9E9E9E) else Color(0xFF2D2D2D), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Outlined.AccessTime, contentDescription = null, tint = Color(0xFF9E9E9E), modifier = Modifier.size(14.dp))
-                            Text(task.time, fontSize = 11.sp, color = Color(0xFF9E9E9E))
-
-                            // priority chip (simple)
-                            Spacer(Modifier.width(6.dp))
-                            Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFFFE5E5).copy(alpha = if (isCompleted) 0.5f else 1f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                Text(task.priority, fontSize = 10.sp, color = Color(0xFFE53935).copy(alpha = if (isCompleted) 0.5f else 1f))
-                            }
-
-                            // category chip
-                            if (task.category == "Team") {
-                                Spacer(Modifier.width(6.dp))
-                                Row(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFFFF0F5).copy(alpha = if (isCompleted) 0.5f else 1f)).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(imageVector = Icons.Outlined.People, contentDescription = null, tint = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.5f else 1f), modifier = Modifier.size(12.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Team", fontSize = 10.sp, color = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.5f else 1f))
-                                }
-                            } else {
-                                Spacer(Modifier.width(6.dp))
-                                Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFE3F2FD).copy(alpha = if (isCompleted) 0.5f else 1f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                    Text("Personal", fontSize = 10.sp, color = Color(0xFF1976D2).copy(alpha = if (isCompleted) 0.5f else 1f))
-                                }
-                            }
-
-                            // status chip (dikembalikan)
-                            task.status?.let {
-                                Spacer(Modifier.width(6.dp))
-                                Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFFF3E5F5).copy(alpha = if (isCompleted) 0.5f else 1f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                    Text(it, fontSize = 10.sp, color = Color(0xFF9C27B0).copy(alpha = if (isCompleted) 0.5f else 1f))
-                                }
-                            }
-                        }
-
-                        task.teamName?.let {
-                            Spacer(Modifier.height(8.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Team: ", fontSize = 11.sp, color = Color(0xFF9E9E9E))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(it, fontSize = 11.sp, color = Color(0xFF6A70D7), fontWeight = FontWeight.Medium)
-                                }
-
-                                if (task.teamMembers > 0) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy((-6).dp)) {
-                                        repeat(minOf(task.teamMembers, 3)) { idx ->
-                                            Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(
-                                                when (idx) {
-                                                    0 -> Color(0xFFE91E63)
-                                                    1 -> Color(0xFF9C27B0)
-                                                    else -> Color(0xFF673AB7)
-                                                }
-                                            ), contentAlignment = Alignment.Center) {
-                                                Text(('A' + idx).toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Checkbox (selalu clickable; untuk completed daftar, HomeScreen mengirim showRestoreConfirmation)
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 12.dp)
-                            .size(22.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .then(
-                                if (task.isCompleted) {
-                                    Modifier.background(Color(0xFF6A70D7))
-                                } else {
-                                    Modifier.border(2.dp, Color(0xFFE0E0E0), RoundedCornerShape(6.dp))
-                                }
-                            )
-                            .clickable { onCheckboxClick() }, // <-- selalu clickable
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (task.isCompleted) {
-                            Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        } else {
-                            Icon(Icons.Outlined.CheckBoxOutlineBlank, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(16.dp))
-                        }
-                    }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Hapus",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text("Hapus", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
+
+        // Konten Card Task (DI ATAS)
+        // Gunakan Modifier.offset untuk menggeser card
+        TaskCard(
+            task = task,
+            onTaskClick = onTaskClick,
+            onCheckboxClick = onCheckboxClick,
+            isCompleted = isCompleted,
+            modifier = Modifier.offset { IntOffset(deleteOffset.value.roundToInt(), 0) }
+        )
     }
 }
 
-// ---------- BOTTOM NAV ----------
+// ---------- BOTTOM NAVIGATION BAR ----------
 @Composable
 fun BottomNavigationBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
     NavigationBar(
         containerColor = Color.White,
-        tonalElevation = 8.dp,
-        modifier = Modifier.height(60.dp)
+        modifier = Modifier.shadow(
+            elevation = 10.dp,
+            spotColor = Color.Black.copy(alpha = 0.1f)
+        )
     ) {
-        NavigationBarItem(
-            selected = selectedTab == 0,
-            onClick = { onTabSelected(0) },
-            icon = {
-                Icon(
-                    imageVector = if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
-                    contentDescription = "Home",
-                    modifier = Modifier.size(24.dp)
-                )
-            },
-            label = { Text("Home", fontSize = 11.sp) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Color(0xFF6A70D7),
-                selectedTextColor = Color(0xFF6A70D7),
-                unselectedIconColor = Color(0xFF9E9E9E),
-                unselectedTextColor = Color(0xFF9E9E9E),
-                indicatorColor = Color.Transparent
-            )
+        val items = listOf("Home", "Projects", "Create", "Messages", "Profile")
+        val icons = listOf(
+            Icons.Filled.Home, Icons.Filled.ListAlt, Icons.Filled.AddCircle,
+            Icons.Filled.ChatBubble, Icons.Filled.Person
+        )
+        val selectedIcons = listOf(
+            Icons.Filled.Home, Icons.Filled.ListAlt, Icons.Filled.AddCircle,
+            Icons.Filled.ChatBubble, Icons.Filled.Person
         )
 
-        NavigationBarItem(
-            selected = selectedTab == 1,
-            onClick = { onTabSelected(1) },
-            icon = {
-                Icon(
-                    imageVector = if (selectedTab == 1) Icons.Filled.Task else Icons.Outlined.Task,
-                    contentDescription = "Task",
-                    modifier = Modifier.size(24.dp)
+        items.forEachIndexed { index, item ->
+            val isSelected = selectedTab == index
+            NavigationBarItem(
+                icon = {
+                    Icon(
+                        imageVector = if (isSelected) selectedIcons[index] else icons[index],
+                        contentDescription = item,
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        item,
+                        fontSize = 10.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                },
+                selected = isSelected,
+                onClick = { onTabSelected(index) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Color(0xFF6A70D7),
+                    selectedTextColor = Color(0xFF6A70D7),
+                    unselectedIconColor = Color(0xFF9E9E9E),
+                    unselectedTextColor = Color(0xFF9E9E9E),
+                    indicatorColor = Color.Transparent
                 )
-            },
-            label = { Text("Task", fontSize = 11.sp) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Color(0xFF6A70D7),
-                selectedTextColor = Color(0xFF6A70D7),
-                unselectedIconColor = Color(0xFF9E9E9E),
-                unselectedTextColor = Color(0xFF9E9E9E),
-                indicatorColor = Color.Transparent
             )
-        )
-
-        NavigationBarItem(
-            selected = selectedTab == 2,
-            onClick = { onTabSelected(2) },
-            icon = {
-                Icon(
-                    imageVector = if (selectedTab == 2) Icons.Filled.Description else Icons.Outlined.Description,
-                    contentDescription = "Note",
-                    modifier = Modifier.size(24.dp)
-                )
-            },
-            label = { Text("Note", fontSize = 11.sp) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Color(0xFF6A70D7),
-                selectedTextColor = Color(0xFF6A70D7),
-                unselectedIconColor = Color(0xFF9E9E9E),
-                unselectedTextColor = Color(0xFF9E9E9E),
-                indicatorColor = Color.Transparent
-            )
-        )
-
-        NavigationBarItem(
-            selected = selectedTab == 3,
-            onClick = { onTabSelected(3) },
-            icon = {
-                Icon(
-                    imageVector = if (selectedTab == 3) Icons.Filled.People else Icons.Outlined.People,
-                    contentDescription = "Team",
-                    modifier = Modifier.size(24.dp)
-                )
-            },
-            label = { Text("Team", fontSize = 11.sp) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Color(0xFF6A70D7),
-                selectedTextColor = Color(0xFF6A70D7),
-                unselectedIconColor = Color(0xFF9E9E9E),
-                unselectedTextColor = Color(0xFF9E9E9E),
-                indicatorColor = Color.Transparent
-            )
-        )
+        }
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+// ---------- PREVIEW ----------
+@Preview(showBackground = true)
 @Composable
-private fun HomeScreenPreview() {
+fun HomeScreenPreview() {
     YourAssistantYoraTheme {
-        HomeScreen()
+        HomeScreen(
+            modifier = Modifier.fillMaxSize(),
+            userName = "Tom Holland"
+        )
     }
 }
