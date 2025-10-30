@@ -49,6 +49,9 @@ fun RegisterScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // 🔹 ADDED: state to show success dialog after save/create
+    var showSuccessDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
@@ -270,8 +273,12 @@ fun RegisterScreen(
                             }
                         }
                         else -> {
+                            // 🔹 TRIGGER DIALOG HERE: show success dialog after successful creation
                             scope.launch {
+                                // optional: show a snackbar briefly
                                 snackbarHostState.showSnackbar("Account created! ✅")
+                                // then show dialog
+                                showSuccessDialog = true
                             }
                             // TODO: lanjut proses register ke backend nanti
                         }
@@ -314,6 +321,24 @@ fun RegisterScreen(
                 )
             }
         }
+    }
+
+    // 🔹 ADDED: Success AlertDialog (English message)
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuccessDialog = false },
+            title = {
+                Text(text = "Success", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            },
+            text = {
+                Text(text = "Data updated successfully", fontSize = 14.sp, color = Color(0xFF444444))
+            },
+            confirmButton = {
+                TextButton(onClick = { showSuccessDialog = false }) {
+                    Text("OK", color = Color(0xFF6C63FF), fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
 

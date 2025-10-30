@@ -1,5 +1,6 @@
 package com.example.yourassistantyora
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
@@ -11,6 +12,7 @@ class HomeActivity : AppCompatActivity() {
 
         // Ambil username dari intent (opsional)
         val userName = intent.getStringExtra("USER_NAME") ?: "Tom Holland"
+        val userEmail = intent.getStringExtra("USER_EMAIL") ?: "tomholland@gmail.com"
 
         setContent {
             YourAssistantYoraTheme {
@@ -20,7 +22,14 @@ class HomeActivity : AppCompatActivity() {
                         // TODO: Handle notification click
                     },
                     onProfileClick = {
-                        // TODO: Handle profile click
+                        // Navigate ke ProfileActivity
+                        val intent = Intent(this, ProfileActivity::class.java)
+                        intent.putExtra("USER_NAME", userName)
+                        intent.putExtra("USER_EMAIL", userEmail)
+                        // TODO: Hitung total tasks dan completed dari state
+                        intent.putExtra("TOTAL_TASKS", 10)
+                        intent.putExtra("COMPLETED_TASKS", 6)
+                        startActivity(intent)
                     },
                     onTaskClick = { task ->
                         // TODO: Handle task click - bisa navigasi ke detail task

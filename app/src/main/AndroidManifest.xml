@@ -40,6 +40,12 @@
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
 
+        <!-- Profile Activity -->
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
         <!-- Optional other activities -->
         <activity
             android:name=".MainActivity"
