@@ -31,12 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.imePadding
-import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.IOException
 import com.google.firebase.auth.FirebaseAuth
-
 
 @Composable
 fun RegisterScreen(

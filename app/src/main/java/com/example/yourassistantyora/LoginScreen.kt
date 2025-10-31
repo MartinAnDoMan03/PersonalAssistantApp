@@ -1,5 +1,6 @@
 package com.example.yourassistantyora
 
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,15 +31,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import com.google.firebase.auth.FirebaseAuth
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun LoginScreen(
     modifier: Modifier = Modifier,
-    onSignIn: (email: String, password: String) -> Unit = { _, _ -> },
     onForgot: () -> Unit = {},
     onGoogle: () -> Unit = {},
     onSignUp: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+    var loading by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) } // State untuk show/hide password
@@ -180,14 +186,37 @@ fun LoginScreen(
 
         // --- TOMBOL SIGN IN ---
         Button(
-            onClick = { onSignIn(email, password) },
+            onClick = {
+                if (email.isBlank() || password.isBlank()) {
+                    Toast.makeText(context, "Please enter email and password", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
+                loading = true
+
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        loading = false
+                        if (task.isSuccessful) {
+                            Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+
+                            val intent = Intent(context, HomeActivity::class.java)
+                            intent.putExtra("USER_NAME", auth.currentUser?.email ?: "Unknown User")
+                            context.startActivity(intent)
+                        } else {
+                            Toast.makeText(context, task.exception?.message ?: "Login failed", Toast.LENGTH_LONG).show()
+                        }
+                    }
+            },
+
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
             contentPadding = PaddingValues()
-        ) {
+        )
+        {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -202,6 +231,10 @@ fun LoginScreen(
             }
         }
 
+        if (loading) {
+            Spacer(modifier = Modifier.height(16.dp))
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 

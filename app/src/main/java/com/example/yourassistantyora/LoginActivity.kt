@@ -13,15 +13,6 @@ class LoginActivity : AppCompatActivity() {
         setContent {
             YourAssistantYoraTheme {
                 LoginScreen(
-                    onSignIn = { email, password ->
-                        // TODO: Validate credentials, call API
-
-                        // Navigasi ke HomeActivity
-                        val intent = Intent(this, HomeActivity::class.java)
-                        intent.putExtra("USER_NAME", "Tom Holland") // atau ambil dari response API
-                        startActivity(intent)
-                        finish() // Tutup LoginActivity agar tidak bisa kembali
-                    },
                     onSignUp = {
                         startActivity(Intent(this, RegisterActivity::class.java))
                     },
