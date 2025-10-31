@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -613,6 +614,7 @@ private fun Chip(
 }
 
 // ---------- TASK CARD (Dasar) ----------
+// Versi yang lebih terang untuk completed (kurangi kegelapan)
 @Composable
 fun TaskCard(
     task: Task,
@@ -627,17 +629,32 @@ fun TaskCard(
         listOf(Color(0xFFF093FB), Color(0xFFF093FB))
     }
 
-    val cardAlpha = if (isCompleted) 0.6f else 1f
+    // New: warna latar untuk completed dibuat SANGAT LIGHT agar tidak gelap
+    val backgroundColor = if (isCompleted) {
+        // Warna mendekati background utama, sedikit lebih terang supaya terlihat "soft card"
+        Color(0xFFF7F7F9)
+    } else Color.White
+
+    // Border lebih ringan untuk completed agar terlihat plate
+    val borderColor = if (isCompleted) Color(0xFFDDDDDD) else Color.Transparent
+
+    // Strip kiri dibuat lebih soft untuk completed
+    val stripColor = if (isCompleted) Color(0xFFBDBDBD) else accentColors[0]
+
+    // Konten dibuat pudar (alpha) tapi bukan terlalu gelap
+    val contentAlpha = if (isCompleted) 0.6f else 1f
+    val titleColor = Color(0xFF2D2D2D).copy(alpha = contentAlpha)
+    val secondaryTextColor = Color(0xFF9E9E9E).copy(alpha = contentAlpha)
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(2.dp, RoundedCornerShape(14.dp)),
+            .shadow(if (isCompleted) 0.dp else 2.dp, RoundedCornerShape(14.dp))
+            .then(if (isCompleted) Modifier.border(1.dp, borderColor, RoundedCornerShape(14.dp)) else Modifier),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = cardAlpha)
-        ),
-        onClick = onTaskClick
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        onClick = onTaskClick,
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isCompleted) 0.dp else 3.dp)
     ) {
         Row(
             modifier = Modifier
@@ -654,11 +671,7 @@ fun TaskCard(
                     .clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
                     .background(
                         brush = Brush.verticalGradient(
-                            colors = if (isCompleted) {
-                                listOf(Color(0xFF9E9E9E), Color(0xFF9E9E9E))
-                            } else {
-                                accentColors
-                            }
+                            colors = listOf(stripColor, stripColor)
                         )
                     )
             )
@@ -675,7 +688,7 @@ fun TaskCard(
                     text = task.title,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isCompleted) Color(0xFF9E9E9E) else Color(0xFF2D2D2D),
+                    color = titleColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -691,31 +704,31 @@ fun TaskCard(
                         Icon(
                             imageVector = Icons.Outlined.AccessTime,
                             contentDescription = null,
-                            tint = Color(0xFF9E9E9E),
+                            tint = secondaryTextColor,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text(task.time, fontSize = 11.sp, color = Color(0xFF9E9E9E))
+                        Text(task.time, fontSize = 11.sp, color = secondaryTextColor)
                     }
 
                     // Priority
                     Chip(
                         text = task.priority,
-                        bg = Color(0xFFFFE5E5).copy(alpha = if (isCompleted) 0.5f else 1f),
-                        fg = Color(0xFFE53935).copy(alpha = if (isCompleted) 0.5f else 1f)
+                        bg = Color(0xFFFFE5E5).copy(alpha = if (isCompleted) 0.22f else 1f),
+                        fg = Color(0xFFE53935).copy(alpha = if (isCompleted) 0.7f else 1f)
                     )
 
                     // Category
                     if (task.category == "Team") {
                         Chip(
                             text = "Team",
-                            bg = Color(0xFFFFF0F5).copy(alpha = if (isCompleted) 0.5f else 1f),
-                            fg = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.5f else 1f),
+                            bg = Color(0xFFFFF0F5).copy(alpha = if (isCompleted) 0.22f else 1f),
+                            fg = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.7f else 1f),
                             leading = {
                                 Icon(
                                     imageVector = Icons.Outlined.People,
                                     contentDescription = null,
-                                    tint = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.5f else 1f),
+                                    tint = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.7f else 1f),
                                     modifier = Modifier.size(12.dp)
                                 )
                             }
@@ -723,8 +736,8 @@ fun TaskCard(
                     } else {
                         Chip(
                             text = "Personal",
-                            bg = Color(0xFFE3F2FD).copy(alpha = if (isCompleted) 0.5f else 1f),
-                            fg = Color(0xFF1976D2).copy(alpha = if (isCompleted) 0.5f else 1f)
+                            bg = Color(0xFFE3F2FD).copy(alpha = if (isCompleted) 0.22f else 1f),
+                            fg = Color(0xFF1976D2).copy(alpha = if (isCompleted) 0.7f else 1f)
                         )
                     }
 
@@ -732,8 +745,8 @@ fun TaskCard(
                     task.status?.let {
                         Chip(
                             text = it,
-                            bg = Color(0xFFF3E5F5).copy(alpha = if (isCompleted) 0.5f else 1f),
-                            fg = Color(0xFF9C27B0).copy(alpha = if (isCompleted) 0.5f else 1f)
+                            bg = Color(0xFFF3E5F5).copy(alpha = if (isCompleted) 0.22f else 1f),
+                            fg = Color(0xFF9C27B0).copy(alpha = if (isCompleted) 0.7f else 1f)
                         )
                     }
                 }
@@ -750,12 +763,12 @@ fun TaskCard(
                             Text(
                                 "Team: ",
                                 fontSize = 11.sp,
-                                color = Color(0xFF9E9E9E)
+                                color = secondaryTextColor
                             )
                             Text(
                                 it,
                                 fontSize = 11.sp,
-                                color = if (isCompleted) Color(0xFF9E9E9E) else Color(0xFF6A70D7),
+                                color = if (isCompleted) secondaryTextColor else Color(0xFF6A70D7),
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -771,7 +784,7 @@ fun TaskCard(
                                                     0 -> Color(0xFFE91E63)
                                                     1 -> Color(0xFF9C27B0)
                                                     else -> Color(0xFF673AB7)
-                                                }.copy(alpha = if (isCompleted) 0.5f else 1f)
+                                                }.copy(alpha = if (isCompleted) 0.55f else 1f)
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -788,7 +801,7 @@ fun TaskCard(
                                         modifier = Modifier
                                             .size(20.dp)
                                             .clip(CircleShape)
-                                            .background(Color(0xFF9E9E9E).copy(alpha = if (isCompleted) 0.5f else 1f))
+                                            .background(Color(0xFF9E9E9E).copy(alpha = if (isCompleted) 0.55f else 1f))
                                             .border(1.dp, Color.White, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -808,7 +821,7 @@ fun TaskCard(
 
             Spacer(Modifier.width(10.dp))
 
-            // Checkbox
+            // Checkbox (ubah warna centang menjadi ungu ketika done)
             Column(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -819,10 +832,11 @@ fun TaskCard(
                     checked = isCompleted,
                     onCheckedChange = { onCheckboxClick() },
                     colors = CheckboxDefaults.colors(
-                        checkedColor = if (isCompleted) Color(0xFF9E9E9E) else Color(0xFF6A70D7),
-                        uncheckedColor = if (isCompleted) Color(0xFF9E9E9E).copy(alpha = 0.5f) else Color(0xFF9E9E9E)
+                        checkedColor = Color(0xFF7353AD), // ungu untuk "done"
+                        uncheckedColor = Color(0xFF9E9E9E),
+                        checkmarkColor = Color.White
                     ),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }
@@ -858,21 +872,17 @@ fun TaskCardWithTrailingDelete(
     }
 
     // EFEK BARU: Mengamati swipedTaskId dari luar.
-    // Jika ada ID yang berbeda yang sedang digeser, tutup kartu ini.
     LaunchedEffect(swipedTaskId) {
         val deleteWidthPx = with(density) { deleteWidth.toPx() }
         val isCardCurrentlyOpen = deleteOffset.value < 0f
 
         if (swipedTaskId != null && swipedTaskId != task.id) {
-            // Jika ada kartu lain yang terbuka, tutup kartu ini
             if (isCardCurrentlyOpen) {
                 scope.launch {
                     deleteOffset.animateTo(0f, animationSpec = tween(300))
                 }
             }
         } else if (swipedTaskId == null && isCardCurrentlyOpen) {
-            // Jika swipedTaskId di set null dari luar (misal setelah delete/complete)
-            // dan kartu ini masih terbuka, tutup juga (ini opsional, tapi amannya)
             scope.launch {
                 deleteOffset.animateTo(0f, animationSpec = tween(300))
             }
@@ -887,20 +897,16 @@ fun TaskCardWithTrailingDelete(
                 detectHorizontalDragGestures(
                     onDragEnd = {
                         scope.launch {
-                            // Hitung apakah pergeseran cukup untuk membuka/menutup
                             val target = if (deleteOffset.value < -deleteWidthPx / 2) {
                                 -deleteWidthPx
                             } else {
                                 0f
                             }
                             deleteOffset.animateTo(target, animationSpec = tween(300))
-
-                            // Beri tahu HomeScreen tentang perubahan state slide
                             onSwipeChange(task.id, target != 0f)
                         }
                     },
                     onDragCancel = {
-                        // Sama seperti onDragEnd, pastikan offset final dihitung
                         scope.launch {
                             val target = if (deleteOffset.value < -deleteWidthPx / 2) {
                                 -deleteWidthPx
@@ -914,7 +920,6 @@ fun TaskCardWithTrailingDelete(
                     onHorizontalDrag = { change, dragAmount ->
                         change.consume()
                         val newOffset = deleteOffset.value + dragAmount
-                        // Batasi slide dari 0 hingga -deleteWidthPx
                         val clampedOffset = newOffset.coerceIn(-deleteWidthPx, 0f)
                         scope.launch {
                             deleteOffset.snapTo(clampedOffset)
@@ -923,7 +928,7 @@ fun TaskCardWithTrailingDelete(
                 )
             }
     ) {
-        // Ikon Hapus di latar belakang (BELAKANG CARD)
+        // Latar belakang (lebih subtle, jangan gelap saat completed)
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -931,7 +936,8 @@ fun TaskCardWithTrailingDelete(
                 .background(
                     brush = Brush.horizontalGradient(
                         colors = if (isCompleted) {
-                            listOf(Color(0xFF9E9E9E), Color(0xFF9E9E9E))
+                            // very light gradient for completed background behind card
+                            listOf(Color(0xFFF8F8F8), Color(0xFFF5F5F5))
                         } else {
                             accentColors
                         }
@@ -939,14 +945,13 @@ fun TaskCardWithTrailingDelete(
                 ),
             contentAlignment = Alignment.CenterEnd
         ) {
-            // PERUBAHAN TINGGI ICON HAPUS: Gunakan fillMaxHeight()
             Box(
                 modifier = Modifier
                     .width(deleteWidth)
-                    .fillMaxHeight() // Membuat Box setinggi Card
+                    .fillMaxHeight()
                     .clickable(onClick = onDeleteIconClick)
                     .background(Color.Transparent),
-                contentAlignment = Alignment.Center // Memposisikan konten (Icon) di tengah vertikal
+                contentAlignment = Alignment.Center
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -955,17 +960,21 @@ fun TaskCardWithTrailingDelete(
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "Hapus",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        tint = if (isCompleted) Color(0xFF555555).copy(alpha = 0.7f) else Color.White,
+                        modifier = Modifier.size(22.dp)
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text("Hapus", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Hapus",
+                        color = if (isCompleted) Color(0xFF555555).copy(alpha = 0.7f) else Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
 
         // Konten Card Task (DI ATAS)
-        // Gunakan Modifier.offset untuk menggeser card
         TaskCard(
             task = task,
             onTaskClick = onTaskClick,
