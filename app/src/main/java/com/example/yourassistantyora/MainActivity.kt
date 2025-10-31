@@ -11,11 +11,12 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import com.google.firebase.FirebaseApp
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        FirebaseApp.initializeApp(this) // <-- Add this line
         enableEdgeToEdge()
 
         // ecek ecek aja biar gak apa kali

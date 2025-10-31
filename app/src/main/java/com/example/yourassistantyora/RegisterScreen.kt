@@ -31,6 +31,12 @@ import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.imePadding
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
+import com.google.firebase.auth.FirebaseAuth
+
 
 @Composable
 fun RegisterScreen(
@@ -38,6 +44,7 @@ fun RegisterScreen(
     onLoginClick: () -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
+    var loading by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -49,7 +56,6 @@ fun RegisterScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // 🔹 ADDED: state to show success dialog after save/create
     var showSuccessDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -221,7 +227,7 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Terms and Conditions
+            // Terms
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -240,7 +246,7 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Create Account Button
+            // 🔹 CREATE ACCOUNT BUTTON
             Button(
                 onClick = {
                     when {
@@ -248,40 +254,38 @@ fun RegisterScreen(
                                 email.isBlank() ||
                                 password.isBlank() ||
                                 confirmPassword.isBlank() -> {
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Please fill all fields")
-                            }
+                            scope.launch { snackbarHostState.showSnackbar("Please fill all fields") }
                         }
                         !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Invalid email format")
-                            }
+                            scope.launch { snackbarHostState.showSnackbar("Invalid email format") }
                         }
                         password.length < 6 -> {
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Password must be at least 6 characters")
-                            }
+                            scope.launch { snackbarHostState.showSnackbar("Password must be at least 6 characters") }
                         }
                         password != confirmPassword -> {
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Passwords do not match")
-                            }
+                            scope.launch { snackbarHostState.showSnackbar("Passwords do not match") }
                         }
                         !termsAccepted -> {
-                            scope.launch {
-                                snackbarHostState.showSnackbar("You must accept the terms")
-                            }
+                            scope.launch { snackbarHostState.showSnackbar("You must accept the terms") }
                         }
                         else -> {
-                            // 🔹 TRIGGER DIALOG HERE: show success dialog after successful creation
-                            scope.launch {
-                                // optional: show a snackbar briefly
-                                snackbarHostState.showSnackbar("Account created! ✅")
-                                // then show dialog
-                                showSuccessDialog = true
-                            }
-                            // TODO: lanjut proses register ke backend nanti
+                            val auth = FirebaseAuth.getInstance()
+                            loading = true // optional if you have a loading state
+                            auth.createUserWithEmailAndPassword(email, password)
+                                .addOnCompleteListener { task ->
+                                    loading = false
+                                    if (task.isSuccessful) {
+                                        showSuccessDialog = true
+                                    } else {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                "Error: ${task.exception?.message ?: "Unknown error"}"
+                                            )
+                                        }
+                                    }
+                                }
                         }
+
                     }
                 },
                 modifier = Modifier
@@ -305,6 +309,15 @@ fun RegisterScreen(
                 }
             }
 
+            //Loading
+            if (loading) {
+                Spacer(modifier = Modifier.height(16.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    color = Color(0xFF6C63FF)
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // Login Link
@@ -323,19 +336,18 @@ fun RegisterScreen(
         }
     }
 
-    // 🔹 ADDED: Success AlertDialog (English message)
+    // 🔹 SUCCESS DIALOG
     if (showSuccessDialog) {
         AlertDialog(
             onDismissRequest = { showSuccessDialog = false },
-            title = {
-                Text(text = "Success", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            },
-            text = {
-                Text(text = "Data updated successfully", fontSize = 14.sp, color = Color(0xFF444444))
-            },
+            title = { Text("Success", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+            text = { Text("Account created successfully!") },
             confirmButton = {
-                TextButton(onClick = { showSuccessDialog = false }) {
-                    Text("OK", color = Color(0xFF6C63FF), fontWeight = FontWeight.Bold)
+                TextButton(onClick = {
+                    showSuccessDialog = false
+                    onLoginClick()
+                }) {
+                    Text("OK", color = Color(0xFF6C63FF))
                 }
             }
         )
