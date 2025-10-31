@@ -986,14 +986,14 @@ fun BottomNavigationBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
             spotColor = Color.Black.copy(alpha = 0.1f)
         )
     ) {
-        val items = listOf("Home", "Projects", "Create", "Messages", "Profile")
+        val items = listOf("Home", "Task", "Note", "Team")
         val icons = listOf(
-            Icons.Filled.Home, Icons.Filled.ListAlt, Icons.Filled.AddCircle,
-            Icons.Filled.ChatBubble, Icons.Filled.Person
+            Icons.Outlined.Home, Icons.Outlined.CheckCircle, Icons.Outlined.Description,
+            Icons.Outlined.People
         )
         val selectedIcons = listOf(
-            Icons.Filled.Home, Icons.Filled.ListAlt, Icons.Filled.AddCircle,
-            Icons.Filled.ChatBubble, Icons.Filled.Person
+            Icons.Filled.Home, Icons.Filled.CheckCircle, Icons.Filled.Description,
+            Icons.Filled.People
         )
 
         items.forEachIndexed { index, item ->
