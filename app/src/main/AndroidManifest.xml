@@ -67,6 +67,10 @@
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
 
+        <activity
+            android:name=".TaskActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>

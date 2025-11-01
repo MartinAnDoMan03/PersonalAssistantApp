@@ -65,7 +65,8 @@ fun HomeScreen(
     userName: String = "Tom Holland",
     onNotificationClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    onTaskClick: (Task) -> Unit = {}
+    onTaskClick: (Task) -> Unit = {},
+    onNavigateToTasks: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -193,7 +194,16 @@ fun HomeScreen(
         Scaffold(
             containerColor = Color(0xFFF5F7FA),
             bottomBar = {
-                BottomNavigationBar(selectedTab = selectedTab, onTabSelected = { selectedTab = it })
+                // Perubahan: jika tab Task (index 1) dipilih -> panggil onNavigateToTasks()
+                BottomNavigationBar(selectedTab = selectedTab, onTabSelected = { index ->
+                    if (index == 1) {
+                        // navigasi ke TaskActivity (via callback yang dikirim dari HomeActivity)
+                        onNavigateToTasks()
+                    } else {
+                        // untuk tab lainnya cukup ubah selectedTab agar UI home berpindah
+                        selectedTab = index
+                    }
+                })
             }
         ) { paddingValues ->
             Column(

@@ -32,7 +32,12 @@ class HomeActivity : AppCompatActivity() {
                         startActivity(intent)
                     },
                     onTaskClick = { task ->
-                        // TODO: Handle task click - bisa navigasi ke detail task
+                        // TODO: Handle task click
+                    },
+                    onNavigateToTasks = {
+                        // Navigate ke TaskActivity
+                        val intent = Intent(this, TaskActivity::class.java)
+                        startActivity(intent)
                     }
                 )
             }
