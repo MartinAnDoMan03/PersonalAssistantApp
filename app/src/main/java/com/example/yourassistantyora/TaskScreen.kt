@@ -23,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -37,9 +36,7 @@ import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.ui.zIndex
 
 // ---------- TASK SCREEN ----------
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
@@ -729,40 +726,26 @@ fun TaskCardDesignStyle(
     val deleteWidth = 80.dp
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-
     val deleteOffset = remember { Animatable(0f) }
 
-    // Warna berdasarkan priority (untuk semua task pribadi)
-    val priorityColors = when (task.priority) {
-        "High" -> listOf(Color(0xFFEF5350), Color(0xFFEF5350))
-        "Medium" -> listOf(Color(0xFFFFB74D), Color(0xFFFFB74D))
-        else -> listOf(Color(0xFF64B5F6), Color(0xFF64B5F6)) // Low
-    }
+    // WARNA PRIORITY
+    val stripColor = when (task.priority) {
+        "High" -> Color(0xFFEF5350)
+        "Medium" -> Color(0xFFFFB74D)
+        "Low" -> Color(0xFF64B5F6)
+        else -> Color(0xFF64B5F6)
+    }.copy(alpha = if (isCompleted) 0.4f else 0.9f)
 
-    val backgroundColor = if (isCompleted) {
-        Color(0xFFF7F7F9)
-    } else Color.White
-
-    val borderColor = if (isCompleted) Color(0xFFDDDDDD) else Color.Transparent
-    val stripColor = if (isCompleted) Color(0xFFBDBDBD) else priorityColors[0]
-    val contentAlpha = if (isCompleted) 0.6f else 1f
-    val titleColor = Color(0xFF2D2D2D).copy(alpha = contentAlpha)
-    val secondaryTextColor = Color(0xFF9E9E9E).copy(alpha = contentAlpha)
+    val titleColor = Color(0xFF2D2D2D).copy(alpha = if (isCompleted) 0.5f else 1f)
+    val secondaryTextColor = Color(0xFF9E9E9E).copy(alpha = if (isCompleted) 0.5f else 1f)
 
     LaunchedEffect(swipedTaskId) {
         val deleteWidthPx = with(density) { deleteWidth.toPx() }
-        val isCardCurrentlyOpen = deleteOffset.value < 0f
-
-        if (swipedTaskId != null && swipedTaskId != task.id) {
-            if (isCardCurrentlyOpen) {
-                scope.launch {
-                    deleteOffset.animateTo(0f, animationSpec = tween(300))
-                }
-            }
-        } else if (swipedTaskId == null && isCardCurrentlyOpen) {
-            scope.launch {
-                deleteOffset.animateTo(0f, animationSpec = tween(300))
-            }
+        val isOpen = deleteOffset.value < 0f
+        if (swipedTaskId != null && swipedTaskId != task.id && isOpen) {
+            deleteOffset.animateTo(0f, tween(300))
+        } else if (swipedTaskId == null && isOpen) {
+            deleteOffset.animateTo(0f, tween(300))
         }
     }
 
@@ -774,60 +757,36 @@ fun TaskCardDesignStyle(
                 detectHorizontalDragGestures(
                     onDragEnd = {
                         scope.launch {
-                            val target = if (deleteOffset.value < -deleteWidthPx / 2) {
-                                -deleteWidthPx
-                            } else {
-                                0f
-                            }
-                            deleteOffset.animateTo(target, animationSpec = tween(300))
+                            val target = if (deleteOffset.value < -deleteWidthPx / 2) -deleteWidthPx else 0f
+                            deleteOffset.animateTo(target, tween(300))
                             onSwipeChange(task.id, target != 0f)
                         }
                     },
                     onDragCancel = {
-                        scope.launch {
-                            val target = if (deleteOffset.value < -deleteWidthPx / 2) {
-                                -deleteWidthPx
-                            } else {
-                                0f
-                            }
-                            deleteOffset.animateTo(target, animationSpec = tween(300))
-                            onSwipeChange(task.id, target != 0f)
-                        }
+                        scope.launch { deleteOffset.snapTo(0f); onSwipeChange(task.id, false) }
                     },
                     onHorizontalDrag = { change, dragAmount ->
                         change.consume()
-                        val newOffset = deleteOffset.value + dragAmount
-                        val clampedOffset = newOffset.coerceIn(-deleteWidthPx, 0f)
-                        scope.launch {
-                            deleteOffset.snapTo(clampedOffset)
-                        }
+                        val newOffset = (deleteOffset.value + dragAmount).coerceIn(-deleteWidthPx, 0f)
+                        scope.launch { deleteOffset.snapTo(newOffset) }
                     }
                 )
             }
     ) {
-        // Background untuk swipe dengan warna sesuai priority
+        // BACKGROUND SWIPE (penuh warna priority)
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .clip(RoundedCornerShape(14.dp))
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = if (isCompleted) {
-                            listOf(Color(0xFFF8F8F8), Color(0xFFF5F5F5))
-                        } else {
-                            priorityColors
-                        }
-                    )
-                ),
-
-            contentAlignment = Alignment.CenterEnd
+                .background(stripColor)
         ) {
+            // Tombol Hapus (di kanan)
             Box(
                 modifier = Modifier
+                    .align(Alignment.CenterEnd)
                     .width(deleteWidth)
                     .fillMaxHeight()
-                    .clickable(onClick = onDeleteIconClick)
-                    .background(Color.Transparent),
+                    .clickable(onClick = onDeleteIconClick),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -835,39 +794,34 @@ fun TaskCardDesignStyle(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Delete,
+                        Icons.Filled.Delete,
                         contentDescription = "Hapus",
-                        tint = if (isCompleted) Color(0xFF555555).copy(alpha = 0.7f) else Color.White,
-                        modifier = Modifier.size(22.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "Hapus",
-                        color = if (isCompleted) Color(0xFF555555).copy(alpha = 0.7f) else Color.White,
-                        fontSize = 10.sp,
+                        color = Color.White,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
             }
         }
 
-        // Task Card Content
+        // CARD PUTIH (menimpa sempurna)
+        // --- GANTI DENGAN INI (mengganti "CARD PUTIH (menimpa sempurna)" Surface block) ---
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(if (isCompleted) 0.dp else 2.dp, RoundedCornerShape(14.dp))
-                .then(
-                    if (isCompleted) Modifier.border(
-                        1.dp,
-                        borderColor,
-                        RoundedCornerShape(14.dp)
-                    ) else Modifier
-                )
-                .offset { IntOffset(deleteOffset.value.roundToInt(), 0) },
+                .offset { IntOffset(deleteOffset.value.roundToInt(), 0) }
+                .zIndex(1f) // pastikan card di atas background swipe
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(onClick = onTaskClick),
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = backgroundColor),
-            onClick = onTaskClick,
-            elevation = CardDefaults.cardElevation(defaultElevation = if (isCompleted) 0.dp else 3.dp)
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -876,22 +830,16 @@ fun TaskCardDesignStyle(
                     .padding(end = 12.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                // Strip Warna Kiri berdasarkan priority
+                // STRIP KIRI
                 Box(
                     modifier = Modifier
-                        .width(6.dp)
+                        .width(4.dp)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(stripColor, stripColor)
-                            )
-                        )
+                        .background(stripColor)
                 )
 
                 Spacer(Modifier.width(12.dp))
 
-                // Konten Task
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -905,98 +853,85 @@ fun TaskCardDesignStyle(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(Modifier.height(6.dp))
 
-                    Spacer(Modifier.height(8.dp))
-
-                    // Time dan Badges
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Time
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Outlined.AccessTime,
+                                Icons.Outlined.AccessTime,
                                 contentDescription = null,
                                 tint = secondaryTextColor,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(13.dp)
                             )
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(3.dp))
                             Text(task.time, fontSize = 11.sp, color = secondaryTextColor)
                         }
 
-                        // Priority Badge
                         BadgeChip(
                             text = task.priority,
                             backgroundColor = when (task.priority) {
-                                "High" -> Color(0xFFFFE5E5).copy(alpha = if (isCompleted) 0.22f else 1f)
-                                "Medium" -> Color(0xFFFFF3E0).copy(alpha = if (isCompleted) 0.22f else 1f)
-                                else -> Color(0xFFE3F2FD).copy(alpha = if (isCompleted) 0.22f else 1f)
-                            },
+                                "High" -> Color(0xFFFFEBEE)
+                                "Medium" -> Color(0xFFFFF3E0)
+                                else -> Color(0xFFE3F2FD)
+                            }.copy(alpha = if (isCompleted) 0.3f else 1f),
                             textColor = when (task.priority) {
-                                "High" -> Color(0xFFEF5350).copy(alpha = if (isCompleted) 0.7f else 1f)
-                                "Medium" -> Color(0xFFFFB74D).copy(alpha = if (isCompleted) 0.7f else 1f)
-                                else -> Color(0xFF64B5F6).copy(alpha = if (isCompleted) 0.7f else 1f)
-                            }
+                                "High" -> Color(0xFFD32F2F)
+                                "Medium" -> Color(0xFFEF6C00)
+                                else -> Color(0xFF1976D2)
+                            }.copy(alpha = if (isCompleted) 0.6f else 1f)
                         )
 
-                        // Category Badge
                         BadgeChip(
                             text = task.category,
-                            backgroundColor = Color(0xFFE8EAF6).copy(alpha = if (isCompleted) 0.22f else 1f),
-                            textColor = Color(0xFF5C6BC0).copy(alpha = if (isCompleted) 0.7f else 1f)
+                            backgroundColor = Color(0xFFE8EAF6).copy(alpha = if (isCompleted) 0.3f else 1f),
+                            textColor = Color(0xFF3949AB).copy(alpha = if (isCompleted) 0.6f else 1f)
                         )
 
-                        // Status Badge (jika ada)
                         task.status?.let { status ->
                             BadgeChip(
                                 text = status,
                                 backgroundColor = when (status) {
-                                    "Waiting" -> Color(0xFFE1BEE7).copy(alpha = if (isCompleted) 0.22f else 1f)
-                                    "To do" -> Color(0xFFBBDEFB).copy(alpha = if (isCompleted) 0.22f else 1f)
-                                    "Hold On" -> Color(0xFFFFF9C4).copy(alpha = if (isCompleted) 0.22f else 1f)
-                                    "In Progress" -> Color(0xFFB2DFDB).copy(alpha = if (isCompleted) 0.22f else 1f)
-                                    "Done" -> Color(0xFFC8E6C9).copy(alpha = if (isCompleted) 0.22f else 1f)
-                                    else -> Color(0xFFF3E5F5).copy(alpha = if (isCompleted) 0.22f else 1f)
-                                },
+                                    "Waiting" -> Color(0xFFF3E5F5)
+                                    "To do" -> Color(0xFFE3F2FD)
+                                    "Hold On" -> Color(0xFFFFF3E0)
+                                    "In Progress" -> Color(0xFFE0F2F1)
+                                    "Done" -> Color(0xFFE8F5E8)
+                                    else -> Color(0xFFF5F5F5)
+                                }.copy(alpha = if (isCompleted) 0.3f else 1f),
                                 textColor = when (status) {
-                                    "Waiting" -> Color(0xFF7B1FA2).copy(alpha = if (isCompleted) 0.7f else 1f)
-                                    "To do" -> Color(0xFF1976D2).copy(alpha = if (isCompleted) 0.7f else 1f)
-                                    "Hold On" -> Color(0xFFF57F17).copy(alpha = if (isCompleted) 0.7f else 1f)
-                                    "In Progress" -> Color(0xFF00796B).copy(alpha = if (isCompleted) 0.7f else 1f)
-                                    "Done" -> Color(0xFF388E3C).copy(alpha = if (isCompleted) 0.7f else 1f)
-                                    else -> Color(0xFF9C27B0).copy(alpha = if (isCompleted) 0.7f else 1f)
-                                }
+                                    "Waiting" -> Color(0xFF6A1B9A)
+                                    "To do" -> Color(0xFF1976D2)
+                                    "Hold On" -> Color(0xFFEF6C00)
+                                    "In Progress" -> Color(0xFF00695C)
+                                    "Done" -> Color(0xFF2E7D32)
+                                    else -> Color(0xFF616161)
+                                }.copy(alpha = if (isCompleted) 0.6f else 1f)
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
 
-                // Checkbox
-                Column(
+                Checkbox(
+                    checked = isCompleted,
+                    onCheckedChange = { onCheckboxClick() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = Color(0xFF6A70D7),
+                        uncheckedColor = Color(0xFFB0B0B0),
+                        checkmarkColor = Color.White
+                    ),
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(top = 14.dp, bottom = 14.dp, end = 4.dp),
-                    horizontalAlignment = Alignment.End
-                ) {
-                    Checkbox(
-                        checked = isCompleted,
-                        onCheckedChange = { onCheckboxClick() },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = Color(0xFF7353AD),
-                            uncheckedColor = Color(0xFF9E9E9E),
-                            checkmarkColor = Color.White
-                        ),
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
+                        .size(24.dp)
+                        .padding(top = 12.dp)
+                )
             }
         }
     }
 }
-
 // ---------- BADGE CHIP ----------
 @Composable
 fun BadgeChip(
