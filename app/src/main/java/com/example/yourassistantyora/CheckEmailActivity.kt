@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import com.google.firebase.auth.FirebaseAuth
 
 class CheckEmailActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,8 +24,17 @@ class CheckEmailActivity : AppCompatActivity() {
                         openEmailApp()
                     },
                     onResendEmail = {
-                        Toast.makeText(this, "Reset link resent to $email", Toast.LENGTH_SHORT).show()
-                    },
+                        val auth = FirebaseAuth.getInstance()
+                        auth.sendPasswordResetEmail(email)
+                            .addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    Toast.makeText(this, "Reset link resent to $email", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(this, "Error: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                    }
+                    ,
                     onBackClick = {
                         // Kembali ke LoginActivity
                         val intent = Intent(this, LoginActivity::class.java)
