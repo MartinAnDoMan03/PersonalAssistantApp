@@ -37,6 +37,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.compose.ui.zIndex
+import com.example.yourassistantyora.components.BottomNavigationBar
+import com.example.yourassistantyora.utils.NavigationConstants
 
 // ---------- TASK SCREEN ----------
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
@@ -45,12 +47,16 @@ fun TaskScreen(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
     onTaskClick: (Task) -> Unit = {},
-    onCreateTaskClick: () -> Unit = {}
+    onCreateTaskClick: () -> Unit = {},
+    onNavigateToHome: () -> Unit = {},   // ✨ BARU
+    onNavigateToNotes: () -> Unit = {},  // ✨ BARU
+    onNavigateToTeam: () -> Unit = {}    // ✨ BARU
 ) {
     var selectedViewMode by remember { mutableStateOf("List") }
     var selectedStatus by remember { mutableStateOf("All") }
     var selectedCategory by remember { mutableStateOf("All") }
     val scope = rememberCoroutineScope()
+    val selectedTab = NavigationConstants.TAB_TASK
 
     // State untuk tasks yang bisa diubah
     var tasks by remember {
@@ -207,6 +213,19 @@ fun TaskScreen(
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.White
                     )
+                )
+            },
+            bottomBar = {  // ← TAMBAHKAN INI
+                BottomNavigationBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = { index ->
+                        when (index) {
+                            NavigationConstants.TAB_HOME -> onNavigateToHome()
+                            NavigationConstants.TAB_TASK -> { /* sudah di Task */ }
+                            NavigationConstants.TAB_NOTE -> onNavigateToNotes()
+                            NavigationConstants.TAB_TEAM -> onNavigateToTeam()
+                        }
+                    }
                 )
             },
             floatingActionButton = {
@@ -602,7 +621,7 @@ fun StatusDropdownNew(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "Status",
+                    text = if (selectedStatus == "All") "Status" else selectedStatus,
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold

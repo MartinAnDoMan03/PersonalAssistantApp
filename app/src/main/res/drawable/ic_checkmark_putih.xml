@@ -5,14 +5,14 @@
     android:viewportWidth="80"
     android:viewportHeight="80">
 
-    <!-- Background rounded square UNGU -->
+    <!-- Background rounded square PUTIH -->
     <path
-        android:fillColor="#5B6FD8"
+        android:fillColor="#FFFFFF"
         android:pathData="M16,0 L64,0 Q80,0 80,16 L80,64 Q80,80 64,80 L16,80 Q0,80 0,64 L0,16 Q0,0 16,0 Z" />
 
-    <!-- Checkmark PUTIH -->
+    <!-- Checkmark UNGU -->
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="#5B6FD8"
         android:strokeWidth="6"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"

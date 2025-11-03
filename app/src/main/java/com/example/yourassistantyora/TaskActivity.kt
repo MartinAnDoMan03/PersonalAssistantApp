@@ -1,6 +1,7 @@
 package com.example.yourassistantyora
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
@@ -28,6 +29,25 @@ class TaskActivity : AppCompatActivity() {
                         // Contoh: buka CreateTaskActivity
                         // val intent = Intent(this, CreateTaskActivity::class.java)
                         // startActivity(intent)
+                    },
+                    // ✨ TAMBAHKAN 3 CALLBACK INI
+                    onNavigateToHome = {
+                        // Kembali ke HomeActivity
+                        finish()
+                    },
+                    onNavigateToNotes = {
+                        // TODO: Navigate ke NoteActivity (belum dibuat)
+                        Toast.makeText(this, "Note feature coming soon", Toast.LENGTH_SHORT).show()
+                        // val intent = Intent(this, NoteActivity::class.java)
+                        // startActivity(intent)
+                        // finish() // tutup TaskActivity
+                    },
+                    onNavigateToTeam = {
+                        // TODO: Navigate ke TeamActivity (belum dibuat)
+                        Toast.makeText(this, "Team feature coming soon", Toast.LENGTH_SHORT).show()
+                        // val intent = Intent(this, TeamActivity::class.java)
+                        // startActivity(intent)
+                        // finish() // tutup TaskActivity
                     }
                 )
             }

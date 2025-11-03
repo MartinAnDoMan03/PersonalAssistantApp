@@ -71,7 +71,7 @@ fun LoginScreen(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.ic_checkmark),
+                painter = painterResource(id = R.drawable.ic_checkmark_putih),
                 contentDescription = "Logo",
                 modifier = Modifier
                     .size(60.dp)

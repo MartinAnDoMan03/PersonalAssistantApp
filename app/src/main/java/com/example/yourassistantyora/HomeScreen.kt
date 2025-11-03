@@ -43,6 +43,8 @@ import com.example.yourassistantyora.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import com.example.yourassistantyora.components.BottomNavigationBar
+import com.example.yourassistantyora.utils.NavigationConstants
 
 // ---------- DATA ----------
 data class Task(
@@ -66,9 +68,11 @@ fun HomeScreen(
     onNotificationClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onTaskClick: (Task) -> Unit = {},
-    onNavigateToTasks: () -> Unit = {}
+    onNavigateToTasks: () -> Unit = {},
+    onNavigateToNotes: () -> Unit = {},   // ✨ TAMBAHKAN INI
+    onNavigateToTeam: () -> Unit = {}
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_HOME) }
     val scope = rememberCoroutineScope()
 
     // State untuk tasks yang bisa diubah
@@ -194,16 +198,25 @@ fun HomeScreen(
         Scaffold(
             containerColor = Color(0xFFF5F7FA),
             bottomBar = {
-                // Perubahan: jika tab Task (index 1) dipilih -> panggil onNavigateToTasks()
-                BottomNavigationBar(selectedTab = selectedTab, onTabSelected = { index ->
-                    if (index == 1) {
-                        // navigasi ke TaskActivity (via callback yang dikirim dari HomeActivity)
-                        onNavigateToTasks()
-                    } else {
-                        // untuk tab lainnya cukup ubah selectedTab agar UI home berpindah
-                        selectedTab = index
+                BottomNavigationBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = { index ->
+                        when (index) {
+                            NavigationConstants.TAB_HOME -> {
+                                selectedTab = index
+                            }
+                            NavigationConstants.TAB_TASK -> {
+                                onNavigateToTasks()
+                            }
+                            NavigationConstants.TAB_NOTE -> {
+                                onNavigateToNotes()
+                            }
+                            NavigationConstants.TAB_TEAM -> {
+                                onNavigateToTeam()
+                            }
+                        }
                     }
-                })
+                )
             }
         ) { paddingValues ->
             Column(
@@ -995,56 +1008,6 @@ fun TaskCardWithTrailingDelete(
     }
 }
 
-// ---------- BOTTOM NAVIGATION BAR ----------
-@Composable
-fun BottomNavigationBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
-    NavigationBar(
-        containerColor = Color.White,
-        modifier = Modifier.shadow(
-            elevation = 10.dp,
-            spotColor = Color.Black.copy(alpha = 0.1f)
-        )
-    ) {
-        val items = listOf("Home", "Task", "Note", "Team")
-        val icons = listOf(
-            Icons.Outlined.Home, Icons.Outlined.CheckCircle, Icons.Outlined.Description,
-            Icons.Outlined.People
-        )
-        val selectedIcons = listOf(
-            Icons.Filled.Home, Icons.Filled.CheckCircle, Icons.Filled.Description,
-            Icons.Filled.People
-        )
-
-        items.forEachIndexed { index, item ->
-            val isSelected = selectedTab == index
-            NavigationBarItem(
-                icon = {
-                    Icon(
-                        imageVector = if (isSelected) selectedIcons[index] else icons[index],
-                        contentDescription = item,
-                        modifier = Modifier.size(24.dp)
-                    )
-                },
-                label = {
-                    Text(
-                        item,
-                        fontSize = 10.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                    )
-                },
-                selected = isSelected,
-                onClick = { onTabSelected(index) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color(0xFF6A70D7),
-                    selectedTextColor = Color(0xFF6A70D7),
-                    unselectedIconColor = Color(0xFF9E9E9E),
-                    unselectedTextColor = Color(0xFF9E9E9E),
-                    indicatorColor = Color.Transparent
-                )
-            )
-        }
-    }
-}
 
 // ---------- PREVIEW ----------
 @Preview(showBackground = true)
