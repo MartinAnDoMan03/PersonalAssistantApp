@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
+    xmlns:tools="http://schemas.android.com/tools" >
     <!-- permission (jika butuh internet) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -14,63 +13,55 @@
         android:roundIcon="@drawable/ic_checkmark"
         android:supportsRtl="true"
         android:theme="@style/Theme.YourAssistantYora"
-        tools:targetApi="31">
-
+        tools:targetApi="31" >
+        <activity
+            android:name=".EditProfileActivity"
+            android:exported="false"
+            android:label="@string/title_activity_edit_profile_screen"
+            android:theme="@style/Theme.YourAssistantYora" />
         <!-- SPLASH ACTIVITY - LAUNCHER (entry point app) -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:theme="@style/SplashTheme">
+            android:theme="@style/SplashTheme" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-
-        <!-- Login Activity -->
+        </activity> <!-- Login Activity -->
         <activity
             android:name=".LoginActivity"
             android:exported="true"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <!-- Home Activity -->
+            android:theme="@style/Theme.YourAssistantYora" /> <!-- Home Activity -->
         <activity
             android:name=".HomeActivity"
             android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <!-- Profile Activity -->
+            android:theme="@style/Theme.YourAssistantYora" /> <!-- Profile Activity -->
         <activity
             android:name=".ProfileActivity"
             android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <!-- Optional other activities -->
+            android:theme="@style/Theme.YourAssistantYora" /> <!-- Optional other activities -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
-
         <activity
             android:name=".RegisterActivity"
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
-
         <activity
             android:name=".ForgotPasswordActivity"
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
-
         <activity
             android:name=".CheckEmailActivity"
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
-
         <activity
             android:name=".TaskActivity"
             android:exported="false" />
-
     </application>
 
 </manifest>

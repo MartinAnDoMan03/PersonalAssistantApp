@@ -16,4 +16,5 @@
     <string name="by_signing">By signing up, you agree to our <a href="https://example.com/terms">Terms Of Service</a> and <a href="https://example.com/privacy">Privacy Policy</a></string>
     <string name="create_account">Create Account</string>
     <string name="default_web_client_id">326251058809-u8ajlacumqps2ql5hk33qp0cpru27u8r.apps.googleusercontent.com</string>
+    <string name="title_activity_edit_profile_screen">EditProfileScreenActivity</string>
 </resources>

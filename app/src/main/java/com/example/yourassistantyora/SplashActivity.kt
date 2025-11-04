@@ -44,6 +44,7 @@ class SplashActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContentView(R.layout.activity_splash)
 
         logoImageView = findViewById(R.id.logoImageView)
@@ -108,11 +109,17 @@ class SplashActivity : AppCompatActivity() {
 
         // Pindah ke LoginActivity setelah animasi selesai
         Handler(Looper.getMainLooper()).postDelayed({
-            val intent = Intent(this, LoginActivity::class.java)
+            val sharedPref = getSharedPreferences("user_prefs", MODE_PRIVATE)
+            val isLoggedIn = sharedPref.getBoolean("is_logged_in", false)
+
+            val nextActivity = if (isLoggedIn) HomeActivity::class.java else LoginActivity::class.java
+
+            val intent = Intent(this, nextActivity)
             startActivity(intent)
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             finish()
         }, 3800)
+
     }
 
     private fun animateStage1() {

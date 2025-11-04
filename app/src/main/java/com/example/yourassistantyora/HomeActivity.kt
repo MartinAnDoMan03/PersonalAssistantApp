@@ -11,10 +11,19 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Ambil username dari intent (opsional)
-        val userName = intent.getStringExtra("USER_NAME") ?: "Tom Holland"
-        val userEmail = intent.getStringExtra("USER_EMAIL") ?: "tomholland@gmail.com"
+        val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            // No logged-in user, kick back to login
+            val intent = Intent(this, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
+            return
+        }
 
+        val userName = currentUser.displayName ?: intent.getStringExtra("USER_NAME") ?: "Tom Holland"
+        val userEmail = currentUser.email ?: intent.getStringExtra("USER_EMAIL") ?: "tomholland@gmail.com"
         setContent {
             YourAssistantYoraTheme {
                 HomeScreen(
