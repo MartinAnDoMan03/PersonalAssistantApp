@@ -30,6 +30,8 @@ class SplashActivity : AppCompatActivity() {
     private lateinit var rootLayout: ConstraintLayout
 
     private lateinit var particleView: ParticleView
+    private lateinit var geometricShapesView: GeometricShapesView
+    private lateinit var rippleWaveView: RippleWaveView
 
     // Shadow views
     private lateinit var shadowView1: View
@@ -66,6 +68,8 @@ class SplashActivity : AppCompatActivity() {
         shadowView9 = findViewById(R.id.shadowView9)
 
         particleView = findViewById(R.id.particleView)
+        geometricShapesView = findViewById(R.id.geometricShapesView)
+        rippleWaveView = findViewById(R.id.rippleWaveView)
 
         setupShadows()
 
@@ -95,17 +99,17 @@ class SplashActivity : AppCompatActivity() {
         // Stage 1: Logo berputar dan membesar (0-800ms)
         Handler(Looper.getMainLooper()).postDelayed({
             animateStage1()
-        }, 300)
+        }, 200)  // Mulai lebih cepat
 
         // Stage 2: Logo scale lagi (800-1600ms)
         Handler(Looper.getMainLooper()).postDelayed({
             animateStage2()
-        }, 1100)
+        }, 900)  // Timing lebih smooth
 
         // Stage 3: Background gradient, logo naik, teks muncul dari logo (1600-2400ms)
         Handler(Looper.getMainLooper()).postDelayed({
             animateStage3()
-        }, 1900)
+        }, 1700)  // Timing lebih smooth
 
         // Pindah ke LoginActivity setelah animasi selesai
         Handler(Looper.getMainLooper()).postDelayed({
@@ -128,7 +132,7 @@ class SplashActivity : AppCompatActivity() {
         val scaleXAnimator = ObjectAnimator.ofFloat(logoContainer, "scaleX", 1f, 1.3f)
         val scaleYAnimator = ObjectAnimator.ofFloat(logoContainer, "scaleY", 1f, 1.3f)
 
-// Glow Animator: Lebih intens untuk efek visible
+        // Glow Animator: Lebih intens untuk efek visible
         val glowAnimator = ValueAnimator.ofFloat(0f, 1f)
         glowAnimator.duration = 600
         glowAnimator.interpolator = AccelerateDecelerateInterpolator()
@@ -139,7 +143,7 @@ class SplashActivity : AppCompatActivity() {
             shadowView1.alpha = currentAlpha
             shadowView2.alpha = currentAlpha * 0.8f  // Inner sedikit lebih redup
             shadowView3.alpha = currentAlpha * 0.6f
-            android.util.Log.d("GlowDebug", "Stage1 Alpha: $currentAlpha")  // Debug log
+            Log.d("GlowDebug", "Stage1 Alpha: $currentAlpha")  // Debug log
         }
         // Reset alpha setelah animasi selesai (biar gak stuck)
         glowAnimator.addListener(object : android.animation.AnimatorListenerAdapter() {
@@ -150,16 +154,17 @@ class SplashActivity : AppCompatActivity() {
             }
         })
 
-        rotateAnimator.duration = 600
-        scaleXAnimator.duration = 600
-        scaleYAnimator.duration = 600
+        rotateAnimator.duration = 700
+        scaleXAnimator.duration = 700
+        scaleYAnimator.duration = 700
 
-        rotateAnimator.interpolator = AccelerateDecelerateInterpolator()
-        scaleXAnimator.interpolator = AccelerateDecelerateInterpolator()
-        scaleYAnimator.interpolator = AccelerateDecelerateInterpolator()
+        // Gunakan interpolator yang lebih smooth
+        val smoothInterpolator = android.view.animation.DecelerateInterpolator(1.5f)
+        rotateAnimator.interpolator = smoothInterpolator
+        scaleXAnimator.interpolator = smoothInterpolator
+        scaleYAnimator.interpolator = smoothInterpolator
 
         val animatorSet = AnimatorSet()
-        // TAMBAHAN: Play together dengan glowAnimator
         animatorSet.playTogether(rotateAnimator, scaleXAnimator, scaleYAnimator, glowAnimator)
         animatorSet.start()
     }
@@ -169,7 +174,7 @@ class SplashActivity : AppCompatActivity() {
         val scaleXAnimator = ObjectAnimator.ofFloat(logoContainer, "scaleX", 1.3f, 1.5f)
         val scaleYAnimator = ObjectAnimator.ofFloat(logoContainer, "scaleY", 1.3f, 1.5f)
 
-// Glow Animator: Sama seperti stage1, tapi duration 400ms
+        // Glow Animator: Sama seperti stage1, tapi duration 400ms
         val glowAnimator = ValueAnimator.ofFloat(0f, 1f)
         glowAnimator.duration = 400
         glowAnimator.interpolator = AccelerateDecelerateInterpolator()
@@ -179,7 +184,7 @@ class SplashActivity : AppCompatActivity() {
             shadowView1.alpha = currentAlpha
             shadowView2.alpha = currentAlpha * 0.8f
             shadowView3.alpha = currentAlpha * 0.6f
-            android.util.Log.d("GlowDebug", "Stage2 Alpha: $currentAlpha")
+            Log.d("GlowDebug", "Stage2 Alpha: $currentAlpha")
         }
         glowAnimator.addListener(object : android.animation.AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: android.animation.Animator) {
@@ -196,33 +201,29 @@ class SplashActivity : AppCompatActivity() {
         scaleYAnimator.interpolator = AccelerateDecelerateInterpolator()
 
         val animatorSet = AnimatorSet()
-        // TAMBAHAN: Play together dengan glowAnimator
         animatorSet.playTogether(scaleXAnimator, scaleYAnimator, glowAnimator)
         animatorSet.start()
     }
 
     private fun animateStage3() {
-        // Ubah background ke gradient
-        val gradientDrawable = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(
-                ContextCompat.getColor(this, R.color.splash_gradient_start),
-                ContextCompat.getColor(this, R.color.splash_gradient_end)
-            )
-        )
-        rootLayout.background = gradientDrawable
-
-        // Ganti ikon menjadi versi putih
+        // Ganti ikon menjadi versi putih SEBELUM animasi dimulai
         logoImageView.setImageResource(R.drawable.ic_checkmark_putih)
 
-        // Fade in background
-        val backgroundAlpha = ValueAnimator.ofInt(0, 255)
-        backgroundAlpha.duration = 600
-        backgroundAlpha.interpolator = AccelerateDecelerateInterpolator()
-        backgroundAlpha.addUpdateListener { animator ->
-            gradientDrawable.alpha = animator.animatedValue as Int
-        }
-        backgroundAlpha.start()
+        // Fade in geometric shapes & ripple waves
+        geometricShapesView.alpha = 0f
+        rippleWaveView.alpha = 0f
+
+        val geometricFadeIn = ObjectAnimator.ofFloat(geometricShapesView, "alpha", 0f, 1f)
+        geometricFadeIn.duration = 800
+        geometricFadeIn.interpolator = AccelerateDecelerateInterpolator()
+
+        val rippleFadeIn = ObjectAnimator.ofFloat(rippleWaveView, "alpha", 0f, 1f)
+        rippleFadeIn.duration = 800
+        rippleFadeIn.interpolator = AccelerateDecelerateInterpolator()
+
+        val bgAnimSet = AnimatorSet()
+        bgAnimSet.playTogether(geometricFadeIn, rippleFadeIn)
+        bgAnimSet.start()
 
         // Logo naik ke atas dan mengecil sedikit
         val logoMoveUp = ObjectAnimator.ofFloat(logoContainer, "translationY", 0f, -120f)
