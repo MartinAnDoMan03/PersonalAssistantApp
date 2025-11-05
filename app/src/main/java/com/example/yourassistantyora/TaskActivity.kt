@@ -1,5 +1,6 @@
 package com.example.yourassistantyora
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
@@ -36,11 +37,10 @@ class TaskActivity : AppCompatActivity() {
                         finish()
                     },
                     onNavigateToNotes = {
-                        // TODO: Navigate ke NoteActivity (belum dibuat)
-                        Toast.makeText(this, "Note feature coming soon", Toast.LENGTH_SHORT).show()
-                        // val intent = Intent(this, NoteActivity::class.java)
-                        // startActivity(intent)
-                        // finish() // tutup TaskActivity
+                        // TODO: Navigate ke NoteActivity
+                        val intent = Intent(this, NoteActivity::class.java)
+                        startActivity(intent)
+                        finish()
                     },
                     onNavigateToTeam = {
                         // TODO: Navigate ke TeamActivity (belum dibuat)

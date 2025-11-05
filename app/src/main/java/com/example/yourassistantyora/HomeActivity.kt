@@ -51,10 +51,10 @@ class HomeActivity : AppCompatActivity() {
                     },
                     // ✨ TAMBAHKAN 2 CALLBACK INI
                     onNavigateToNotes = {
-                        // TODO: Navigate ke NoteActivity (belum dibuat)
-                        Toast.makeText(this, "Note feature coming soon", Toast.LENGTH_SHORT).show()
-                        // val intent = Intent(this, NoteActivity::class.java)
-                        // startActivity(intent)
+                        // TODO: Navigate ke NoteActivity
+                        val intent = Intent(this, NoteActivity::class.java)
+                        startActivity(intent)
+
                     },
                     onNavigateToTeam = {
                         // TODO: Navigate ke TeamActivity (belum dibuat)

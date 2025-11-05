@@ -62,6 +62,16 @@
         <activity
             android:name=".TaskActivity"
             android:exported="false" />
+        <activity
+            android:name=".NoteActivity"
+            android:exported="false"
+            android:label="My Notes" />
+        <activity
+            android:name=".NoteDetailActivity"
+            android:exported="false"
+            android:label="Note Detail"
+            android:windowSoftInputMode="adjustResize" />
+
     </application>
 
 </manifest>
