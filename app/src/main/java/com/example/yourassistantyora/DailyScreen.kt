@@ -6,14 +6,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -22,29 +18,28 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.yourassistantyora.components.BottomNavigationBar
-import com.example.yourassistantyora.utils.NavigationConstants
 import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.components.TaskFilterRow
+import com.example.yourassistantyora.utils.NavigationConstants
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.collections.plus
 import kotlin.math.roundToInt
 
-// ---------- TASK SCREEN ----------
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
-fun TaskScreen(
+fun DailyScreen(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
     onTaskClick: (Task) -> Unit = {},
@@ -52,7 +47,7 @@ fun TaskScreen(
     onNavigateToHome: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
     onNavigateToTeam: () -> Unit = {},
-    onNavigateToDaily: () -> Unit = {},
+    onNavigateToList: () -> Unit = {},
     onNavigateToWeekly: () -> Unit = {},
     onNavigateToMonthly: () -> Unit = {}
 ) {
@@ -62,18 +57,18 @@ fun TaskScreen(
 
     // ✨ STATE UNTUK CREATE TASK SCREEN
     var showCreateTaskScreen by remember { mutableStateOf(false) }
-
     var tasks by remember {
         mutableStateOf(
             listOf(
-                Task(1, "Team meeting preparation", "10:00 AM", "High", "Work", "Waiting"),
-                Task(2, "Review design mockups", "10:00 AM", "Medium", "Work", "To do"),
-                Task(3, "Submit project report", "03:00 AM", "Low", "Study", "In Progress"),
-                Task(4, "Morning workout routine", "06:00 AM", "High", "Work", "Hold On")
+                Task(1, "Team meeting preparation", "10:00", "High", "Work", "Waiting"),
+                Task(2, "Review design mockups", "10:45", "Medium", "Work", "To do"),
+                Task(3, "Submit project report", "14:30", "Low", "Study", "In Progress"),
+                Task(4, "Client presentation", "16:00", "High", "Work", "To do"),
+                Task(5, "Code review session", "19:30", "Medium", "Work", "Hold On"),
+                Task(6, "Evening workout", "20:00", "Low", "Personal", "To do")
             )
         )
     }
-
     // ✨ CONDITIONAL RENDERING
     when {
         showDetailScreen && selectedTaskForDetail != null -> {
@@ -96,6 +91,7 @@ fun TaskScreen(
                 }
             )
         }
+
         showCreateTaskScreen -> {
             CreateTaskScreen(
                 onBackClick = { showCreateTaskScreen = false },
@@ -106,15 +102,27 @@ fun TaskScreen(
                 }
             )
         }
+
         else -> {
             // EXISTING CONTENT
-            var selectedViewMode by remember { mutableStateOf("List") }
+            var selectedViewMode by remember { mutableStateOf("Daily") }
             var selectedStatus by remember { mutableStateOf("All") }
             var selectedCategory by remember { mutableStateOf("All") }
             val scope = rememberCoroutineScope()
             val selectedTab = NavigationConstants.TAB_TASK
 
-
+            var tasks by remember {
+                mutableStateOf(
+                    listOf(
+                        Task(1, "Team meeting preparation", "10:00", "High", "Work", "Waiting"),
+                        Task(2, "Review design mockups", "10:45", "Medium", "Work", "To do"),
+                        Task(3, "Submit project report", "14:30", "Low", "Study", "In Progress"),
+                        Task(4, "Client presentation", "16:00", "High", "Work", "To do"),
+                        Task(5, "Code review session", "19:30", "Medium", "Work", "Hold On"),
+                        Task(6, "Evening workout", "20:00", "Low", "Personal", "To do")
+                    )
+                )
+            }
 
             var swipedTaskId by remember { mutableStateOf<Int?>(null) }
             var lastCompletedTask by remember { mutableStateOf<Task?>(null) }
@@ -141,21 +149,17 @@ fun TaskScreen(
                 statusMatch && categoryMatch
             }
 
+            val groupedTasks = groupTasksByTimePeriod(filteredActiveTasks)
+
             fun onCheckboxClick(task: Task) {
                 if (!task.isCompleted) {
                     tasks = tasks.map {
-                        if (it.id == task.id) {
-                            it.copy(isCompleted = true)
-                        } else {
-                            it
-                        }
+                        if (it.id == task.id) it.copy(isCompleted = true) else it
                     }
-
                     lastCompletedTask = task
                     showUndoSnackbar = true
                     showDeleteSnackbar = false
                     swipedTaskId = null
-
                     scope.launch {
                         delay(8000)
                         showUndoSnackbar = false
@@ -178,7 +182,6 @@ fun TaskScreen(
                 showDeleteSnackbar = true
                 showUndoSnackbar = false
                 swipedTaskId = null
-
                 scope.launch {
                     delay(8000)
                     showDeleteSnackbar = false
@@ -214,27 +217,26 @@ fun TaskScreen(
                     topBar = {
                         TopAppBar(
                             title = {
-                                Text(
-                                    "My Tasks",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2D2D2D)
-                                )
+                                Column {
+                                    Text(
+                                        "Today's Tasks",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2D2D2D)
+                                    )
+                                    Text(
+                                        getCurrentDate(),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        color = Color(0xFF9E9E9E)
+                                    )
+                                }
                             },
                             navigationIcon = {
                                 IconButton(onClick = onBackClick) {
                                     Icon(
                                         imageVector = Icons.Filled.ArrowBack,
                                         contentDescription = "Back",
-                                        tint = Color(0xFF2D2D2D)
-                                    )
-                                }
-                            },
-                            actions = {
-                                IconButton(onClick = { /* Search action */ }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Search,
-                                        contentDescription = "Search",
                                         tint = Color(0xFF2D2D2D)
                                     )
                                 }
@@ -250,7 +252,9 @@ fun TaskScreen(
                             onTabSelected = { index ->
                                 when (index) {
                                     NavigationConstants.TAB_HOME -> onNavigateToHome()
-                                    NavigationConstants.TAB_TASK -> { /* sudah di Task */ }
+                                    NavigationConstants.TAB_TASK -> { /* sudah di Task */
+                                    }
+
                                     NavigationConstants.TAB_NOTE -> onNavigateToNotes()
                                     NavigationConstants.TAB_TEAM -> onNavigateToTeam()
                                 }
@@ -259,7 +263,7 @@ fun TaskScreen(
                     },
                     floatingActionButton = {
                         FloatingActionButton(
-                            onClick = { showCreateTaskScreen = true }, // ✅ UBAH INI
+                            onClick = { showCreateTaskScreen = true },
                             containerColor = Color(0xFF6A70D7),
                             contentColor = Color.White,
                             modifier = Modifier.size(56.dp)
@@ -273,14 +277,14 @@ fun TaskScreen(
                     }
                 ) { paddingValues ->
                     Column(
-                        modifier = modifier
+                        modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
                     ) {
                         TaskViewModeNavigation(
                             selectedViewMode = selectedViewMode,
                             onViewModeChange = { selectedViewMode = it },
-                            onNavigateToDaily = onNavigateToDaily,
+                            onNavigateToList = onNavigateToList,
                             onNavigateToWeekly = onNavigateToWeekly,
                             onNavigateToMonthly = onNavigateToMonthly
                         )
@@ -297,15 +301,51 @@ fun TaskScreen(
 
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            items(filteredActiveTasks, key = { it.id }) { task ->
-                                AnimatedVisibility(
-                                    visible = true,
-                                    enter = fadeIn() + expandVertically(),
-                                    exit = fadeOut() + shrinkVertically()
-                                ) {
+                            if (groupedTasks["Morning"]?.isNotEmpty() == true) {
+                                item {
+                                    TimePeriodHeader(
+                                        title = "Morning",
+                                        timeRange = "05:00 - 10:59",
+                                        taskCount = groupedTasks["Morning"]?.size ?: 0
+                                    )
+                                }
+                                items(
+                                    groupedTasks["Morning"] ?: emptyList(),
+                                    key = { it.id }) { task ->
+                                    TaskCardDesignStyle(
+                                        task = task,
+                                        onTaskClick = {
+                                            // ✨ SHOW DETAIL SCREEN
+                                            selectedTaskForDetail = task
+                                            showDetailScreen = true
+                                        },
+                                        onCheckboxClick = { onCheckboxClick(task) },
+                                        onDeleteIconClick = {
+                                            deletingTask = task
+                                            showDeleteConfirmDialog = true
+                                        },
+                                        swipedTaskId = swipedTaskId,
+                                        onSwipeChange = { id, isSwiped ->
+                                            swipedTaskId = if (isSwiped) id else null
+                                        }
+                                    )
+                                }
+                            }
+
+                            if (groupedTasks["Afternoon"]?.isNotEmpty() == true) {
+                                item {
+                                    TimePeriodHeader(
+                                        title = "Afternoon",
+                                        timeRange = "11:00 - 15:00",
+                                        taskCount = groupedTasks["Afternoon"]?.size ?: 0
+                                    )
+                                }
+                                items(
+                                    groupedTasks["Afternoon"] ?: emptyList(),
+                                    key = { it.id }) { task ->
                                     TaskCardDesignStyle(
                                         task = task,
                                         onTaskClick = {
@@ -319,11 +359,67 @@ fun TaskScreen(
                                         },
                                         swipedTaskId = swipedTaskId,
                                         onSwipeChange = { id, isSwiped ->
-                                            if (isSwiped) {
-                                                swipedTaskId = id
-                                            } else if (swipedTaskId == id) {
-                                                swipedTaskId = null
-                                            }
+                                            swipedTaskId = if (isSwiped) id else null
+                                        }
+                                    )
+                                }
+                            }
+
+                            if (groupedTasks["Evening"]?.isNotEmpty() == true) {
+                                item {
+                                    TimePeriodHeader(
+                                        title = "Evening",
+                                        timeRange = "15:00 - 18:00",
+                                        taskCount = groupedTasks["Evening"]?.size ?: 0
+                                    )
+                                }
+                                items(
+                                    groupedTasks["Evening"] ?: emptyList(),
+                                    key = { it.id }) { task ->
+                                    TaskCardDesignStyle(
+                                        task = task,
+                                        onTaskClick = {
+                                            selectedTaskForDetail = task
+                                            showDetailScreen = true
+                                        },
+                                        onCheckboxClick = { onCheckboxClick(task) },
+                                        onDeleteIconClick = {
+                                            deletingTask = task
+                                            showDeleteConfirmDialog = true
+                                        },
+                                        swipedTaskId = swipedTaskId,
+                                        onSwipeChange = { id, isSwiped ->
+                                            swipedTaskId = if (isSwiped) id else null
+                                        }
+                                    )
+                                }
+                            }
+
+                            if (groupedTasks["Night"]?.isNotEmpty() == true) {
+                                item {
+                                    TimePeriodHeader(
+                                        title = "Night",
+                                        timeRange = "19:00 - 21:00",
+                                        taskCount = groupedTasks["Night"]?.size ?: 0
+                                    )
+                                }
+                                items(
+                                    groupedTasks["Night"] ?: emptyList(),
+                                    key = { it.id }) { task ->
+                                    TaskCardDesignStyle(
+                                        task = task,
+                                        onTaskClick = {
+                                            selectedTaskForDetail = task
+                                            showDetailScreen = true
+                                        },
+                                        onCheckboxClick = { onCheckboxClick(task) },
+                                        onDeleteIconClick = {
+                                            deletingTask = task
+                                            showDeleteConfirmDialog = true
+                                        },
+                                        swipedTaskId = swipedTaskId,
+                                        onSwipeChange = { id, isSwiped ->
+                                            swipedTaskId = if (isSwiped) id else null
                                         }
                                     )
                                 }
@@ -339,49 +435,37 @@ fun TaskScreen(
                                         color = Color(0xFF9E9E9E)
                                     )
                                 }
-
                                 items(completedTasks, key = { it.id }) { task ->
-                                    AnimatedVisibility(
-                                        visible = true,
-                                        enter = fadeIn() + expandVertically(),
-                                        exit = fadeOut() + shrinkVertically()
-                                    ) {
-                                        TaskCardDesignStyle(
-                                            task = task,
-                                            onTaskClick = {
-                                                selectedTaskForDetail = task
-                                                showDetailScreen = true
-                                            },
-                                            onCheckboxClick = { showRestoreConfirmation(task) },
-                                            onDeleteIconClick = {
-                                                deletingTask = task
-                                                showDeleteConfirmDialog = true
-                                            },
-                                            isCompleted = true,
-                                            swipedTaskId = swipedTaskId,
-                                            onSwipeChange = { id, isSwiped ->
-                                                if (isSwiped) {
-                                                    swipedTaskId = id
-                                                } else if (swipedTaskId == id) {
-                                                    swipedTaskId = null
-                                                }
-                                            }
-                                        )
-                                    }
+                                    TaskCardDesignStyle(
+                                        task = task,
+                                        onTaskClick = {
+                                            selectedTaskForDetail = task
+                                            showDetailScreen = true
+                                        },
+                                        onCheckboxClick = { showRestoreConfirmation(task) },
+                                        onDeleteIconClick = {
+                                            deletingTask = task
+                                            showDeleteConfirmDialog = true
+                                        },
+                                        isCompleted = true,
+                                        swipedTaskId = swipedTaskId,
+                                        onSwipeChange = { id, isSwiped ->
+                                            swipedTaskId = if (isSwiped) id else null
+                                        }
+                                    )
                                 }
                             }
                         }
                     }
                 }
 
-                // Undo Snackbar
                 AnimatedVisibility(
                     visible = showUndoSnackbar,
                     enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                     exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
+                        .padding(bottom = 80.dp, start = 16.dp, end = 16.dp)
                 ) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -407,11 +491,7 @@ fun TaskScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(12.dp))
-                                Text(
-                                    "Task completed",
-                                    color = Color.White,
-                                    fontSize = 14.sp
-                                )
+                                Text("Task completed", color = Color.White, fontSize = 14.sp)
                             }
                             TextButton(
                                 onClick = { undoCompletion() },
@@ -428,14 +508,13 @@ fun TaskScreen(
                     }
                 }
 
-                // Undo Delete Snackbar
                 AnimatedVisibility(
                     visible = showDeleteSnackbar,
                     enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                     exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
+                        .padding(bottom = 80.dp, start = 16.dp, end = 16.dp)
                 ) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -461,11 +540,7 @@ fun TaskScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(12.dp))
-                                Text(
-                                    "Task deleted",
-                                    color = Color.White,
-                                    fontSize = 14.sp
-                                )
+                                Text("Task deleted", color = Color.White, fontSize = 14.sp)
                             }
                             TextButton(
                                 onClick = { undoDelete() },
@@ -491,7 +566,11 @@ fun TaskScreen(
                             TextButton(onClick = { restoreTask() }) { Text("Yes") }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showRestoreDialog = false; taskToRestore = null }) { Text("Cancel") }
+                            TextButton(onClick = {
+                                showRestoreDialog = false; taskToRestore = null
+                            }) {
+                                Text("Cancel")
+                            }
                         }
                     )
                 }
@@ -511,7 +590,10 @@ fun TaskScreen(
                             }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showDeleteConfirmDialog = false; deletingTask = null }) { Text("Batal") }
+                            TextButton(onClick = {
+                                showDeleteConfirmDialog = false
+                                deletingTask = null
+                            }) { Text("Batal") }
                         }
                     )
                 }
@@ -521,238 +603,63 @@ fun TaskScreen(
 }
 
 @Composable
-fun TaskCardDesignStyle(
-    task: Task,
-    onTaskClick: () -> Unit,
-    onCheckboxClick: () -> Unit,
-    onDeleteIconClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isCompleted: Boolean = false,
-    swipedTaskId: Int? = null,
-    onSwipeChange: (Int, Boolean) -> Unit = { _, _ -> }
-) {
-    val deleteWidth = 80.dp
-    val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
-    val deleteOffset = remember { Animatable(0f) }
-
-    val stripColor = when (task.priority) {
-        "High" -> Color(0xFFEF5350)
-        "Medium" -> Color(0xFFFFB74D)
-        "Low" -> Color(0xFF64B5F6)
-        else -> Color(0xFF64B5F6)
-    }.copy(alpha = if (isCompleted) 0.4f else 0.9f)
-
-    val titleColor = Color(0xFF2D2D2D).copy(alpha = if (isCompleted) 0.5f else 1f)
-    val secondaryTextColor = Color(0xFF9E9E9E).copy(alpha = if (isCompleted) 0.5f else 1f)
-
-    LaunchedEffect(swipedTaskId) {
-        val deleteWidthPx = with(density) { deleteWidth.toPx() }
-        val isOpen = deleteOffset.value < 0f
-        if (swipedTaskId != null && swipedTaskId != task.id && isOpen) {
-            deleteOffset.animateTo(0f, tween(300))
-        } else if (swipedTaskId == null && isOpen) {
-            deleteOffset.animateTo(0f, tween(300))
-        }
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .pointerInput(Unit) {
-                val deleteWidthPx = with(density) { deleteWidth.toPx() }
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        scope.launch {
-                            val target = if (deleteOffset.value < -deleteWidthPx / 2) -deleteWidthPx else 0f
-                            deleteOffset.animateTo(target, tween(300))
-                            onSwipeChange(task.id, target != 0f)
-                        }
-                    },
-                    onDragCancel = {
-                        scope.launch { deleteOffset.snapTo(0f); onSwipeChange(task.id, false) }
-                    },
-                    onHorizontalDrag = { change, dragAmount ->
-                        change.consume()
-                        val newOffset = (deleteOffset.value + dragAmount).coerceIn(-deleteWidthPx, 0f)
-                        scope.launch { deleteOffset.snapTo(newOffset) }
-                    }
-                )
-            }
-    ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clip(RoundedCornerShape(14.dp))
-                .background(stripColor)
-        ) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .width(deleteWidth)
-                    .fillMaxHeight()
-                    .clickable(onClick = onDeleteIconClick),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = "Hapus",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Hapus",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .offset { IntOffset(deleteOffset.value.roundToInt(), 0) }
-                .zIndex(1f)
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(onClick = onTaskClick),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min)
-                    .padding(end = 12.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .fillMaxHeight()
-                        .background(stripColor)
-                )
-
-                Spacer(Modifier.width(12.dp))
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(vertical = 14.dp)
-                ) {
-                    Text(
-                        text = task.title,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = titleColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.height(6.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Outlined.AccessTime,
-                                contentDescription = null,
-                                tint = secondaryTextColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(Modifier.width(3.dp))
-                            Text(task.time, fontSize = 11.sp, color = secondaryTextColor)
-                        }
-
-                        BadgeChip(
-                            text = task.priority,
-                            backgroundColor = when (task.priority) {
-                                "High" -> Color(0xFFFFEBEE)
-                                "Medium" -> Color(0xFFFFF3E0)
-                                else -> Color(0xFFE3F2FD)
-                            }.copy(alpha = if (isCompleted) 0.3f else 1f),
-                            textColor = when (task.priority) {
-                                "High" -> Color(0xFFD32F2F)
-                                "Medium" -> Color(0xFFEF6C00)
-                                else -> Color(0xFF1976D2)
-                            }.copy(alpha = if (isCompleted) 0.6f else 1f)
-                        )
-
-                        BadgeChip(
-                            text = task.category,
-                            backgroundColor = Color(0xFFE8EAF6).copy(alpha = if (isCompleted) 0.3f else 1f),
-                            textColor = Color(0xFF3949AB).copy(alpha = if (isCompleted) 0.6f else 1f)
-                        )
-
-                        task.status?.let { status ->
-                            BadgeChip(
-                                text = status,
-                                backgroundColor = when (status) {
-                                    "Waiting" -> Color(0xFFF3E5F5)
-                                    "To do" -> Color(0xFFE3F2FD)
-                                    "Hold On" -> Color(0xFFFFF3E0)
-                                    "In Progress" -> Color(0xFFE0F2F1)
-                                    "Done" -> Color(0xFFE8F5E8)
-                                    else -> Color(0xFFF5F5F5)
-                                }.copy(alpha = if (isCompleted) 0.3f else 1f),
-                                textColor = when (status) {
-                                    "Waiting" -> Color(0xFF6A1B9A)
-                                    "To do" -> Color(0xFF1976D2)
-                                    "Hold On" -> Color(0xFFEF6C00)
-                                    "In Progress" -> Color(0xFF00695C)
-                                    "Done" -> Color(0xFF2E7D32)
-                                    else -> Color(0xFF616161)
-                                }.copy(alpha = if (isCompleted) 0.6f else 1f)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                Checkbox(
-                    checked = isCompleted,
-                    onCheckedChange = { onCheckboxClick() },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Color(0xFF6A70D7),
-                        uncheckedColor = Color(0xFFB0B0B0),
-                        checkmarkColor = Color.White
-                    ),
-                    modifier = Modifier
-                        .size(24.dp)
-                        .padding(top = 12.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun BadgeChip(
-    text: String,
-    backgroundColor: Color,
-    textColor: Color,
+fun TimePeriodHeader(
+    title: String,
+    timeRange: String,
+    taskCount: Int,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        color = backgroundColor,
-        shape = RoundedCornerShape(4.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            color = textColor,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Medium
-        )
+        Column {
+            Text(
+                text = title,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2D2D2D)
+            )
+            Text(
+                text = timeRange,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color(0xFF9E9E9E)
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFF6A70D7).copy(alpha = 0.1f)
+        ) {
+            Text(
+                text = "$taskCount ${if (taskCount == 1) "task" else "tasks"}",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF6A70D7)
+            )
+        }
     }
 }
+
+fun groupTasksByTimePeriod(tasks: List<Task>): Map<String, List<Task>> {
+    return tasks.groupBy { task ->
+        val hour = task.time.split(":")[0].toIntOrNull() ?: 0
+        when (hour) {
+            in 5..10 -> "Morning"
+            in 11..14 -> "Afternoon"
+            in 15..18 -> "Evening"
+            in 19..21 -> "Night"
+            else -> "Other"
+        }
+    }.filterKeys { it != "Other" }
+}
+
+fun getCurrentDate(): String {
+    val sdf = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.getDefault())
+    return sdf.format(Date())
+}
+

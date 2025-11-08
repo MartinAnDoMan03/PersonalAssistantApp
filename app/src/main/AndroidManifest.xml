@@ -76,6 +76,20 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <activity
+            android:name=".DailyActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
+        <activity
+            android:name=".WeeklyActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
+        <activity
+            android:name=".MonthlyActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
     </application>
 
 </manifest>

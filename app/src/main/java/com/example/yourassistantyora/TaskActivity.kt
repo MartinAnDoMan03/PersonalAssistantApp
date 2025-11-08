@@ -24,20 +24,24 @@ class TaskActivity : AppCompatActivity() {
                         // val intent = Intent(this, TaskDetailActivity::class.java)
                         // intent.putExtra("TASK_ID", task.id)
                         // startActivity(intent)
+                        Toast.makeText(this, "Clicked: ${task.title}", Toast.LENGTH_SHORT).show()
                     },
                     onCreateTaskClick = {
                         // TODO: Handle create new task
                         // Contoh: buka CreateTaskActivity
                         // val intent = Intent(this, CreateTaskActivity::class.java)
                         // startActivity(intent)
+                        Toast.makeText(this, "Create Task", Toast.LENGTH_SHORT).show()
                     },
-                    // ✨ TAMBAHKAN 3 CALLBACK INI
                     onNavigateToHome = {
                         // Kembali ke HomeActivity
+                        val intent = Intent(this, MainActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        startActivity(intent)
                         finish()
                     },
                     onNavigateToNotes = {
-                        // TODO: Navigate ke NoteActivity
+                        // Navigate ke NoteActivity
                         val intent = Intent(this, NoteActivity::class.java)
                         startActivity(intent)
                         finish()
@@ -47,7 +51,23 @@ class TaskActivity : AppCompatActivity() {
                         Toast.makeText(this, "Team feature coming soon", Toast.LENGTH_SHORT).show()
                         // val intent = Intent(this, TeamActivity::class.java)
                         // startActivity(intent)
-                        // finish() // tutup TaskActivity
+                        // finish()
+                    },
+                    // ✨ TAMBAHKAN CALLBACK UNTUK NAVIGASI KE WEEKLY
+                    onNavigateToWeekly = {
+                        val intent = Intent(this, WeeklyActivity::class.java)
+                        startActivity(intent)
+                        finish()
+                    },
+                    onNavigateToDaily = {
+                        val intent = Intent(this, DailyActivity::class.java)
+                        startActivity(intent)
+                        finish()
+                    },
+                    onNavigateToMonthly = {
+                        val intent = Intent(this, MonthlyActivity::class.java)
+                        startActivity(intent)
+                        finish()
                     }
                 )
             }
