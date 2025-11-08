@@ -25,15 +25,8 @@ class NoteActivity : AppCompatActivity() {
                         startActivity(intent)
                     },
                     onCreateNoteClick = {
-                        // TODO: Handle create new note
-                        // Contoh: buka CreateNoteActivity
-                        // val intent = Intent(this, CreateNoteActivity::class.java)
-                        // startActivity(intent)
-                        Toast.makeText(
-                            this,
-                            "Create note feature coming soon",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        val intent = Intent(this, CreateNoteActivity::class.java)
+                        startActivity(intent)
                     },
                     onNavigateToHome = {
                         // Kembali ke HomeActivity

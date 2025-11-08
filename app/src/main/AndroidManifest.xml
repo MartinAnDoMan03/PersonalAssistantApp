@@ -71,6 +71,10 @@
             android:exported="false"
             android:label="Note Detail"
             android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".CreateNoteActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
     </application>
 
