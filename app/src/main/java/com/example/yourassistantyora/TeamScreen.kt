@@ -15,17 +15,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import com.example.yourassistantyora.components.BottomNavigationBar
 import com.example.yourassistantyora.utils.NavigationConstants
-import com.example.yourassistantyora.TeamColorScheme // IMPORT DARI CREATE TEAM SCREEN
+import com.example.yourassistantyora.TeamColorScheme
+import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import androidx.compose.ui.tooling.preview.Preview
 
+// ✅ DATA MODEL TEAM
 data class Team(
     val id: String,
     val name: String,
@@ -48,11 +47,13 @@ fun TeamScreen(
     onNavigateToTeam: () -> Unit = {},
     onCreateTeam: () -> Unit = {},
     onJoinTeam: () -> Unit = {},
+    onTeamClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TEAM) }
     var searchQuery by remember { mutableStateOf("") }
 
+    // ✅ Contoh data dummy
     val teams = remember {
         listOf(
             Team("1", "Mobile Dev Team", "React Native & Flutter Development", "Project", TeamColorScheme.BLUE, 5, 12, 7, 0.60f, "Admin"),
@@ -78,24 +79,44 @@ fun TeamScreen(
         }
     ) { paddingValues ->
         LazyColumn(
-            modifier = modifier.fillMaxSize().padding(paddingValues),
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues),
             contentPadding = PaddingValues(20.dp, 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // ✅ Header
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("My Teams", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2D2D2D))
-                    Text("${teams.size} teams", fontSize = 13.sp, color = Color(0xFF9E9E9E))
+                    Text(
+                        "My Teams",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2D2D2D)
+                    )
+                    Text(
+                        "${teams.size} teams",
+                        fontSize = 13.sp,
+                        color = Color(0xFF9E9E9E)
+                    )
                 }
             }
 
+            // ✅ Search bar
             item {
                 TextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search teams...", color = Color(0xFFBDBDBD), fontSize = 14.sp) },
-                    leadingIcon = { Icon(Icons.Filled.Search, "Search", tint = Color(0xFFBDBDBD), modifier = Modifier.size(20.dp)) },
-                    modifier = Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(12.dp)),
+                    placeholder = {
+                        Text("Search teams...", color = Color(0xFFBDBDBD), fontSize = 14.sp)
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Search, "Search", tint = Color(0xFFBDBDBD))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(12.dp)),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
                         unfocusedContainerColor = Color.White,
@@ -107,89 +128,186 @@ fun TeamScreen(
                 )
             }
 
+            // ✅ Create + Join button
             item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     OutlinedButton(
                         onClick = onCreateTeam,
                         modifier = Modifier.weight(1f).height(44.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF6A70D7), containerColor = Color.White),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.5.dp, brush = SolidColor(Color(0xFF6A70D7))),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF6A70D7)
+                        )
                     ) {
-                        Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp), tint = Color(0xFF6A70D7))
+                        Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Create Team", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF6A70D7))
+                        Text("Create Team", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
+
                     OutlinedButton(
                         onClick = onJoinTeam,
                         modifier = Modifier.weight(1f).height(44.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF6A70D7), containerColor = Color.White),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.5.dp, brush = SolidColor(Color(0xFF6A70D7))),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF6A70D7)
+                        )
                     ) {
-                        Icon(Icons.Filled.PersonAdd, null, modifier = Modifier.size(18.dp), tint = Color(0xFF6A70D7))
+                        Icon(Icons.Filled.PersonAdd, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Join Team", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF6A70D7))
+                        Text("Join Team", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
 
-            items(teams) { team -> TeamCard(team = team) }
+            // ✅ LIST TEAM CARD
+            items(teams) { team ->
+                TeamCard(
+                    team = team,
+                    onClick = { onTeamClick(team.id) }
+                )
+            }
         }
     }
 }
 
 @Composable
-fun TeamCard(team: Team, modifier: Modifier = Modifier) {
+fun TeamCard(
+    team: Team,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = modifier.fillMaxWidth().clickable { },
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(Color.White),
-        elevation = CardDefaults.cardElevation(8.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column {
+            // ✅ Header dengan gradient background
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Brush.linearGradient(team.colorScheme.gradient))
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                     .padding(16.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(team.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                            Text(team.description, fontSize = 12.sp, color = Color.White.copy(0.8f))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Team name & description
+                        Text(
+                            team.name,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            team.description,
+                            color = Color.White.copy(0.85f),
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+
+                        // Badges
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Badge(team.category)
+                            Badge(team.role)
                         }
-                        Icon(Icons.Filled.KeyboardArrowRight, null, tint = Color.White.copy(0.9f), modifier = Modifier.size(24.dp))
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Badge(team.category, Color.White.copy(0.2f))
-                        Badge(team.role, Color.White.copy(0.2f))
-                    }
+
+                    // Arrow icon
+                    Icon(
+                        Icons.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = Color.White.copy(0.9f),
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Filled.People, null, tint = Color(0xFF616161), modifier = Modifier.size(18.dp))
-                        Text("${team.members} members", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color(0xFF616161))
+
+            // ✅ Body dengan info members & progress
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Members & percentage
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.People,
+                            contentDescription = null,
+                            tint = Color(0xFF757575),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            "${team.members} members",
+                            fontSize = 13.sp,
+                            color = Color(0xFF616161),
+                            fontWeight = FontWeight.Medium
+                        )
                     }
-                    Text("${(team.progress * 100).toInt()} %", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = team.colorScheme.gradient.last())
+
+                    Text(
+                        "${(team.progress * 100).toInt()}%",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = team.colorScheme.gradient.last()
+                    )
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+
+                // Progress bar
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFFE0E0E0))
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Color(0xFFE0E0E0))
                     ) {
                         Box(
-                            modifier = Modifier.fillMaxWidth(team.progress).fillMaxHeight()
+                            modifier = Modifier
+                                .fillMaxWidth(team.progress)
+                                .fillMaxHeight()
                                 .clip(RoundedCornerShape(3.dp))
                                 .background(Brush.linearGradient(team.colorScheme.gradient))
                         )
                     }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("${team.activeTasks} active tasks", fontSize = 11.sp, color = Color(0xFF9E9E9E))
-                        Text("${team.completedTasks} completed", fontSize = 11.sp, color = Color(0xFF9E9E9E))
+
+                    // Active & completed tasks
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "${team.activeTasks} active tasks",
+                            fontSize = 11.sp,
+                            color = Color(0xFF9E9E9E)
+                        )
+                        Text(
+                            "${team.completedTasks} completed",
+                            fontSize = 11.sp,
+                            color = Color(0xFF9E9E9E)
+                        )
                     }
                 }
             }
@@ -198,14 +316,17 @@ fun TeamCard(team: Team, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Badge(text: String, color: Color, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, color = color, shape = RoundedCornerShape(8.dp)) {
+fun Badge(text: String) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White.copy(alpha = 0.25f)
+    ) {
         Text(
             text = text,
-            fontSize = 11.sp,
             color = Color.White,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
     }
 }
@@ -213,5 +334,7 @@ fun Badge(text: String, color: Color, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun TeamScreenPreview() {
-    YourAssistantYoraTheme { TeamScreen() }
+    YourAssistantYoraTheme {
+        TeamScreen()
+    }
 }

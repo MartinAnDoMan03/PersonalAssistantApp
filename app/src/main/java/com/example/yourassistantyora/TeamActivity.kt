@@ -20,28 +20,21 @@ class TeamActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     TeamScreen(
-                            onNavigateToHome = {
-                                // Kembali ke HomeActivity
-                                val intent = Intent(this, MainActivity::class.java)
-                                intent.flags =
-                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                                startActivity(intent)
-                                finish()
-                            },
-                        onNavigateToTasks = {
-                            startActivity(Intent(this, TaskActivity::class.java))
+                        onNavigateToHome = {
+                            val intent = Intent(this, MainActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            startActivity(intent)
+                            finish()
                         },
-                        onNavigateToNotes = {
-                            startActivity(Intent(this, NoteActivity::class.java))
-                        },
-                        onNavigateToTeam = {
-                            // Already in Team screen
-                        },
-                        onCreateTeam = {
-                            startActivity(Intent(this, CreateTeamActivity::class.java))
-                        },
-                        onJoinTeam = {
-                            // TODO: Implement join team functionality
+                        onNavigateToTasks = { startActivity(Intent(this, TaskActivity::class.java)) },
+                        onNavigateToNotes = { startActivity(Intent(this, NoteActivity::class.java)) },
+                        onNavigateToTeam = {},
+                        onCreateTeam = { startActivity(Intent(this, CreateTeamActivity::class.java)) },
+                        onJoinTeam = {},
+                        onTeamClick = { teamId ->       // ✅ Tambahkan ini
+                            val intent = Intent(this, TeamDetailActivity::class.java)
+                            intent.putExtra("teamId", teamId)
+                            startActivity(intent)
                         }
                     )
                 }
