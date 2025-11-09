@@ -47,11 +47,9 @@ class TaskActivity : AppCompatActivity() {
                         finish()
                     },
                     onNavigateToTeam = {
-                        // TODO: Navigate ke TeamActivity (belum dibuat)
-                        Toast.makeText(this, "Team feature coming soon", Toast.LENGTH_SHORT).show()
-                        // val intent = Intent(this, TeamActivity::class.java)
-                        // startActivity(intent)
-                        // finish()
+                        // TODO: Navigate ke TeamActivity
+                        val intent = Intent(this, TeamActivity::class.java)
+                        startActivity(intent)
                     },
                     // ✨ TAMBAHKAN CALLBACK UNTUK NAVIGASI KE WEEKLY
                     onNavigateToWeekly = {

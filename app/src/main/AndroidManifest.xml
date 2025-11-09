@@ -90,6 +90,17 @@
             android:name=".MonthlyActivity"
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
+
+        <activity
+            android:name=".TeamActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+        <activity
+            android:name=".CreateTeamActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
     </application>
+
+
 
 </manifest>

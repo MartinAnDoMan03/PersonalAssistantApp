@@ -42,15 +42,9 @@ class NoteActivity : AppCompatActivity() {
                         finish()
                     },
                     onNavigateToTeam = {
-                        // TODO: Navigate ke TeamActivity (belum dibuat)
-                        Toast.makeText(
-                            this,
-                            "Team feature coming soon",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        // val intent = Intent(this, TeamActivity::class.java)
-                        // startActivity(intent)
-                        // finish()
+                        // TODO: Navigate ke TeamActivity
+                        val intent = Intent(this, TeamActivity::class.java)
+                        startActivity(intent)
                     }
                 )
             }
