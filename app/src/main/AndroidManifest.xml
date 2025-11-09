@@ -101,6 +101,11 @@
             android:theme="@style/Theme.YourAssistantYora" />
 
         <activity
+            android:name=".JoinTeamActivity"
+            android:exported="false"
+            android:theme="@style/Theme.YourAssistantYora" />
+
+        <activity
             android:name=".TeamDetailActivity" />
 
     </application>

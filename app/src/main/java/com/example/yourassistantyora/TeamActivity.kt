@@ -26,12 +26,21 @@ class TeamActivity : ComponentActivity() {
                             startActivity(intent)
                             finish()
                         },
-                        onNavigateToTasks = { startActivity(Intent(this, TaskActivity::class.java)) },
-                        onNavigateToNotes = { startActivity(Intent(this, NoteActivity::class.java)) },
-                        onNavigateToTeam = {},
-                        onCreateTeam = { startActivity(Intent(this, CreateTeamActivity::class.java)) },
-                        onJoinTeam = {},
-                        onTeamClick = { teamId ->       // ✅ Tambahkan ini
+                        onNavigateToTasks = {
+                            startActivity(Intent(this, TaskActivity::class.java))
+                        },
+                        onNavigateToNotes = {
+                            startActivity(Intent(this, NoteActivity::class.java))
+                        },
+                        onNavigateToTeam = {}, // Sudah di TeamScreen
+                        onCreateTeam = {
+                            startActivity(Intent(this, CreateTeamActivity::class.java))
+                        },
+                        onJoinTeam = {
+                            // ✅ TAMBAHKAN INI - Navigate ke JoinTeamActivity
+                            startActivity(Intent(this, JoinTeamActivity::class.java))
+                        },
+                        onTeamClick = { teamId ->
                             val intent = Intent(this, TeamDetailActivity::class.java)
                             intent.putExtra("teamId", teamId)
                             startActivity(intent)

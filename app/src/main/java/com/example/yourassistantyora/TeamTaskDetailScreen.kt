@@ -76,7 +76,7 @@ fun TeamTaskDetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = onBackClick) {
-                            Icon(Icons.Filled.Close, "Back", tint = Color.White)
+                            Icon(Icons.Filled.ArrowBack, "Back", tint = Color.White) // Ganti Close menjadi ArrowBack
                         }
                     }
 

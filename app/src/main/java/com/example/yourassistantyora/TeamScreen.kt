@@ -1,5 +1,6 @@
 package com.example.yourassistantyora
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -139,8 +140,10 @@ fun TeamScreen(
                         modifier = Modifier.weight(1f).height(44.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF6A70D7)
-                        )
+                            contentColor = Color(0xFF6A70D7),
+                            containerColor = Color.White
+                        ),
+                        border = BorderStroke(1.5.dp, Color(0xFF6A70D7))
                     ) {
                         Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -152,8 +155,10 @@ fun TeamScreen(
                         modifier = Modifier.weight(1f).height(44.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF6A70D7)
-                        )
+                            contentColor = Color(0xFF6A70D7),
+                            containerColor = Color.White
+                        ),
+                        border = BorderStroke(1.5.dp, Color(0xFF6A70D7))
                     ) {
                         Icon(Icons.Filled.PersonAdd, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
