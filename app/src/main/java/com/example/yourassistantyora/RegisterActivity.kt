@@ -8,6 +8,7 @@ import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.Date
+import android.widget.Toast
 
 class RegisterActivity : ComponentActivity() {
 
@@ -42,6 +43,9 @@ class RegisterActivity : ComponentActivity() {
         password: String,
         onResult: (Boolean, String?) -> Unit
     ) {
+        if (username.isBlank() || email.isBlank() || password.isBlank()) {
+            onResult(false, "Fields cannot be empty")
+        }
         // create auth user
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { authTask ->
@@ -55,7 +59,6 @@ class RegisterActivity : ComponentActivity() {
 
                     // build user map
                     val userMap = hashMapOf(
-                        "uid" to uid,
                         "username" to username,
                         "email" to email,
                         "createdAt" to Date()
@@ -65,7 +68,10 @@ class RegisterActivity : ComponentActivity() {
                     db.collection("users").document(uid)
                         .set(userMap)
                         .addOnSuccessListener {
+                            Toast.makeText(this, "Registration success!", Toast.LENGTH_SHORT).show()
                             onResult(true, null)
+                            startActivity(Intent(this, LoginActivity::class.java))
+                            finish()
                         }
                         .addOnFailureListener { e ->
                             //Delete in case of failure

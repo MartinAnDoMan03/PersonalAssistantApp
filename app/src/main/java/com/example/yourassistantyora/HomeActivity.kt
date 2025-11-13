@@ -13,6 +13,7 @@ class HomeActivity : AppCompatActivity() {
 
         val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
         val currentUser = auth.currentUser
+        val userName = intent.getStringExtra("USER_NAME") ?: "User"
         if (currentUser == null) {
             // No logged-in user, kick back to login
             val intent = Intent(this, LoginActivity::class.java)
@@ -21,8 +22,6 @@ class HomeActivity : AppCompatActivity() {
             finish()
             return
         }
-
-        val userName = currentUser.displayName ?: intent.getStringExtra("USER_NAME") ?: "Tom Holland"
         val userEmail = currentUser.email ?: intent.getStringExtra("USER_EMAIL") ?: "tomholland@gmail.com"
         setContent {
             YourAssistantYoraTheme {

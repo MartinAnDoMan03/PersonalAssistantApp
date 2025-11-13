@@ -4,21 +4,21 @@ import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Intent
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
-import android.widget.FrameLayout
-import android.widget.LinearLayout
-import android.widget.ImageView
-import android.widget.TextView
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.OvershootInterpolator
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.content.ContextCompat
-import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class SplashActivity : AppCompatActivity() {
 
@@ -44,8 +44,15 @@ class SplashActivity : AppCompatActivity() {
     private lateinit var shadowView8: View
     private lateinit var shadowView9: View
 
+    //Data Fetching
+    private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        auth = FirebaseAuth.getInstance()
+        db = FirebaseFirestore.getInstance()
 
         setContentView(R.layout.activity_splash)
 
@@ -110,19 +117,6 @@ class SplashActivity : AppCompatActivity() {
         Handler(Looper.getMainLooper()).postDelayed({
             animateStage3()
         }, 1700)  // Timing lebih smooth
-
-        // Pindah ke LoginActivity setelah animasi selesai
-        Handler(Looper.getMainLooper()).postDelayed({
-            val sharedPref = getSharedPreferences("user_prefs", MODE_PRIVATE)
-            val isLoggedIn = sharedPref.getBoolean("is_logged_in", false)
-
-            val nextActivity = if (isLoggedIn) HomeActivity::class.java else LoginActivity::class.java
-
-            val intent = Intent(this, nextActivity)
-            startActivity(intent)
-            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
-            finish()
-        }, 3800)
 
     }
 
@@ -289,6 +283,27 @@ class SplashActivity : AppCompatActivity() {
             textAnimatorSet.playTogether(textScaleX, textScaleY, textFadeIn, textMoveDown)
             textAnimatorSet.start()
 
+            // This handler will now wait for the final animation (700ms) to finish before checking the user and navigating.
+            Handler(Looper.getMainLooper()).postDelayed({
+                val currentUser = auth.currentUser
+                if (currentUser != null) {
+                    // User is signed in, go to HomeActivity
+                    Log.d("SplashActivity", "User logged in. Navigating to Home.")
+                    val intent = Intent(this, HomeActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
+                    fetchUserAndNavigate()
+                } else {
+                    // No user is signed in, go to LoginActivity
+                    Log.d("SplashActivity", "User logged out. Navigating to Login.")
+                    val intent = Intent(this, LoginActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
+                }
+                finish() // IMPORTANT: Finish SplashActivity so the user can't navigate back to it.
+            }, 1000) // A 1-second delay is safe, as your text animation is 700ms.
+
+
             // Staggered tagline
             appNameTextView.alpha = 1f
             taglineTextView.alpha = 0f
@@ -302,5 +317,37 @@ class SplashActivity : AppCompatActivity() {
             Log.d("SplashDebug", "Stage 3 started: Particles from ($logoCenterX, $logoCenterY), text to $textEndY")
 
         }, 200)  // Delay setelah logo mulai naik
+    }
+    private fun fetchUserAndNavigate() {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            // This should rarely happen if currentUser is not null, but it's a safe fallback.
+            navigateToHome("User")
+            return
+        }
+
+        db.collection("users").document(userId).get()
+            .addOnSuccessListener { document ->
+                if (document != null && document.exists()) {
+                    val username = document.getString("username") ?: "User"
+                    navigateToHome(username)
+                } else {
+                    // Fallback if document doesn't exist for some reason
+                    val fallbackName = auth.currentUser?.displayName ?: "New User"
+                    navigateToHome(fallbackName)
+                }
+            }
+            .addOnFailureListener {
+                // Fallback on Firestore error
+                navigateToHome("User")
+            }
+    }
+
+    private fun navigateToHome(userName: String) {
+        startActivity(Intent(this, HomeActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("USER_NAME", userName) // 👈 Pass the fetched username
+        })
+        finish()
     }
 }

@@ -1,6 +1,8 @@
 package com.example.yourassistantyora
 
+import android.util.Log
 import android.widget.Toast
+import androidx.activity.result.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -135,19 +137,12 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Remember + Forgot
+        // Forgot Password only
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Checkbox(
-                    checked = remember,
-                    onCheckedChange = { remember = it },
-                    colors = CheckboxDefaults.colors(checkedColor = Color(0xFF6C63FF))
-                )
-                Text(text = "Remember", color = Color(0xFF757575))
-            }
+            Spacer(modifier = Modifier.weight(1f)) // push "Forgot?" to the right
             Text(
                 text = "Forgot?",
                 color = Color(0xFF6C63FF),
@@ -155,6 +150,7 @@ fun LoginScreen(
                 modifier = Modifier.clickable { onForgot() }
             )
         }
+
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -207,7 +203,7 @@ fun LoginScreen(
 
         // Google Button
         OutlinedButton(
-            onClick = { onGoogle() },
+            onClick = {onGoogle()},
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),

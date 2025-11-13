@@ -76,6 +76,12 @@ dependencies {
     implementation("com.squareup.okio:okio:3.6.0")
     implementation("androidx.compose.material:material-icons-extended-android:1.6.8")
 
+    // To use 'await()' with Google Play Services Tasks
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    //Navigasi
+    implementation("androidx.navigation:navigation-compose:2.7.5")
+
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)

@@ -301,31 +301,6 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Full Name
-                Text(
-                    text = "Full Name",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF2D2D2D),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                OutlinedTextField(
-                    value = editedName,
-                    onValueChange = { editedName = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF6A70D7),
-                        unfocusedBorderColor = Color(0xFFE0E0E0),
-                        focusedContainerColor = Color(0xFFFAFAFA),
-                        unfocusedContainerColor = Color(0xFFFAFAFA)
-                    ),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
                 // Username
                 Text(
                     text = "Username",
@@ -649,29 +624,6 @@ fun ProfileScreen(
                         .padding(horizontal = 20.dp)
                         .padding(top = 8.dp)
                 ) {
-                    // Full Name
-                    Text(
-                        text = "Full Name",
-                        fontSize = 13.sp,
-                        color = Color(0xFF000000),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    OutlinedTextField(
-                        value = userName,
-                        onValueChange = { },
-                        enabled = false,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = Color.Black,
-                            disabledBorderColor = Color(0xFFE0E0E0),
-                            disabledContainerColor = Color.White
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
                     // Username
                     Text(
                         text = "Username",
