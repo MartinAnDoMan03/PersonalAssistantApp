@@ -2,7 +2,6 @@ package com.example.yourassistantyora
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme

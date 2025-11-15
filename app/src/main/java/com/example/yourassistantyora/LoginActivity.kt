@@ -28,7 +28,15 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         auth = FirebaseAuth.getInstance()
+
         db = FirebaseFirestore.getInstance()
+
+        // Google Sign in Client
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        googleSignInClient = GoogleSignIn.getClient(this, gso)
 
         googleSignInLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -45,13 +53,6 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
 
-        // Google Sign in Client
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
-            .requestEmail()
-            .build()
-        googleSignInClient = GoogleSignIn.getClient(this, gso)
-
         setContent {
             YourAssistantYoraTheme {
                 LoginScreen(
@@ -64,8 +65,18 @@ class LoginActivity : AppCompatActivity() {
                     onGoogle = {
                         signInWithGoogle()
                     },
+                    // This logic is now clean and correct.
                     onLogin = { email, password, onResult ->
-                        loginUser(email, password, onResult)
+                        loginUser(email, password) { success, error ->
+                            if (success) {
+                                // On success, relaunch the splash activity to handle routing.
+                                Log.d("LoginDebug", "Login successful. Relaunching SplashActivity.")
+                                navigateToHome()
+                            } else {
+                                // On failure, report error back to the UI.
+                                onResult(false, error)
+                            }
+                        }
                     }
                 )
             }
@@ -82,97 +93,77 @@ class LoginActivity : AppCompatActivity() {
         auth.signInWithCredential(credential)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Log.d("LoginDebug", "Google sign-in successful: ${auth.currentUser?.email}")
-                    val firebaseUser = auth.currentUser
-                    if (firebaseUser != null) {
-                        checkAndCreateUserProfile(firebaseUser.uid, account.displayName ?: "New User", firebaseUser.email!!)
-                    } else {
-                        Log.e("LoginDebug", "Firebase user is null after Google Sign-in.")
-                        navigateToHome("User") // Fallback
-                    }
+                    Log.d("LoginDebug", "Google sign-in successful. Relaunching SplashActivity.")
+                    // Use the same robust strategy: let SplashActivity handle it.
+                    val intent = Intent(this, SplashActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
+                    finish()
                 } else {
                     Log.e("LoginDebug", "Google sign-in failed", task.exception)
+                    // Optionally, you can show an error toast here.
                 }
             }
     }
 
-    private fun checkAndCreateUserProfile(userId: String, displayName: String, email: String) {
-        val userDocRef = db.collection("users").document(userId)
-
-        userDocRef.get().addOnSuccessListener { document ->
-            if (document.exists()) {
-                Log.d("Firestore", "User profile already exists for $userId. Navigating.")
-                val username = document.getString("username") ?: displayName
-                navigateToHome(username)
-            } else {
-                Log.d("Firestore", "User profile not found for $userId. Creating new profile.")
-                val newUser = hashMapOf(
-                    "username" to displayName,
-                    "email" to email
-                )
-                userDocRef.set(newUser)
-                    .addOnSuccessListener {
-                        Log.d("Firestore", "Successfully created user profile for $userId.")
-                        navigateToHome(displayName)
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("Firestore", "Error creating user profile for $userId", e)
-                        navigateToHome(displayName)
-                    }
-            }
-        }.addOnFailureListener { e ->
-            Log.e("Firestore", "Error checking for user profile", e)
-            navigateToHome(displayName)
-        }
-    }
-
+    // THIS FUNCTION IS NOW CLEAN AND ONLY REPORTS A RESULT.
     private fun loginUser(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
         if (email.isBlank() || password.isBlank()) {
-            onResult(false, "Please enter email and password")
+            onResult(false, "Email and password cannot be empty.")
             return
         }
+
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Log.d("LoginDebug", "Email login success: ${auth.currentUser?.email}")
-                    fetchUserAndNavigate()
+                    Log.d("LoginDebug", "Email login success. Reporting success to UI.")
                     onResult(true, null)
                 } else {
-                    onResult(false, task.exception?.message ?: "Login failed")
+                    Log.w("LoginDebug", "Email login failed", task.exception)
+                    onResult(false, task.exception?.message ?: "Login failed.")
                 }
             }
     }
 
-    private fun fetchUserAndNavigate() {
-        val userId = auth.currentUser?.uid
-        if (userId == null) {
-            Log.e("Firestore", "Cannot fetch user data, user is not logged in.")
-            navigateToHome("Unknown User")
+
+    private fun navigateToHome() {
+        val user = auth.currentUser
+        if (user == null) {
+            Log.e("LoginFinalFix", "Critical error: User is null after login.")
+            // Still go to login to prevent a crash
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
             return
         }
-        db.collection("users").document(userId).get()
+
+        db.collection("users").document(user.uid).get()
             .addOnSuccessListener { document ->
-                if (document != null && document.exists()) {
-                    val username = document.getString("username") ?: "User"
-                    Log.d("Firestore", "Username fetched successfully: $username")
-                    navigateToHome(username)
+                // We use the EXACT logic from SplashActivity, including the key "username"
+                val fetchedUserName = if (document != null && document.exists()) {
+                    document.getString("username") ?: user.displayName ?: "User"
                 } else {
-                    val fallbackName = auth.currentUser?.displayName ?: "New User"
-                    navigateToHome(fallbackName)
+                    user.displayName ?: "User"
                 }
+
+                Log.d("LoginFinalFix", "Username fetched: $fetchedUserName. Navigating to Home.")
+
+                // Now we navigate with the correctly fetched name
+                val intent = Intent(this, HomeActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    putExtra("USER_NAME", fetchedUserName)
+                }
+                startActivity(intent)
+                finish()
             }
             .addOnFailureListener { e ->
-                Log.e("Firestore", "Error fetching user data", e)
-                navigateToHome("User")
+                Log.e("LoginFinalFix", "Firestore failed to get username, using fallback.", e)
+                val fallbackName = user.displayName ?: "User"
+                val intent = Intent(this, HomeActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    putExtra("USER_NAME", fallbackName)
+                }
+                startActivity(intent)
+                finish()
             }
     }
-
-    private fun navigateToHome(userName: String) {
-        startActivity(Intent(this, HomeActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            putExtra("USER_NAME", userName)
-        })
-        finish()
-    }
-
 }

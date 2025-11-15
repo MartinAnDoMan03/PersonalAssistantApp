@@ -14,11 +14,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.YourAssistantYora"
         tools:targetApi="31" >
-        <activity
-            android:name=".EditProfileActivity"
-            android:exported="false"
-            android:label="@string/title_activity_edit_profile_screen"
-            android:theme="@style/Theme.YourAssistantYora" />
         <!-- SPLASH ACTIVITY - LAUNCHER (entry point app) -->
         <activity
             android:name=".SplashActivity"

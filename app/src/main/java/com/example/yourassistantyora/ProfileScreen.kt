@@ -29,8 +29,8 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     userName: String = "Tom Holland",
     userEmail: String = "tomholland@gmail.com",
-    totalTasks: Int = 10,
-    completedTasks: Int = 6,
+    totalTasks: Int,
+    completedTasks: Int,
     onBackClick: () -> Unit = {},
     onEditProfile: () -> Unit = {},
     onLogout: () -> Unit = {}
