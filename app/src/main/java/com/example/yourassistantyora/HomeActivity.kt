@@ -5,10 +5,34 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import android.util.Log
 
 class HomeActivity : AppCompatActivity() {
+    private val profileLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ){ result ->
+        if (result.resultCode == RESULT_OK){
+            val updatedName = result.data?.getStringExtra("UPDATED_USER_NAME")
+            if (!updatedName.isNullOrEmpty()){
+                this.userName = updatedName
+                Log.d("HOME_ACTIVITY", "Uodated username from profile: $updatedName")
+            }
+
+        }
+    }
+
+    private var userName by mutableStateOf("User")
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Update Username
+        val initialUserName = intent.getStringExtra("USER_NAME") ?: "User"
+        this.userName = initialUserName
 
         val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
         val currentUser = auth.currentUser
@@ -25,20 +49,23 @@ class HomeActivity : AppCompatActivity() {
         setContent {
             YourAssistantYoraTheme {
                 HomeScreen(
-                    userName = userName,
+                    userName = this.userName,
                     onNotificationClick = {
                         // TODO: Handle notification click
                     },
                     onProfileClick = {
-                        // Navigate ke ProfileActivity
                         val intent = Intent(this, ProfileActivity::class.java)
-                        intent.putExtra("USER_NAME", userName)
+
+                        intent.putExtra("USER_NAME", this.userName)
                         intent.putExtra("USER_EMAIL", userEmail)
-                        // TODO: Hitung total tasks dan completed dari state
                         intent.putExtra("TOTAL_TASKS", 10)
                         intent.putExtra("COMPLETED_TASKS", 6)
-                        startActivity(intent)
+                        // TODO: Hitung total tasks dan completed dari state
+                        profileLauncher.launch(intent)
+
+                        // 4. The old startActivity(intent) call is GONE.
                     },
+
                     onTaskClick = { task ->
                         // TODO: Handle task click
                     },
