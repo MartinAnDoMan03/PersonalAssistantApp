@@ -6,14 +6,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -22,13 +18,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +31,7 @@ import com.example.yourassistantyora.components.BottomNavigationBar
 import com.example.yourassistantyora.utils.NavigationConstants
 import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.components.TaskFilterRow
+import com.example.yourassistantyora.screen.CreateTaskScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -47,7 +42,7 @@ import kotlin.math.roundToInt
 fun TaskScreen(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
-    onTaskClick: (Task) -> Unit = {},
+    onTaskClick: (com.example.yourassistantyora.screen.Task) -> Unit = {},
     onCreateTaskClick: () -> Unit = {},
     onNavigateToHome: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
@@ -58,7 +53,7 @@ fun TaskScreen(
 ) {
     // ✨ STATE UNTUK DETAIL SCREEN
     var showDetailScreen by remember { mutableStateOf(false) }
-    var selectedTaskForDetail by remember { mutableStateOf<Task?>(null) }
+    var selectedTaskForDetail by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
 
     // ✨ STATE UNTUK CREATE TASK SCREEN
     var showCreateTaskScreen by remember { mutableStateOf(false) }
@@ -66,10 +61,38 @@ fun TaskScreen(
     var tasks by remember {
         mutableStateOf(
             listOf(
-                Task(1, "Team meeting preparation", "10:00 AM", "High", "Work", "Waiting"),
-                Task(2, "Review design mockups", "10:00 AM", "Medium", "Work", "To do"),
-                Task(3, "Submit project report", "03:00 AM", "Low", "Study", "In Progress"),
-                Task(4, "Morning workout routine", "06:00 AM", "High", "Work", "Hold On")
+                _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                    1,
+                    "Team meeting preparation",
+                    "10:00 AM",
+                    "High",
+                    "Work",
+                    "Waiting"
+                ),
+                _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                    2,
+                    "Review design mockups",
+                    "10:00 AM",
+                    "Medium",
+                    "Work",
+                    "To do"
+                ),
+                _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                    3,
+                    "Submit project report",
+                    "03:00 AM",
+                    "Low",
+                    "Study",
+                    "In Progress"
+                ),
+                _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                    4,
+                    "Morning workout routine",
+                    "06:00 AM",
+                    "High",
+                    "Work",
+                    "Hold On"
+                )
             )
         )
     }
@@ -117,13 +140,13 @@ fun TaskScreen(
 
 
             var swipedTaskId by remember { mutableStateOf<Int?>(null) }
-            var lastCompletedTask by remember { mutableStateOf<Task?>(null) }
+            var lastCompletedTask by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
             var showUndoSnackbar by remember { mutableStateOf(false) }
-            var lastDeletedTask by remember { mutableStateOf<Task?>(null) }
+            var lastDeletedTask by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
             var showDeleteSnackbar by remember { mutableStateOf(false) }
             var showRestoreDialog by remember { mutableStateOf(false) }
-            var taskToRestore by remember { mutableStateOf<Task?>(null) }
-            var deletingTask by remember { mutableStateOf<Task?>(null) }
+            var taskToRestore by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
+            var deletingTask by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
             var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
             val activeTasks = tasks.filter { !it.isCompleted }
@@ -141,7 +164,7 @@ fun TaskScreen(
                 statusMatch && categoryMatch
             }
 
-            fun onCheckboxClick(task: Task) {
+            fun onCheckboxClick(task: com.example.yourassistantyora.screen.Task) {
                 if (!task.isCompleted) {
                     tasks = tasks.map {
                         if (it.id == task.id) {
@@ -172,7 +195,7 @@ fun TaskScreen(
                 lastCompletedTask = null
             }
 
-            fun deleteTaskConfirmed(task: Task) {
+            fun deleteTaskConfirmed(task: com.example.yourassistantyora.screen.Task) {
                 lastDeletedTask = task
                 tasks = tasks.filter { it.id != task.id }
                 showDeleteSnackbar = true
@@ -194,7 +217,7 @@ fun TaskScreen(
                 lastDeletedTask = null
             }
 
-            fun showRestoreConfirmation(task: Task) {
+            fun showRestoreConfirmation(task: com.example.yourassistantyora.screen.Task) {
                 taskToRestore = task
                 showRestoreDialog = true
                 swipedTaskId = null
@@ -522,7 +545,7 @@ fun TaskScreen(
 
 @Composable
 fun TaskCardDesignStyle(
-    task: Task,
+    task: com.example.yourassistantyora.screen.Task,
     onTaskClick: () -> Unit,
     onCheckboxClick: () -> Unit,
     onDeleteIconClick: () -> Unit,

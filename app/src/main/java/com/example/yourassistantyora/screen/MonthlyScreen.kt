@@ -1,11 +1,8 @@
 package com.example.yourassistantyora
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -23,24 +20,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import com.example.yourassistantyora.components.BottomNavigationBar
 import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.components.TaskFilterRow
+import com.example.yourassistantyora.screen.CreateTaskScreen
+import com.example.yourassistantyora.screen.Task
 import com.example.yourassistantyora.utils.NavigationConstants
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.plus
-import kotlin.math.roundToInt
 
 // Data class untuk Monthly Task
 data class MonthlyTaskItem(
@@ -170,7 +164,7 @@ fun CalendarDateCell(
 fun MonthlyScreen(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
-    onTaskClick: (Task) -> Unit = {},
+    onTaskClick: (com.example.yourassistantyora.screen.Task) -> Unit = {},
     onCreateTaskClick: () -> Unit = {},
     onNavigateToHome: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
@@ -181,7 +175,7 @@ fun MonthlyScreen(
 ) {
     // ✨ STATE UNTUK DETAIL SCREEN
     var showDetailScreen by remember { mutableStateOf(false) }
-    var selectedTaskForDetail by remember { mutableStateOf<Task?>(null) }
+    var selectedTaskForDetail by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
 
     var selectedViewMode by remember { mutableStateOf("Monthly") }
     var selectedStatus by remember { mutableStateOf("All") }
@@ -200,7 +194,7 @@ fun MonthlyScreen(
         mutableStateOf(
             listOf(
                 MonthlyTaskItem(
-                    Task(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
                         1,
                         "Review design mockups",
                         "06:00 AM",
@@ -210,7 +204,7 @@ fun MonthlyScreen(
                     ), 24, 9, 2025
                 ),
                 MonthlyTaskItem(
-                    Task(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
                         2,
                         "Submit project report",
                         "06:00 AM",
@@ -220,7 +214,7 @@ fun MonthlyScreen(
                     ), 24, 9, 2025
                 ),
                 MonthlyTaskItem(
-                    Task(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
                         3,
                         "Team meeting preparation",
                         "10:00 AM",
@@ -230,7 +224,7 @@ fun MonthlyScreen(
                     ), 25, 9, 2025
                 ),
                 MonthlyTaskItem(
-                    Task(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
                         4,
                         "Client presentation",
                         "15:00",
@@ -240,7 +234,7 @@ fun MonthlyScreen(
                     ), 26, 9, 2025
                 ),
                 MonthlyTaskItem(
-                    Task(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
                         5,
                         "Code review session",
                         "11:00",
@@ -296,7 +290,7 @@ fun MonthlyScreen(
         }
 
         else -> {
-            fun handleTaskClick(task: Task) {
+            fun handleTaskClick(task: com.example.yourassistantyora.screen.Task) {
                 selectedTaskForDetail = task
                 showDetailScreen = true
             }

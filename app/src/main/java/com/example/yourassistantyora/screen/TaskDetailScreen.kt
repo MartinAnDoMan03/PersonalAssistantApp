@@ -34,7 +34,7 @@ data class TaskDetail(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskDetailScreen(
-    task: Task,
+    task: com.example.yourassistantyora.screen.Task,
     onBackClick: () -> Unit = {},
     onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},

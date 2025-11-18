@@ -1,9 +1,6 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen.login
 
-import android.util.Log
 import android.widget.Toast
-import androidx.activity.result.launch
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,22 +28,63 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.yourassistantyora.R
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import com.example.yourassistantyora.viewModel.LoginViewModel
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun LoginScreen(
+    navController: NavController,
+    onLoginSuccess: (String) -> Unit, // Callback untuk pass username ke AuthViewModel
     modifier: Modifier = Modifier,
-    onForgot: () -> Unit = {},
-    onGoogle: () -> Unit = {},
-    onSignUp: () -> Unit = {},
-    onLogin: (String, String, (Boolean, String?) -> Unit) -> Unit = { _, _, _ -> }
+    viewModel: LoginViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     val context = LocalContext.current
-    var loading by remember { mutableStateOf(false) }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+
+    val email by viewModel.email
+    val password by viewModel.password
+    val loading by viewModel.loading
+    val loginSuccess by viewModel.loginSuccess
+    val errorMessage by viewModel.errorMessage
+
     var passwordVisible by remember { mutableStateOf(false) }
-    var remember by remember { mutableStateOf(false) }
+
+    // Fetch username dari Firestore ketika login sukses
+    LaunchedEffect(loginSuccess) {
+        if (loginSuccess) {
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            if (currentUser != null) {
+                // Fetch username dari Firestore
+                val username = try {
+                    val db = FirebaseFirestore.getInstance()
+                    val doc = db.collection("users").document(currentUser.uid).get().await()
+                    doc.getString("username")
+                        ?: currentUser.displayName
+                        ?: currentUser.email?.split("@")?.get(0)
+                        ?: "User"
+                } catch (e: Exception) {
+                    currentUser.displayName
+                        ?: currentUser.email?.split("@")?.get(0)
+                        ?: "User"
+                }
+
+                // Pass username ke parent (AppNavigation)
+                onLoginSuccess(username)
+            }
+        }
+    }
+
+    // Show error
+    LaunchedEffect(errorMessage) {
+        if (errorMessage.isNotEmpty()) {
+            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -62,7 +100,7 @@ fun LoginScreen(
         Box(
             modifier = Modifier
                 .size(110.dp)
-                .rotate(degrees = -5f)
+                .rotate(-5f)
                 .shadow(18.dp, RoundedCornerShape(28.dp), clip = false)
                 .clip(RoundedCornerShape(28.dp))
                 .background(
@@ -73,7 +111,7 @@ fun LoginScreen(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.ic_checkmark_putih),
+                painter = painterResource(R.drawable.ic_checkmark_putih),
                 contentDescription = "Logo",
                 modifier = Modifier
                     .size(60.dp)
@@ -82,6 +120,7 @@ fun LoginScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+
         Text(
             text = "Welcome to YORA",
             fontSize = 24.sp,
@@ -89,7 +128,11 @@ fun LoginScreen(
             color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Text(text = "Your personal assistant awaits", color = Color(0xFF757575), fontSize = 14.sp)
+        Text(
+            text = "Your personal assistant awaits",
+            color = Color(0xFF757575),
+            fontSize = 14.sp
+        )
         Spacer(modifier = Modifier.height(32.dp))
 
         // Email
@@ -97,7 +140,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { viewModel.onEmailChange(it) },
             placeholder = { Text("Enter your email", color = Color(0xFFB0B0B0)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -114,9 +157,10 @@ fun LoginScreen(
         // Password
         Text("Password", color = Color(0xFF757575), fontSize = 14.sp, modifier = Modifier.align(Alignment.Start))
         Spacer(modifier = Modifier.height(8.dp))
+
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = { viewModel.onPasswordChange(it) },
             placeholder = { Text("Enter your password", color = Color(0xFFB0B0B0)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -124,7 +168,7 @@ fun LoginScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
-                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(imageVector = image, contentDescription = null)
                 }
@@ -137,78 +181,70 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Forgot Password only
+        // Forgot Password
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Spacer(modifier = Modifier.weight(1f)) // push "Forgot?" to the right
+            Spacer(modifier = Modifier.weight(1f))
             Text(
                 text = "Forgot?",
                 color = Color(0xFF6C63FF),
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.clickable { onForgot() }
+                modifier = Modifier.clickable { navController.navigate("forgot_password") }
             )
         }
-
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // Login Button
         Button(
-            onClick = {
-                loading = true
-                onLogin(email, password) { success, message ->
-                    loading = false
-                    if (!success && message != null)
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                }
-            },
+            onClick = { viewModel.login() },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-            contentPadding = PaddingValues()
+            contentPadding = PaddingValues(),
+            enabled = !loading
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        brush = Brush.horizontalGradient(
+                        Brush.horizontalGradient(
                             colors = listOf(Color(0xFF9B81FF), Color(0xFF6C63FF))
                         )
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Sign In", fontSize = 16.sp, color = Color.White)
+                if (loading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Sign In", fontSize = 16.sp, color = Color.White)
+                }
             }
-        }
-
-        if (loading) {
-            Spacer(modifier = Modifier.height(16.dp))
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // Divider
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE0E0E0))
+            Divider(modifier = Modifier.weight(1f), color = Color(0xFFE0E0E0))
             Text("  OR CONTINUE WITH  ", color = Color(0xFFA0A0A0), fontSize = 12.sp)
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE0E0E0))
+            Divider(modifier = Modifier.weight(1f), color = Color(0xFFE0E0E0))
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // Google Button
         OutlinedButton(
-            onClick = {onGoogle()},
+            onClick = { /* TODO: Google Auth */ },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+            border = ButtonDefaults.outlinedButtonBorder
         ) {
             Image(
                 painter = painterResource(id = R.drawable.googlo),
@@ -221,13 +257,12 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Sign up
         Row(modifier = Modifier.padding(bottom = 16.dp)) {
             Text("Don't have an account? ", color = Color(0xFF757575))
             Text(
                 text = "Sign Up",
                 color = Color(0xFF6C63FF),
-                modifier = Modifier.clickable { onSignUp() },
+                modifier = Modifier.clickable { navController.navigate("register") },
                 fontWeight = FontWeight.Bold
             )
         }
@@ -238,6 +273,10 @@ fun LoginScreen(
 @Composable
 private fun LoginScreenPreview() {
     YourAssistantYoraTheme {
-        LoginScreen()
+        val navController = rememberNavController()
+        LoginScreen(
+            navController = navController,
+            onLoginSuccess = {}
+        )
     }
 }

@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.components.BottomNavigationBar
 import com.example.yourassistantyora.utils.NavigationConstants
-import com.example.yourassistantyora.TeamColorScheme
+import com.example.yourassistantyora.screen.TeamColorScheme
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import androidx.compose.ui.tooling.preview.Preview
 

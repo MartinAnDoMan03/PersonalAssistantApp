@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -24,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,17 +30,18 @@ import androidx.compose.ui.zIndex
 import com.example.yourassistantyora.components.BottomNavigationBar
 import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.components.TaskFilterRow
+import com.example.yourassistantyora.screen.BadgeChip
+import com.example.yourassistantyora.screen.CreateTaskScreen
+import com.example.yourassistantyora.screen.TaskDetailScreen
 import com.example.yourassistantyora.utils.NavigationConstants
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
 import kotlin.collections.plus
 import kotlin.math.roundToInt
 
 // Data class untuk Weekly Task dengan day
 data class WeeklyTaskItem(
-    val task: Task,
+    val task: com.example.yourassistantyora.screen.Task,
     val dayOfMonth: Int,
     val dayName: String
 )
@@ -61,7 +60,7 @@ data class CalendarDay(
 fun WeeklyScreen(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
-    onTaskClick: (Task) -> Unit = {},
+    onTaskClick: (com.example.yourassistantyora.screen.Task) -> Unit = {},
     onCreateTaskClick: () -> Unit = {},
     onNavigateToHome: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
@@ -72,11 +71,11 @@ fun WeeklyScreen(
 ) {
     // ✨ STATE UNTUK DETAIL SCREEN - PALING ATAS
     var showDetailScreen by remember { mutableStateOf(false) }
-    var selectedTaskForDetail by remember { mutableStateOf<Task?>(null) }
+    var selectedTaskForDetail by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
 
     var showCreateTaskScreen by remember { mutableStateOf(false) }
 
-    fun handleTaskClick(task: Task) {
+    fun handleTaskClick(task: com.example.yourassistantyora.screen.Task) {
         selectedTaskForDetail = task
         showDetailScreen = true
     }
@@ -108,7 +107,7 @@ fun WeeklyScreen(
         mutableStateOf(
             listOf(
                 WeeklyTaskItem(
-                    Task(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
                         1,
                         "Team meeting preparation",
                         "06:00 AM",
@@ -118,7 +117,7 @@ fun WeeklyScreen(
                     ), 3, "TUE"
                 ),
                 WeeklyTaskItem(
-                    Task(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
                         2,
                         "Review design mockups",
                         "06:00 AM",
@@ -128,7 +127,7 @@ fun WeeklyScreen(
                     ), 3, "TUE"
                 ),
                 WeeklyTaskItem(
-                    Task(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
                         3,
                         "Submit project report",
                         "06:00 AM",
@@ -138,7 +137,7 @@ fun WeeklyScreen(
                     ), 3, "TUE"
                 ),
                 WeeklyTaskItem(
-                    Task(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
                         4,
                         "Morning workout routine",
                         "06:00 AM",
@@ -148,16 +147,38 @@ fun WeeklyScreen(
                     ), 3, "TUE"
                 ),
                 WeeklyTaskItem(
-                    Task(5, "Client presentation", "15:00", "High", "Work", "To do"),
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                        5,
+                        "Client presentation",
+                        "15:00",
+                        "High",
+                        "Work",
+                        "To do"
+                    ),
                     4,
                     "WED"
                 ),
                 WeeklyTaskItem(
-                    Task(6, "Code review session", "11:00", "Medium", "Work", "Hold On"),
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                        6,
+                        "Code review session",
+                        "11:00",
+                        "Medium",
+                        "Work",
+                        "Hold On"
+                    ),
                     5,
                     "THU"
                 ),
-                WeeklyTaskItem(Task(7, "Team lunch", "12:30", "Low", "Work", "To do"), 5, "THU")
+                WeeklyTaskItem(
+                    _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                        7,
+                        "Team lunch",
+                        "12:30",
+                        "Low",
+                        "Work",
+                        "To do"
+                    ), 5, "THU")
             )
         )
     }
@@ -680,7 +701,7 @@ fun WeeklyScreen(
 
     @Composable
     private fun TaskCardWithStrip(
-        task: Task,
+        task: com.example.yourassistantyora.screen.Task,
         onTaskClick: () -> Unit,
         onCheckboxClick: () -> Unit,
         onDeleteIconClick: () -> Unit,

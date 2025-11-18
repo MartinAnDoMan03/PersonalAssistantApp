@@ -1,5 +1,6 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
+import android.util.Patterns
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.yourassistantyora.R
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import kotlinx.coroutines.launch
 
@@ -283,7 +285,7 @@ fun RegisterScreen(
                                 confirmPassword.isBlank() -> {
                             scope.launch { snackbarHostState.showSnackbar("Please fill all fields") }
                         }
-                        !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
+                        !Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
                             scope.launch { snackbarHostState.showSnackbar("Invalid email format") }
                         }
                         password.length < 6 -> {
