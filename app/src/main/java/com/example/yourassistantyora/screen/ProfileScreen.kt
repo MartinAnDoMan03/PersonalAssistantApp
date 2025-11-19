@@ -200,28 +200,6 @@ fun ProfileScreen(
                 .padding(top = 8.dp)
         ) {
             Text(
-                text = "Full Name",
-                fontSize = 13.sp,
-                color = Color.Black,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            OutlinedTextField(
-                value = userName,
-                onValueChange = {},
-                enabled = false,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = Color.Black,
-                    disabledBorderColor = Color(0xFFE0E0E0),
-                    disabledContainerColor = Color.White
-                )
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
                 text = "Username",
                 fontSize = 13.sp,
                 color = Color.Black,

@@ -296,8 +296,10 @@ fun LoginScreen(
         OutlinedButton(
             onClick = {
                 activity?.let {
+                    googleSignInClient.signOut().addOnCompleteListener {}
                     val signInIntent = googleSignInClient.signInIntent
                     googleSignInLauncher.launch(signInIntent)
+
                 }
             },
             modifier = Modifier
