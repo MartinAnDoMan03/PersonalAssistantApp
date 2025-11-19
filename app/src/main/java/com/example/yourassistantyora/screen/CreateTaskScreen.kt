@@ -1,6 +1,5 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,9 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import java.text.SimpleDateFormat
-import java.util.*
 import androidx.compose.foundation.BorderStroke
+import com.example.yourassistantyora.screen.Task
+import androidx.navigation.NavController
+
 
 // Data class untuk Status
 data class StatusItem(
@@ -35,8 +35,7 @@ data class StatusItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateTaskScreen(
-    onBackClick: () -> Unit = {},
-    onSaveClick: (Task) -> Unit = {}
+    navController: NavController
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -71,6 +70,8 @@ fun CreateTaskScreen(
         )
     }
 
+
+
     val reminderOptions = listOf(
         "Tidak ada peringat",
         "Ingat ketepat waktu",
@@ -96,18 +97,20 @@ fun CreateTaskScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = onBackClick) {
+                        IconButton(
+                            onClick = { navController.popBackStack() }
+                        ) {
                             Icon(
                                 imageVector = Icons.Filled.Close,
                                 contentDescription = "Close",
                                 tint = Color(0xFF757575)
                             )
                         }
-                    },
+                    }
+                    ,
                     actions = {
                         IconButton(
                             onClick = {
-                                // Validate and save
                                 if (title.isNotBlank()) {
                                     val newTask = Task(
                                         id = System.currentTimeMillis().toInt(),
@@ -117,7 +120,9 @@ fun CreateTaskScreen(
                                         category = selectedCategory,
                                         status = selectedStatus
                                     )
-                                    onSaveClick(newTask)
+
+                                    // TODO: simpan ke ViewModel / DB nanti
+                                    navController.popBackStack()
                                 }
                             }
                         ) {
@@ -632,7 +637,9 @@ fun CreateTaskScreen(
                                 category = selectedCategory,
                                 status = selectedStatus
                             )
-                            onSaveClick(newTask)
+
+                            // TODO: simpan ke ViewModel / DB nanti
+                            navController.popBackStack()
                         }
                     },
                     modifier = Modifier
@@ -650,6 +657,7 @@ fun CreateTaskScreen(
                         color = Color.White
                     )
                 }
+
 
                 Spacer(Modifier.height(16.dp))
             }

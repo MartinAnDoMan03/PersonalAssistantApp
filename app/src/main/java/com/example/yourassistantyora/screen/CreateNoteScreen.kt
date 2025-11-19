@@ -1,4 +1,4 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -28,6 +28,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -140,8 +143,8 @@ fun CreateNoteScreen(
                     // Date and Time
                     Text(
                         text = remember {
-                            val currentDate = java.text.SimpleDateFormat("d MMMM  HH:mm", java.util.Locale.getDefault())
-                                .format(java.util.Date())
+                            val currentDate = SimpleDateFormat("d MMMM  HH:mm", Locale.getDefault())
+                                .format(Date())
                             currentDate
                         },
                         fontSize = 12.sp,

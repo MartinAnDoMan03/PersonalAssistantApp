@@ -1,4 +1,4 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -34,7 +34,7 @@ data class TaskDetail(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskDetailScreen(
-    task: com.example.yourassistantyora.screen.Task,
+    task: Task,
     onBackClick: () -> Unit = {},
     onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},

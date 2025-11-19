@@ -1,4 +1,4 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
 import android.content.Context
 import android.media.MediaPlayer
@@ -45,6 +45,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import com.example.yourassistantyora.components.BottomNavigationBar
 import com.example.yourassistantyora.utils.NavigationConstants
+import androidx.navigation.NavController
+import com.example.yourassistantyora.navigateSingleTop
+import androidx.navigation.compose.rememberNavController
 
 // ---------- DATA ----------
 data class Task(
@@ -63,14 +66,9 @@ data class Task(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun HomeScreen(
-    modifier: Modifier = Modifier,
-    userName: String = "Tom Holland",
-    onNotificationClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {},
-    onTaskClick: (Task) -> Unit = {},
-    onNavigateToTasks: () -> Unit = {},
-    onNavigateToNotes: () -> Unit = {},   // ✨ TAMBAHKAN INI
-    onNavigateToTeam: () -> Unit = {}
+navController: NavController,
+userName: String = "Tom Holland",
+modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_HOME) }
     val scope = rememberCoroutineScope()
@@ -204,15 +202,19 @@ fun HomeScreen(
                         when (index) {
                             NavigationConstants.TAB_HOME -> {
                                 selectedTab = index
+                                // tetap di home
                             }
                             NavigationConstants.TAB_TASK -> {
-                                onNavigateToTasks()
+                                selectedTab = index
+                                navController.navigateSingleTop("task_list")
                             }
                             NavigationConstants.TAB_NOTE -> {
-                                onNavigateToNotes()
+                                selectedTab = index
+                                navController.navigateSingleTop("notes")
                             }
                             NavigationConstants.TAB_TEAM -> {
-                                onNavigateToTeam()
+                                selectedTab = index
+                                navController.navigateSingleTop("team")
                             }
                         }
                     }
@@ -276,7 +278,10 @@ fun HomeScreen(
                         ) {
                             Box {
                                 IconButton(
-                                    onClick = onNotificationClick,
+                                    onClick = {
+                                        // TODO: nanti bikin route "notifications"
+                                        // navController.navigateSingleTop("notifications")
+                                    },
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
@@ -294,7 +299,10 @@ fun HomeScreen(
                                         .background(Color(0xFFFFD54F))
                                 )
                             }
-                            IconButton(onClick = onProfileClick, modifier = Modifier.size(36.dp)) {
+                            IconButton(
+                                onClick = { navController.navigateSingleTop("profile") },
+                                modifier = Modifier.size(36.dp)
+                            ) {
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
@@ -305,6 +313,7 @@ fun HomeScreen(
                                     Text("T", color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                             }
+
                         }
                     }
                 }
@@ -405,7 +414,9 @@ fun HomeScreen(
                         ) {
                             TaskCardWithTrailingDelete(
                                 task = task,
-                                onTaskClick = { onTaskClick(task) },
+                                onTaskClick = {
+                                    navController.navigate("task_detail/${task.id}")
+                                },
                                 onCheckboxClick = { onCheckboxClick(task) },
                                 onDeleteIconClick = {
                                     deletingTask = task
@@ -444,7 +455,9 @@ fun HomeScreen(
                             ) {
                                 TaskCardWithTrailingDelete(
                                     task = task,
-                                    onTaskClick = { onTaskClick(task) },
+                                    onTaskClick = {
+                                        navController.navigate("task_detail/${task.id}")
+                                    },
                                     onCheckboxClick = { showRestoreConfirmation(task) }, // akan memunculkan dialog restore
                                     onDeleteIconClick = {
                                         deletingTask = task
@@ -462,6 +475,7 @@ fun HomeScreen(
                                 )
                             }
                         }
+
                     }
                 }
             }
@@ -1014,7 +1028,9 @@ fun TaskCardWithTrailingDelete(
 @Composable
 fun HomeScreenPreview() {
     YourAssistantYoraTheme {
+        val navController = rememberNavController()
         HomeScreen(
+            navController = navController,
             modifier = Modifier.fillMaxSize(),
             userName = "Tom Holland"
         )

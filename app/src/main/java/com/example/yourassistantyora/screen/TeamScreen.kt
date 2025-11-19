@@ -1,4 +1,4 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,9 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.components.BottomNavigationBar
 import com.example.yourassistantyora.utils.NavigationConstants
-import com.example.yourassistantyora.screen.TeamColorScheme
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.yourassistantyora.models.*
 
 // ✅ DATA MODEL TEAM
 data class Team(

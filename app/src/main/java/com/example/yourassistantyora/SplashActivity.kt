@@ -17,6 +17,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import com.example.yourassistantyora.screen.GeometricShapesView
+import com.example.yourassistantyora.screen.ParticleView
+import com.example.yourassistantyora.screen.RippleWaveView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -287,21 +290,19 @@ class SplashActivity : AppCompatActivity() {
             Handler(Looper.getMainLooper()).postDelayed({
                 val currentUser = auth.currentUser
                 if (currentUser != null) {
-                    // User is signed in, go to HomeActivity
-                    Log.d("SplashActivity", "User logged in. Navigating to Home.")
-                    val intent = Intent(this, HomeActivity::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    startActivity(intent)
+                    // Jika sudah login, ambil datanya dari Firestore
                     fetchUserAndNavigate()
                 } else {
-                    // No user is signed in, go to LoginActivity
-                    Log.d("SplashActivity", "User logged out. Navigating to Login.")
-                    val intent = Intent(this, LoginActivity::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    // Kalau belum login, arahkan ke login
+                    val intent = Intent(this, MainActivity::class.java).apply {
+                        putExtra("START_DESTINATION", "login")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    }
                     startActivity(intent)
+                    finish()
                 }
-                finish() // IMPORTANT: Finish SplashActivity so the user can't navigate back to it.
-            }, 1000) // A 1-second delay is safe, as your text animation is 700ms.
+            }, 1000)
+
 
 
             // Staggered tagline
@@ -344,10 +345,12 @@ class SplashActivity : AppCompatActivity() {
     }
 
     private fun navigateToHome(userName: String) {
-        startActivity(Intent(this, HomeActivity::class.java).apply {
+        val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("USER_NAME", userName) // 👈 Pass the fetched username
-        })
+            putExtra("START_DESTINATION", "home")
+            putExtra("USER_NAME", userName)
+        }
+        startActivity(intent)
         finish()
     }
 }

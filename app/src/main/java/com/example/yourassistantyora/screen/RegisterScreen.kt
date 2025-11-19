@@ -4,19 +4,7 @@ import android.util.Patterns
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -24,28 +12,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,19 +29,26 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.yourassistantyora.R
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import com.example.yourassistantyora.viewModel.RegisterViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun RegisterScreen(
+    navController: NavController,
     modifier: Modifier = Modifier,
-    onLoginClick: () -> Unit = {},
-    onBackClick: () -> Unit = {},
-    onRegister: (username: String, email: String, password: String, onResult: (Boolean, String?) -> Unit) -> Unit = { _, _, _, _ -> }
+    viewModel: RegisterViewModel = viewModel()
 ) {
+    // --- State dari ViewModel ---
+    val loading by viewModel.loading
+    val registerSuccess by viewModel.registerSuccess
+    val errorMessage by viewModel.errorMessage
 
-    var loading by remember { mutableStateOf(false) }
+    // --- State lokal untuk input & UI ---
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -86,6 +61,21 @@ fun RegisterScreen(
     val scope = rememberCoroutineScope()
 
     var showSuccessDialog by remember { mutableStateOf(false) }
+
+    // Tampilkan error dari ViewModel via snackbar
+    LaunchedEffect(errorMessage) {
+        if (errorMessage.isNotEmpty()) {
+            snackbarHostState.showSnackbar(errorMessage)
+            viewModel.clearError()
+        }
+    }
+
+    // Kalau registerSuccess true → show dialog
+    LaunchedEffect(registerSuccess) {
+        if (registerSuccess) {
+            showSuccessDialog = true
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
@@ -275,7 +265,7 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 🔹 CREATE ACCOUNT BUTTON
+            // CREATE ACCOUNT BUTTON
             Button(
                 onClick = {
                     when {
@@ -298,19 +288,9 @@ fun RegisterScreen(
                             scope.launch { snackbarHostState.showSnackbar("You must accept the terms") }
                         }
                         else -> {
-                            loading = true
-                            onRegister(username, email, password) { success, errorMsg ->
-                                loading = false
-                                if (success) {
-                                    showSuccessDialog = true
-                                } else {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Error: ${errorMsg ?: "Unknown error"}")
-                                    }
-                                }
-                            }
+                            // Panggil ViewModel untuk register
+                            viewModel.register(username, email, password)
                         }
-
                     }
                 },
                 modifier = Modifier
@@ -334,7 +314,7 @@ fun RegisterScreen(
                 }
             }
 
-            //Loading
+            // Loading indicator
             if (loading) {
                 Spacer(modifier = Modifier.height(16.dp))
                 CircularProgressIndicator(
@@ -354,14 +334,17 @@ fun RegisterScreen(
                 Text(
                     text = "Login",
                     color = Color(0xFF6C63FF),
-                    modifier = Modifier.clickable { onLoginClick() },
+                    modifier = Modifier.clickable {
+                        // Balik ke login
+                        navController.popBackStack()
+                    },
                     fontWeight = FontWeight.Bold
                 )
             }
         }
     }
 
-    // 🔹 SUCCESS DIALOG
+    // SUCCESS DIALOG
     if (showSuccessDialog) {
         AlertDialog(
             onDismissRequest = { showSuccessDialog = false },
@@ -370,7 +353,8 @@ fun RegisterScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showSuccessDialog = false
-                    onLoginClick()
+                    // Setelah sukses, kembali ke login
+                    navController.popBackStack()
                 }) {
                     Text("OK", color = Color(0xFF6C63FF))
                 }
@@ -383,6 +367,7 @@ fun RegisterScreen(
 @Composable
 private fun RegisterScreenPreview() {
     YourAssistantYoraTheme {
-        RegisterScreen()
+        val navController = rememberNavController()
+        RegisterScreen(navController = navController)
     }
 }

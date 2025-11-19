@@ -1,4 +1,4 @@
-package com.example.yourassistantyora.screen.login
+package com.example.yourassistantyora.screen
 
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -36,6 +36,14 @@ import com.example.yourassistantyora.viewModel.LoginViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.res.stringResource
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+
 
 @Composable
 fun LoginScreen(
@@ -45,6 +53,52 @@ fun LoginScreen(
     viewModel: LoginViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     val context = LocalContext.current
+
+    val activity = context as? Activity
+
+    // Web client ID dari Firebase (string ini biasanya otomatis dibuat: default_web_client_id)
+    val webClientId = stringResource(id = R.string.default_web_client_id)
+
+    // Konfigurasi Google Sign-In
+    val gso = remember(webClientId) {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(webClientId)
+            .requestEmail()
+            .build()
+    }
+
+    val googleSignInClient = remember {
+        GoogleSignIn.getClient(context, gso)
+    }
+
+    // Launcher untuk hasil Google Sign-In
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                if (account != null) {
+                    // Panggil ViewModel → Firebase Auth
+                    viewModel.loginWithGoogle(account)
+                }
+            } catch (e: ApiException) {
+                Toast.makeText(
+                    context,
+                    e.localizedMessage ?: "Google sign-in failed",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        } else {
+            Toast.makeText(
+                context,
+                "Google sign-in cancelled",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
 
     val email by viewModel.email
     val password by viewModel.password
@@ -193,6 +247,7 @@ fun LoginScreen(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clickable { navController.navigate("forgot_password") }
             )
+
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -239,7 +294,12 @@ fun LoginScreen(
 
         // Google Button
         OutlinedButton(
-            onClick = { /* TODO: Google Auth */ },
+            onClick = {
+                activity?.let {
+                    val signInIntent = googleSignInClient.signInIntent
+                    googleSignInLauncher.launch(signInIntent)
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -252,8 +312,13 @@ fun LoginScreen(
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text("Google", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Google",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold
+            )
         }
+
 
         Spacer(modifier = Modifier.weight(1f))
 

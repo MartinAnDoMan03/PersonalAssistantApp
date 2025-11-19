@@ -1,4 +1,4 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.yourassistantyora.models.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -452,7 +453,7 @@ fun TeamTaskCard(
             ) {
                 // Assigned members avatars
                 Row(horizontalArrangement = Arrangement.spacedBy((-6).dp)) {
-                    task.assignedTo.take(3).forEachIndexed { index, member ->
+                    task.assignedTo.take(3).forEach { member ->
                         Box(
                             modifier = Modifier
                                 .size(24.dp)
@@ -584,4 +585,72 @@ fun MemberCard(
             }
         }
     }
+}
+
+/**
+ * Wrapper khusus untuk dipakai di Navigation
+ * route: team_detail/{teamId}
+ */
+@Composable
+fun TeamDetailScreen(
+    navController: NavController,
+    teamId: String
+) {
+    // Dummy data sementara (supaya UI jalan)
+    val members = listOf(
+        TeamMember("1", "Gladys", "Admin", tasksCompleted = 12),
+        TeamMember("2", "Rizky", "Member", tasksCompleted = 5),
+        TeamMember("3", "Dita", "Member", tasksCompleted = 3)
+    )
+
+    val tasks = listOf(
+        TeamTask(
+            id = "101",
+            title = "Setup Repository",
+            description = "Create GitHub repo & branches",
+            status = TaskStatus.IN_PROGRESS,
+            priority = TaskPriority.HIGH,
+            assignedTo = members.take(2),
+            deadline = "2025-11-30",
+            createdBy = "1",
+            createdAt = "2025-11-15"
+        ),
+        TeamTask(
+            id = "102",
+            title = "Design Wireframe",
+            description = "Create initial UI wireframe for main screens",
+            status = TaskStatus.NOT_STARTED,
+            priority = TaskPriority.MEDIUM,
+            assignedTo = members.drop(1),
+            deadline = "2025-12-05",
+            createdBy = "1",
+            createdAt = "2025-11-16"
+        )
+    )
+
+    val teamDetail = TeamDetail(
+        id = teamId,
+        name = "Mobile Dev Team",
+        description = "Team for mobile app development and experiments.",
+        category = "Project",
+        colorScheme = TeamColorScheme.BLUE,
+        members = members,
+        tasks = tasks,
+        currentUserRole = "Admin",
+        currentUserId = "1",
+        inviteCode = "ABC123"
+    )
+
+    TeamDetailScreen(
+        teamDetail = teamDetail,
+        onBackClick = { navController.popBackStack() },
+        onInviteClick = { /* TODO: open share/invite bottom sheet */ },
+        onProgressClick = { /* TODO: navigate to progress screen */ },
+        onCreateTaskClick = {
+            navController.navigate("create_task")
+        },
+        onTaskClick = { task ->
+            navController.navigate("task_detail/${task.id}")
+        }
+    )
 }

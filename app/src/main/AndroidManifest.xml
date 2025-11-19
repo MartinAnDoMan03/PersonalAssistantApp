@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" >
+    xmlns:tools="http://schemas.android.com/tools">
+
     <!-- permission (jika butuh internet) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -13,103 +14,49 @@
         android:roundIcon="@drawable/ic_checkmark"
         android:supportsRtl="true"
         android:theme="@style/Theme.YourAssistantYora"
-        tools:targetApi="31" >
-        <activity
-            android:name=".EditProfileActivity"
-            android:exported="false"
-            android:label="@string/title_activity_edit_profile_screen"
-            android:theme="@style/Theme.YourAssistantYora" />
-        <!-- SPLASH ACTIVITY - LAUNCHER (entry point app) -->
+        tools:targetApi="31">
+
+        <!-- SPLASH ACTIVITY - ENTRY POINT APP -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:theme="@style/SplashTheme" >
+            android:theme="@style/SplashTheme">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity> <!-- Login Activity -->
-        <activity
-            android:name=".LoginActivity"
-            android:exported="true"
-            android:theme="@style/Theme.YourAssistantYora" /> <!-- Home Activity -->
-        <activity
-            android:name=".HomeActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" /> <!-- Profile Activity -->
-        <activity
-            android:name=".ProfileActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" /> <!-- Optional other activities -->
+
+        </activity>
+
+        <!-- MAIN ACTIVITY - HOST NAVIGATION (NavHost + AppNavigation) -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
-        <activity
-            android:name=".RegisterActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-        <activity
-            android:name=".ForgotPasswordActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-        <activity
-            android:name=".CheckEmailActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-        <activity
-            android:name=".TaskActivity"
-            android:exported="false" />
-        <activity
-            android:name=".NoteActivity"
-            android:exported="false"
-            android:label="My Notes" />
-        <activity
-            android:name=".NoteDetailActivity"
-            android:exported="false"
-            android:label="Note Detail"
-            android:windowSoftInputMode="adjustResize" />
-        <activity
-            android:name=".CreateNoteActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
 
-        <activity
-            android:name=".DailyActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <activity
-            android:name=".WeeklyActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <activity
-            android:name=".MonthlyActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <activity
-            android:name=".TeamActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-        <activity
-            android:name=".CreateTeamActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <activity
-            android:name=".JoinTeamActivity"
-            android:exported="false"
-            android:theme="@style/Theme.YourAssistantYora" />
-
-        <activity
-            android:name=".TeamDetailActivity" />
+        <!-- ✅ semua ACTIVITY lain yang dulu dipakai layar:
+             - LoginActivity
+             - RegisterActivity
+             - HomeActivity
+             - ProfileActivity
+             - ForgotPasswordActivity
+             - CheckEmailActivity
+             - NoteActivity
+             - NoteDetailActivity
+             - CreateNoteActivity
+             - DailyActivity
+             - WeeklyActivity
+             - MonthlyActivity
+             - TeamActivity
+             - CreateTeamActivity
+             - JoinTeamActivity
+             - TeamDetailActivity
+           SUDAH TIDAK PERLU dideklarasikan lagi di sini,
+           karena sekarang layarnya di-handle di AppNavigation (NavHost).
+        -->
 
     </application>
-
-
 
 </manifest>

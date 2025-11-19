@@ -1,4 +1,4 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -21,7 +20,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -38,6 +36,8 @@ import com.example.yourassistantyora.utils.NavigationConstants
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import com.example.yourassistantyora.navigateSingleTop
+import androidx.navigation.compose.rememberNavController
 
 // ---------- DATA ----------
 data class Note(
@@ -52,12 +52,8 @@ data class Note(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun NoteScreen(
-    modifier: Modifier = Modifier,
-    onNoteClick: (Note) -> Unit = {},
-    onCreateNoteClick: () -> Unit = {},
-    onNavigateToHome: () -> Unit = {},
-    onNavigateToTasks: () -> Unit = {},
-    onNavigateToTeam: () -> Unit = {}
+    navController: androidx.navigation.NavController,
+    modifier: Modifier = Modifier
 ) {
     var selectedCategory by remember { mutableStateOf("All") }
     val scope = rememberCoroutineScope()
@@ -180,17 +176,17 @@ fun NoteScreen(
                     selectedTab = selectedTab,
                     onTabSelected = { index ->
                         when (index) {
-                            NavigationConstants.TAB_HOME -> onNavigateToHome()
-                            NavigationConstants.TAB_TASK -> onNavigateToTasks()
-                            NavigationConstants.TAB_NOTE -> { /* sudah di Note */ }
-                            NavigationConstants.TAB_TEAM -> onNavigateToTeam()
+                            NavigationConstants.TAB_HOME -> navController.navigateSingleTop("home")
+                            NavigationConstants.TAB_TASK -> navController.navigateSingleTop("task_list")
+                            NavigationConstants.TAB_NOTE -> { /* sudah di notes */ }
+                            NavigationConstants.TAB_TEAM -> navController.navigateSingleTop("team")
                         }
                     }
                 )
             },
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = onCreateNoteClick,
+                    onClick = { navController.navigate("create_note") },
                     containerColor = Color(0xFF6A70D7),
                     contentColor = Color.White,
                     modifier = Modifier.size(56.dp)
@@ -260,7 +256,9 @@ fun NoteScreen(
                         ) {
                             NoteCardWithSwipe(
                                 note = note,
-                                onNoteClick = { onNoteClick(note) },
+                                onNoteClick = {
+                                    navController.navigate("note_detail/${note.id}")
+                                },
                                 onDeleteIconClick = {
                                     deletingNote = note
                                     showDeleteConfirmDialog = true
@@ -591,7 +589,9 @@ fun NoteCardWithSwipe(
 @Composable
 fun NoteScreenPreview() {
     YourAssistantYoraTheme {
+        val navController = rememberNavController()
         NoteScreen(
+            navController = navController,
             modifier = Modifier.fillMaxSize()
         )
     }

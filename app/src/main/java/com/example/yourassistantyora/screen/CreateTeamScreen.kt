@@ -1,4 +1,4 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -9,7 +9,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -27,21 +26,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import com.example.yourassistantyora.models.TeamColorScheme
 
-// ENUM HANYA DI SINI! JANGAN DI FILE LAIN
-enum class TeamColorScheme(val gradient: List<Color>) {
-    BLUE(listOf(Color(0xFF5774FF), Color(0xFF4957EA))),
-    PINK(listOf(Color(0xFFAB53F0), Color(0xFFBF3FBB), Color(0xFFD32E8B))),
-    GREEN(listOf(Color(0xFF21C360), Color(0xFF18AE73), Color(0xFF0E9984))),
-    ORANGE(listOf(Color(0xFFFAA774), Color(0xFFF49877), Color(0xFFED857C)))
-}
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable

@@ -1,6 +1,11 @@
-package com.example.yourassistantyora
+package com.example.yourassistantyora.screen
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -11,8 +16,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,11 +36,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.navigation.NavController
 import com.example.yourassistantyora.components.BottomNavigationBar
-import com.example.yourassistantyora.utils.NavigationConstants
-import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.components.TaskFilterRow
-import com.example.yourassistantyora.screen.CreateTaskScreen
+import com.example.yourassistantyora.components.TaskViewModeNavigation
+import com.example.yourassistantyora.navigateSingleTop
+import com.example.yourassistantyora.utils.NavigationConstants
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -40,28 +50,13 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun TaskScreen(
-    modifier: Modifier = Modifier,
-    onBackClick: () -> Unit = {},
-    onTaskClick: (com.example.yourassistantyora.screen.Task) -> Unit = {},
-    onCreateTaskClick: () -> Unit = {},
-    onNavigateToHome: () -> Unit = {},
-    onNavigateToNotes: () -> Unit = {},
-    onNavigateToTeam: () -> Unit = {},
-    onNavigateToDaily: () -> Unit = {},
-    onNavigateToWeekly: () -> Unit = {},
-    onNavigateToMonthly: () -> Unit = {}
+    navController: NavController,
+    modifier: Modifier = Modifier
 ) {
-    // ✨ STATE UNTUK DETAIL SCREEN
-    var showDetailScreen by remember { mutableStateOf(false) }
-    var selectedTaskForDetail by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
-
-    // ✨ STATE UNTUK CREATE TASK SCREEN
-    var showCreateTaskScreen by remember { mutableStateOf(false) }
-
     var tasks by remember {
         mutableStateOf(
             listOf(
-                _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                Task(
                     1,
                     "Team meeting preparation",
                     "10:00 AM",
@@ -69,7 +64,7 @@ fun TaskScreen(
                     "Work",
                     "Waiting"
                 ),
-                _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                Task(
                     2,
                     "Review design mockups",
                     "10:00 AM",
@@ -77,7 +72,7 @@ fun TaskScreen(
                     "Work",
                     "To do"
                 ),
-                _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                Task(
                     3,
                     "Submit project report",
                     "03:00 AM",
@@ -85,7 +80,7 @@ fun TaskScreen(
                     "Study",
                     "In Progress"
                 ),
-                _root_ide_package_.com.example.yourassistantyora.screen.Task(
+                Task(
                     4,
                     "Morning workout routine",
                     "06:00 AM",
@@ -97,455 +92,443 @@ fun TaskScreen(
         )
     }
 
-    // ✨ CONDITIONAL RENDERING
-    when {
-        showDetailScreen && selectedTaskForDetail != null -> {
-            TaskDetailScreen(
-                task = selectedTaskForDetail!!,
-                onBackClick = {
-                    showDetailScreen = false
-                    selectedTaskForDetail = null
-                },
-                onEditClick = {
-                    // TODO: Handle edit
-                },
-                onDeleteClick = {
-                    showDetailScreen = false
-                    selectedTaskForDetail = null
-                },
-                onSaveChanges = {
-                    showDetailScreen = false
-                    selectedTaskForDetail = null
-                }
-            )
+    var selectedViewMode by remember { mutableStateOf("List") }
+    var selectedStatus by remember { mutableStateOf("All") }
+    var selectedCategory by remember { mutableStateOf("All") }
+    val scope = rememberCoroutineScope()
+    var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
+
+    var swipedTaskId by remember { mutableStateOf<Int?>(null) }
+    var lastCompletedTask by remember { mutableStateOf<Task?>(null) }
+    var showUndoSnackbar by remember { mutableStateOf(false) }
+
+    var lastDeletedTask by remember { mutableStateOf<Task?>(null) }
+    var showDeleteSnackbar by remember { mutableStateOf(false) }
+
+    var showRestoreDialog by remember { mutableStateOf(false) }
+    var taskToRestore by remember { mutableStateOf<Task?>(null) }
+
+    var deletingTask by remember { mutableStateOf<Task?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    val activeTasks = tasks.filter { !it.isCompleted }
+    val completedTasks = tasks.filter { it.isCompleted }
+
+    val filteredActiveTasks = activeTasks.filter { task ->
+        val statusMatch = when (selectedStatus) {
+            "All" -> true
+            else -> task.status == selectedStatus
         }
-        showCreateTaskScreen -> {
-            CreateTaskScreen(
-                onBackClick = { showCreateTaskScreen = false },
-                onSaveClick = { newTask ->
-                    // Tambahkan task baru ke list
-                    tasks = tasks + newTask
-                    showCreateTaskScreen = false
-                }
-            )
+        val categoryMatch = when (selectedCategory) {
+            "All" -> true
+            else -> task.category == selectedCategory
         }
-        else -> {
-            // EXISTING CONTENT
-            var selectedViewMode by remember { mutableStateOf("List") }
-            var selectedStatus by remember { mutableStateOf("All") }
-            var selectedCategory by remember { mutableStateOf("All") }
-            val scope = rememberCoroutineScope()
-            val selectedTab = NavigationConstants.TAB_TASK
+        statusMatch && categoryMatch
+    }
 
-
-
-            var swipedTaskId by remember { mutableStateOf<Int?>(null) }
-            var lastCompletedTask by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
-            var showUndoSnackbar by remember { mutableStateOf(false) }
-            var lastDeletedTask by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
-            var showDeleteSnackbar by remember { mutableStateOf(false) }
-            var showRestoreDialog by remember { mutableStateOf(false) }
-            var taskToRestore by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
-            var deletingTask by remember { mutableStateOf<com.example.yourassistantyora.screen.Task?>(null) }
-            var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-
-            val activeTasks = tasks.filter { !it.isCompleted }
-            val completedTasks = tasks.filter { it.isCompleted }
-
-            val filteredActiveTasks = activeTasks.filter { task ->
-                val statusMatch = when (selectedStatus) {
-                    "All" -> true
-                    else -> task.status == selectedStatus
-                }
-                val categoryMatch = when (selectedCategory) {
-                    "All" -> true
-                    else -> task.category == selectedCategory
-                }
-                statusMatch && categoryMatch
+    fun onCheckboxClick(task: Task) {
+        if (!task.isCompleted) {
+            tasks = tasks.map {
+                if (it.id == task.id) it.copy(isCompleted = true) else it
             }
 
-            fun onCheckboxClick(task: com.example.yourassistantyora.screen.Task) {
-                if (!task.isCompleted) {
-                    tasks = tasks.map {
-                        if (it.id == task.id) {
-                            it.copy(isCompleted = true)
-                        } else {
-                            it
-                        }
-                    }
+            lastCompletedTask = task
+            showUndoSnackbar = true
+            showDeleteSnackbar = false
+            swipedTaskId = null
 
-                    lastCompletedTask = task
-                    showUndoSnackbar = true
-                    showDeleteSnackbar = false
-                    swipedTaskId = null
-
-                    scope.launch {
-                        delay(8000)
-                        showUndoSnackbar = false
-                        lastCompletedTask = null
-                    }
-                }
-            }
-
-            fun undoCompletion() {
-                lastCompletedTask?.let { t ->
-                    tasks = tasks.map { if (it.id == t.id) it.copy(isCompleted = false) else it }
-                }
+            scope.launch {
+                delay(8000)
                 showUndoSnackbar = false
                 lastCompletedTask = null
             }
+        }
+    }
 
-            fun deleteTaskConfirmed(task: com.example.yourassistantyora.screen.Task) {
-                lastDeletedTask = task
-                tasks = tasks.filter { it.id != task.id }
-                showDeleteSnackbar = true
-                showUndoSnackbar = false
-                swipedTaskId = null
+    fun undoCompletion() {
+        lastCompletedTask?.let { t ->
+            tasks = tasks.map { if (it.id == t.id) it.copy(isCompleted = false) else it }
+        }
+        showUndoSnackbar = false
+        lastCompletedTask = null
+    }
 
-                scope.launch {
-                    delay(8000)
-                    showDeleteSnackbar = false
-                    lastDeletedTask = null
-                }
-            }
+    fun deleteTaskConfirmed(task: Task) {
+        lastDeletedTask = task
+        tasks = tasks.filter { it.id != task.id }
+        showDeleteSnackbar = true
+        showUndoSnackbar = false
+        swipedTaskId = null
 
-            fun undoDelete() {
-                lastDeletedTask?.let { t ->
-                    tasks = (tasks + t).sortedBy { it.id }
-                }
-                showDeleteSnackbar = false
-                lastDeletedTask = null
-            }
+        scope.launch {
+            delay(8000)
+            showDeleteSnackbar = false
+            lastDeletedTask = null
+        }
+    }
 
-            fun showRestoreConfirmation(task: com.example.yourassistantyora.screen.Task) {
-                taskToRestore = task
-                showRestoreDialog = true
-                swipedTaskId = null
-            }
+    fun undoDelete() {
+        lastDeletedTask?.let { t ->
+            tasks = (tasks + t).sortedBy { it.id }
+        }
+        showDeleteSnackbar = false
+        lastDeletedTask = null
+    }
 
-            fun restoreTask() {
-                taskToRestore?.let { t ->
-                    tasks = tasks.map { if (it.id == t.id) it.copy(isCompleted = false) else it }
-                }
-                showRestoreDialog = false
-                taskToRestore = null
-            }
+    fun showRestoreConfirmation(task: Task) {
+        taskToRestore = task
+        showRestoreDialog = true
+        swipedTaskId = null
+    }
 
-            Box(modifier = Modifier.fillMaxSize()) {
-                Scaffold(
-                    containerColor = Color(0xFFF5F7FA),
-                    topBar = {
-                        TopAppBar(
-                            title = {
-                                Text(
-                                    "My Tasks",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2D2D2D)
-                                )
-                            },
-                            navigationIcon = {
-                                IconButton(onClick = onBackClick) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ArrowBack,
-                                        contentDescription = "Back",
-                                        tint = Color(0xFF2D2D2D)
-                                    )
-                                }
-                            },
-                            actions = {
-                                IconButton(onClick = { /* Search action */ }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Search,
-                                        contentDescription = "Search",
-                                        tint = Color(0xFF2D2D2D)
-                                    )
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color.White
-                            )
+    fun restoreTask() {
+        taskToRestore?.let { t ->
+            tasks = tasks.map { if (it.id == t.id) it.copy(isCompleted = false) else it }
+        }
+        showRestoreDialog = false
+        taskToRestore = null
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Color(0xFFF5F7FA),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "My Tasks",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2D2D2D)
                         )
                     },
-                    bottomBar = {
-                        BottomNavigationBar(
-                            selectedTab = selectedTab,
-                            onTabSelected = { index ->
-                                when (index) {
-                                    NavigationConstants.TAB_HOME -> onNavigateToHome()
-                                    NavigationConstants.TAB_TASK -> { /* sudah di Task */ }
-                                    NavigationConstants.TAB_NOTE -> onNavigateToNotes()
-                                    NavigationConstants.TAB_TEAM -> onNavigateToTeam()
-                                }
-                            }
-                        )
-                    },
-                    floatingActionButton = {
-                        FloatingActionButton(
-                            onClick = { showCreateTaskScreen = true }, // ✅ UBAH INI
-                            containerColor = Color(0xFF6A70D7),
-                            contentColor = Color.White,
-                            modifier = Modifier.size(56.dp)
-                        ) {
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
                             Icon(
-                                imageVector = Icons.Filled.Add,
-                                contentDescription = "Create Task",
-                                modifier = Modifier.size(28.dp)
+                                imageVector = Icons.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color(0xFF2D2D2D)
                             )
                         }
-                    }
-                ) { paddingValues ->
-                    Column(
-                        modifier = modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                    ) {
-                        TaskViewModeNavigation(
-                            selectedViewMode = selectedViewMode,
-                            onViewModeChange = { selectedViewMode = it },
-                            onNavigateToDaily = onNavigateToDaily,
-                            onNavigateToWeekly = onNavigateToWeekly,
-                            onNavigateToMonthly = onNavigateToMonthly
-                        )
-
-                        TaskFilterRow(
-                            selectedStatus = selectedStatus,
-                            onStatusSelected = { selectedStatus = it },
-                            selectedCategory = selectedCategory,
-                            onCategorySelected = { selectedCategory = it },
-                            categories = listOf("All", "Work", "Study", "Project")
-                        )
-
-                        Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
-
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(filteredActiveTasks, key = { it.id }) { task ->
-                                AnimatedVisibility(
-                                    visible = true,
-                                    enter = fadeIn() + expandVertically(),
-                                    exit = fadeOut() + shrinkVertically()
-                                ) {
-                                    TaskCardDesignStyle(
-                                        task = task,
-                                        onTaskClick = {
-                                            selectedTaskForDetail = task
-                                            showDetailScreen = true
-                                        },
-                                        onCheckboxClick = { onCheckboxClick(task) },
-                                        onDeleteIconClick = {
-                                            deletingTask = task
-                                            showDeleteConfirmDialog = true
-                                        },
-                                        swipedTaskId = swipedTaskId,
-                                        onSwipeChange = { id, isSwiped ->
-                                            if (isSwiped) {
-                                                swipedTaskId = id
-                                            } else if (swipedTaskId == id) {
-                                                swipedTaskId = null
-                                            }
-                                        }
-                                    )
-                                }
+                    },
+                    actions = {
+                        IconButton(onClick = { /* TODO: Search */ }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Search,
+                                contentDescription = "Search",
+                                tint = Color(0xFF2D2D2D)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White
+                    )
+                )
+            },
+            bottomBar = {
+                BottomNavigationBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = { index ->
+                        selectedTab = index
+                        when (index) {
+                            NavigationConstants.TAB_HOME -> {
+                                navController.navigateSingleTop("home")
                             }
+                            NavigationConstants.TAB_TASK -> {
+                                navController.navigateSingleTop("task_list")
+                            }
+                            NavigationConstants.TAB_NOTE -> {
+                                navController.navigateSingleTop("notes")
+                            }
+                            NavigationConstants.TAB_TEAM -> {
+                                navController.navigateSingleTop("team")
+                            }
+                        }
+                    }
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = {
+                        // buka screen create task di navigation graph
+                        navController.navigate("create_task")
+                    },
+                    containerColor = Color(0xFF6A70D7),
+                    contentColor = Color.White,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "Create Task",
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // Switch Daily / Weekly / Monthly (navigate)
+                TaskViewModeNavigation(
+                    selectedViewMode = selectedViewMode,
+                    onViewModeChange = { selectedViewMode = it },
+                    onNavigateToDaily = {
+                        navController.navigateSingleTop("daily_tasks")
+                    },
+                    onNavigateToWeekly = {
+                        navController.navigateSingleTop("weekly_tasks")
+                    },
+                    onNavigateToMonthly = {
+                        navController.navigateSingleTop("monthly_tasks")
+                    }
+                )
 
-                            if (completedTasks.isNotEmpty()) {
-                                item {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        "Completed (${completedTasks.size})",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF9E9E9E)
-                                    )
-                                }
+                TaskFilterRow(
+                    selectedStatus = selectedStatus,
+                    onStatusSelected = { selectedStatus = it },
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = { selectedCategory = it },
+                    categories = listOf("All", "Work", "Study", "Project")
+                )
 
-                                items(completedTasks, key = { it.id }) { task ->
-                                    AnimatedVisibility(
-                                        visible = true,
-                                        enter = fadeIn() + expandVertically(),
-                                        exit = fadeOut() + shrinkVertically()
-                                    ) {
-                                        TaskCardDesignStyle(
-                                            task = task,
-                                            onTaskClick = {
-                                                selectedTaskForDetail = task
-                                                showDetailScreen = true
-                                            },
-                                            onCheckboxClick = { showRestoreConfirmation(task) },
-                                            onDeleteIconClick = {
-                                                deletingTask = task
-                                                showDeleteConfirmDialog = true
-                                            },
-                                            isCompleted = true,
-                                            swipedTaskId = swipedTaskId,
-                                            onSwipeChange = { id, isSwiped ->
-                                                if (isSwiped) {
-                                                    swipedTaskId = id
-                                                } else if (swipedTaskId == id) {
-                                                    swipedTaskId = null
-                                                }
-                                            }
-                                        )
+                Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // ACTIVE TASKS
+                    items(filteredActiveTasks, key = { it.id }) { task ->
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            TaskCardDesignStyle(
+                                task = task,
+                                onTaskClick = {
+                                    // buka detail task di navigation graph
+                                    navController.navigate("task_detail/${task.id}")
+                                },
+                                onCheckboxClick = { onCheckboxClick(task) },
+                                onDeleteIconClick = {
+                                    deletingTask = task
+                                    showDeleteConfirmDialog = true
+                                },
+                                swipedTaskId = swipedTaskId,
+                                onSwipeChange = { id, isSwiped ->
+                                    if (isSwiped) {
+                                        swipedTaskId = id
+                                    } else if (swipedTaskId == id) {
+                                        swipedTaskId = null
                                     }
                                 }
-                            }
+                            )
                         }
                     }
-                }
 
-                // Undo Snackbar
-                AnimatedVisibility(
-                    visible = showUndoSnackbar,
-                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
+                    // COMPLETED
+                    if (completedTasks.isNotEmpty()) {
+                        item {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Completed (${completedTasks.size})",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF9E9E9E)
+                            )
+                        }
+
+                        items(completedTasks, key = { it.id }) { task ->
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.CheckCircle,
-                                    contentDescription = null,
-                                    tint = Color(0xFF4CAF50),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    "Task completed",
-                                    color = Color.White,
-                                    fontSize = 14.sp
-                                )
-                            }
-                            TextButton(
-                                onClick = { undoCompletion() },
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    "UNDO",
-                                    color = Color(0xFF6A70D7),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
+                                TaskCardDesignStyle(
+                                    task = task,
+                                    onTaskClick = {
+                                        navController.navigate("task_detail/${task.id}")
+                                    },
+                                    onCheckboxClick = { showRestoreConfirmation(task) },
+                                    onDeleteIconClick = {
+                                        deletingTask = task
+                                        showDeleteConfirmDialog = true
+                                    },
+                                    isCompleted = true,
+                                    swipedTaskId = swipedTaskId,
+                                    onSwipeChange = { id, isSwiped ->
+                                        if (isSwiped) {
+                                            swipedTaskId = id
+                                        } else if (swipedTaskId == id) {
+                                            swipedTaskId = null
+                                        }
+                                    }
                                 )
                             }
                         }
                     }
-                }
-
-                // Undo Delete Snackbar
-                AnimatedVisibility(
-                    visible = showDeleteSnackbar,
-                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Delete,
-                                    contentDescription = null,
-                                    tint = Color(0xFFF44336),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    "Task deleted",
-                                    color = Color.White,
-                                    fontSize = 14.sp
-                                )
-                            }
-                            TextButton(
-                                onClick = { undoDelete() },
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    "UNDO",
-                                    color = Color(0xFF6A70D7),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (showRestoreDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showRestoreDialog = false; taskToRestore = null },
-                        title = { Text("Restore Task?") },
-                        text = { Text("Do you want to move this task back to active tasks?") },
-                        confirmButton = {
-                            TextButton(onClick = { restoreTask() }) { Text("Yes") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showRestoreDialog = false; taskToRestore = null }) { Text("Cancel") }
-                        }
-                    )
-                }
-
-                if (showDeleteConfirmDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showDeleteConfirmDialog = false; deletingTask = null },
-                        title = { Text("Hapus tugas?") },
-                        text = { Text("Apakah kamu yakin ingin menghapus tugas ini?") },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                deletingTask?.let { deleteTaskConfirmed(it) }
-                                showDeleteConfirmDialog = false
-                                deletingTask = null
-                            }) {
-                                Text("Hapus", color = Color(0xFFF44336))
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showDeleteConfirmDialog = false; deletingTask = null }) { Text("Batal") }
-                        }
-                    )
                 }
             }
+        }
+
+        // ---------- SNACKBAR: UNDO COMPLETE ----------
+        AnimatedVisibility(
+            visible = showUndoSnackbar,
+            enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF4CAF50),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Task completed",
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                    }
+                    TextButton(
+                        onClick = { undoCompletion() },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            "UNDO",
+                            color = Color(0xFF6A70D7),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // ---------- SNACKBAR: UNDO DELETE ----------
+        AnimatedVisibility(
+            visible = showDeleteSnackbar,
+            enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = null,
+                            tint = Color(0xFFF44336),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Task deleted",
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                    }
+                    TextButton(
+                        onClick = { undoDelete() },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            "UNDO",
+                            color = Color(0xFF6A70D7),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // ---------- DIALOG RESTORE ----------
+        if (showRestoreDialog) {
+            AlertDialog(
+                onDismissRequest = { showRestoreDialog = false; taskToRestore = null },
+                title = { Text("Restore Task?") },
+                text = { Text("Do you want to move this task back to active tasks?") },
+                confirmButton = {
+                    TextButton(onClick = { restoreTask() }) { Text("Yes") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRestoreDialog = false; taskToRestore = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // ---------- DIALOG DELETE CONFIRM ----------
+        if (showDeleteConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = false; deletingTask = null },
+                title = { Text("Hapus tugas?") },
+                text = { Text("Apakah kamu yakin ingin menghapus tugas ini?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        deletingTask?.let { deleteTaskConfirmed(it) }
+                        showDeleteConfirmDialog = false
+                        deletingTask = null
+                    }) {
+                        Text("Hapus", color = Color(0xFFF44336))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmDialog = false; deletingTask = null }) {
+                        Text("Batal")
+                    }
+                }
+            )
         }
     }
 }
 
+// ---------- CARD DESIGN ----------
 @Composable
 fun TaskCardDesignStyle(
-    task: com.example.yourassistantyora.screen.Task,
+    task: Task,
     onTaskClick: () -> Unit,
     onCheckboxClick: () -> Unit,
     onDeleteIconClick: () -> Unit,
@@ -587,22 +570,28 @@ fun TaskCardDesignStyle(
                 detectHorizontalDragGestures(
                     onDragEnd = {
                         scope.launch {
-                            val target = if (deleteOffset.value < -deleteWidthPx / 2) -deleteWidthPx else 0f
+                            val target =
+                                if (deleteOffset.value < -deleteWidthPx / 2) -deleteWidthPx else 0f
                             deleteOffset.animateTo(target, tween(300))
                             onSwipeChange(task.id, target != 0f)
                         }
                     },
                     onDragCancel = {
-                        scope.launch { deleteOffset.snapTo(0f); onSwipeChange(task.id, false) }
+                        scope.launch {
+                            deleteOffset.snapTo(0f)
+                            onSwipeChange(task.id, false)
+                        }
                     },
                     onHorizontalDrag = { change, dragAmount ->
                         change.consume()
-                        val newOffset = (deleteOffset.value + dragAmount).coerceIn(-deleteWidthPx, 0f)
+                        val newOffset =
+                            (deleteOffset.value + dragAmount).coerceIn(-deleteWidthPx, 0f)
                         scope.launch { deleteOffset.snapTo(newOffset) }
                     }
                 )
             }
     ) {
+        // background delete
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -758,6 +747,7 @@ fun TaskCardDesignStyle(
     }
 }
 
+// ---------- BADGE CHIP ----------
 @Composable
 fun BadgeChip(
     text: String,

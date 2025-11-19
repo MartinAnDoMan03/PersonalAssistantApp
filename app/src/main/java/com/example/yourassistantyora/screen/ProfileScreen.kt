@@ -1,4 +1,5 @@
-package com.example.yourassistantyora
+// ProfileScreen.kt
+package com.example.yourassistantyora.screen
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,19 +22,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.yourassistantyora.navigateSingleTop
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    modifier: Modifier = Modifier,
-    userName: String = "Tom Holland",
-    userEmail: String = "tomholland@gmail.com",
-    totalTasks: Int = 10,
-    completedTasks: Int = 6,
-    onBackClick: () -> Unit = {},
-    onEditProfile: () -> Unit = {},
-    onLogout: () -> Unit = {}
+    navController: NavController,
+    userName: String,
+    userEmail: String,
+    totalTasks: Int,
+    completedTasks: Int,
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -42,7 +45,7 @@ fun ProfileScreen(
             .fillMaxSize()
             .background(Color(0xFFF5F7FA))
     ) {
-        // 🔹 HEADER (kotak ungu) — versi lebih ramping
+        // 🔹 HEADER (kotak ungu)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -60,7 +63,7 @@ fun ProfileScreen(
                     .padding(top = 12.dp)
             ) {
                 IconButton(
-                    onClick = onBackClick,
+                    onClick = { navController.popBackStack() },   // ⬅️ back via NavController
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
@@ -101,7 +104,7 @@ fun ProfileScreen(
             }
         }
 
-        // 🔹 CARD PUTIH (Dikecilkan)
+        // 🔹 CARD PUTIH
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -111,7 +114,7 @@ fun ProfileScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 100.dp), // 🔹 batasi tinggi minimal
+                    .heightIn(min = 100.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
@@ -119,7 +122,7 @@ fun ProfileScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 10.dp, horizontal = 16.dp) // 🔹 lebih kecil dari sebelumnya
+                        .padding(vertical = 10.dp, horizontal = 16.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -133,7 +136,7 @@ fun ProfileScreen(
                         ) {
                             Text(
                                 text = totalTasks.toString(),
-                                fontSize = 18.sp, // 🔹 sebelumnya 22.sp
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF2D2D2D)
                             )
@@ -143,7 +146,7 @@ fun ProfileScreen(
                         Box(
                             modifier = Modifier
                                 .width(1.dp)
-                                .height(28.dp) // 🔹 lebih pendek
+                                .height(28.dp)
                                 .background(Color(0xFFE0E0E0))
                         )
 
@@ -153,7 +156,7 @@ fun ProfileScreen(
                         ) {
                             Text(
                                 text = completedTasks.toString(),
-                                fontSize = 18.sp, // 🔹 sebelumnya 22.sp
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF2D2D2D)
                             )
@@ -163,24 +166,24 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // 🔹 Tombol Edit Profile — lebih kecil
+                    // 🔹 Tombol Edit Profile → ke "edit_profile"
                     TextButton(
-                        onClick = onEditProfile,
+                        onClick = { navController.navigateSingleTop("edit_profile") },
                         modifier = Modifier
                             .align(Alignment.CenterHorizontally)
-                            .height(32.dp) // 🔹 lebih pendek dari sebelumnya
+                            .height(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Edit,
                             contentDescription = "Edit",
                             tint = Color(0xFF6A70D7),
-                            modifier = Modifier.size(14.dp) // 🔹 kecilkan ikon
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Edit Profile",
                             color = Color(0xFF6A70D7),
-                            fontSize = 13.sp, // 🔹 kecilkan teks
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -274,7 +277,7 @@ fun ProfileScreen(
                 onClick = { showLogoutDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp), // 🔹 sedikit lebih kecil
+                    .height(46.dp),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, Color(0xFFE53935)),
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -320,6 +323,14 @@ fun ProfileScreen(
 @Composable
 private fun ProfileScreenPreview() {
     YourAssistantYoraTheme {
-        ProfileScreen()
+        val navController = rememberNavController()
+        ProfileScreen(
+            navController = navController,
+            userName = "Tom Holland",
+            userEmail = "tomholland@gmail.com",
+            totalTasks = 10,
+            completedTasks = 6,
+            onLogout = {}
+        )
     }
 }
