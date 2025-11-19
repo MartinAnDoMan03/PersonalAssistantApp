@@ -7,7 +7,7 @@
     android:background="@drawable/splash_background">
 
     <!-- Geometric Shapes Background (TAMBAHAN BARU) -->
-    <com.example.yourassistantyora.GeometricShapesView
+    <com.example.yourassistantyora.screen.GeometricShapesView
         android:id="@+id/geometricShapesView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -18,7 +18,7 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Ripple Wave Background -->
-    <com.example.yourassistantyora.RippleWaveView
+    <com.example.yourassistantyora.screen.RippleWaveView
         android:id="@+id/rippleWaveView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -113,7 +113,7 @@
 
     </FrameLayout>
 
-    <com.example.yourassistantyora.ParticleView
+    <com.example.yourassistantyora.screen.ParticleView
         android:id="@+id/particleView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

@@ -1,6 +1,5 @@
 package com.example.yourassistantyora
 
-import android.content.Context
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
@@ -18,6 +17,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import com.example.yourassistantyora.screen.GeometricShapesView
+import com.example.yourassistantyora.screen.ParticleView
+import com.example.yourassistantyora.screen.RippleWaveView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -45,13 +47,9 @@ class SplashActivity : AppCompatActivity() {
     private lateinit var shadowView8: View
     private lateinit var shadowView9: View
 
-    // Data Fetching
+    //Data Fetching
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
-
-    // Handler
-    private val handler = Handler(Looper.getMainLooper())
-    private val scheduledTasks = mutableListOf<Runnable>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,24 +102,24 @@ class SplashActivity : AppCompatActivity() {
             view.translationY = yOffsetsDp[index] * density
             view.alpha = alphas[index]
         }
+        // Logo tidak perlu offset
     }
-
-    private fun scheduleTask(delay: Long, action: () -> Unit) {
-        val task = Runnable { action() }
-        scheduledTasks.add(task)
-        handler.postDelayed(task, delay)
-    }
-
 
     private fun startSplashAnimation() {
         // Stage 1: Logo berputar dan membesar (0-800ms)
-        scheduleTask(200) { animateStage1() }  // Mulai lebih cepat
+        Handler(Looper.getMainLooper()).postDelayed({
+            animateStage1()
+        }, 200)  // Mulai lebih cepat
 
         // Stage 2: Logo scale lagi (800-1600ms)
-        scheduleTask(900) { animateStage2() } // Timing lebih smooth
+        Handler(Looper.getMainLooper()).postDelayed({
+            animateStage2()
+        }, 900)  // Timing lebih smooth
 
         // Stage 3: Background gradient, logo naik, teks muncul dari logo (1600-2400ms)
-        scheduleTask(1700) { animateStage3() }  // Timing lebih smooth
+        Handler(Looper.getMainLooper()).postDelayed({
+            animateStage3()
+        }, 1700)  // Timing lebih smooth
 
     }
 
@@ -286,13 +284,26 @@ class SplashActivity : AppCompatActivity() {
 
             val textAnimatorSet = AnimatorSet()
             textAnimatorSet.playTogether(textScaleX, textScaleY, textFadeIn, textMoveDown)
-            textAnimatorSet.addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    super.onAnimationEnd(animation)
-                    decideNextActivity()
-                }
-            })
             textAnimatorSet.start()
+
+            // This handler will now wait for the final animation (700ms) to finish before checking the user and navigating.
+            Handler(Looper.getMainLooper()).postDelayed({
+                val currentUser = auth.currentUser
+                if (currentUser != null) {
+                    // Jika sudah login, ambil datanya dari Firestore
+                    fetchUserAndNavigate()
+                } else {
+                    // Kalau belum login, arahkan ke login
+                    val intent = Intent(this, MainActivity::class.java).apply {
+                        putExtra("START_DESTINATION", "login")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    }
+                    startActivity(intent)
+                    finish()
+                }
+            }, 1000)
+
+
 
             // Staggered tagline
             appNameTextView.alpha = 1f
@@ -334,56 +345,12 @@ class SplashActivity : AppCompatActivity() {
     }
 
     private fun navigateToHome(userName: String) {
-        startActivity(Intent(this, HomeActivity::class.java).apply {
+        val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("USER_NAME", userName) // 👈 Pass the fetched username
-        })
+            putExtra("START_DESTINATION", "home")
+            putExtra("USER_NAME", userName)
+        }
+        startActivity(intent)
         finish()
-    }
-
-    // Add this new function at the bottom of your SplashActivity class
-
-    private fun decideNextActivity() {
-        // --- THIS IS THE CRITICAL LOGIC ---
-        val sharedPref = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        val wasLoggedOutManually = sharedPref.getBoolean("logged_out_manually", false)
-
-        if (wasLoggedOutManually) {
-            // The user explicitly logged out. Force them to the login screen.
-            Log.d("SplashActivity", "Logout flag is true. Forcing navigation to LoginActivity.")
-
-            // We must also clear the flag so this doesn't happen forever.
-            with(sharedPref.edit()) {
-                putBoolean("logged_out_manually", false)
-                apply()
-            }
-
-            val intent = Intent(this, LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            startActivity(intent)
-            finish()
-            return // Stop further execution
-        }
-        // ------------------------------------
-
-        // If the flag was not set, proceed with the normal check.
-        if (auth.currentUser != null) {
-            // User is signed in and did not log out manually.
-            Log.d("SplashActivity", "User logged in. Fetching info.")
-            fetchUserAndNavigate()
-        } else {
-            // No user is signed in. Go to Login.
-            Log.d("SplashActivity", "No user. Navigating to Login.")
-            val intent = Intent(this, LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            startActivity(intent)
-            finish()
-        }
-    }
-    override fun onDestroy() {
-        super.onDestroy()
-        Log.d("SplashActivity", "onDestroy called. Cancelling ${scheduledTasks.size} scheduled tasks.")
-        // This is the cleanup that prevents zombie tasks
-        scheduledTasks.forEach { task -> handler.removeCallbacks(task) }
     }
 }
