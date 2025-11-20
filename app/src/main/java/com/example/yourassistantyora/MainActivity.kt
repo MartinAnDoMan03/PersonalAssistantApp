@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
                 // Kalau Splash sudah kirim username dari Firestore, sync ke AuthViewModel
                 LaunchedEffect(userNameFromSplash) {
                     if (!userNameFromSplash.isNullOrBlank()) {
-                        authViewModel.updateUserName(userNameFromSplash)
+                        authViewModel.updateUserProfile(userNameFromSplash, null)
                     }
                 }
 

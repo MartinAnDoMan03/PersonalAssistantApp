@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -26,6 +27,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.yourassistantyora.navigateSingleTop
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import androidx.compose.foundation.Image
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +35,7 @@ fun ProfileScreen(
     navController: NavController,
     userName: String,
     userEmail: String,
+    userPhotoUrl: String? = null,
     totalTasks: Int,
     completedTasks: Int,
     onLogout: () -> Unit,
@@ -84,12 +87,41 @@ fun ProfileScreen(
                         .background(Color(0xFFFFB74D)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = userName.firstOrNull()?.toString() ?: "",
-                        color = Color.White,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    val bitmap = remember(userPhotoUrl){
+                        if (!userPhotoUrl.isNullOrEmpty()){
+                            try {
+                                val pureBase64 = userPhotoUrl.substringAfter(",")
+                                val decodedBytes = android.util.Base64.decode(
+                                    pureBase64,
+                                    android.util.Base64.DEFAULT
+                                )
+                                android.graphics.BitmapFactory.decodeByteArray(
+                                    decodedBytes,
+                                    0,
+                                    decodedBytes.size
+                                )
+                            } catch (e: Exception){
+                                null
+                            }
+                        } else{
+                            null
+                        }
+                    }
+                    if (bitmap != null){
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Profile Picture",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else{
+                        Text(
+                            text = if (userName.isNotEmpty()) userName.take(1).uppercase() else "U",
+                            color = Color.White,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

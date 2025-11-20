@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -66,9 +67,10 @@ data class Task(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun HomeScreen(
-navController: NavController,
-userName: String = "Tom Holland",
-modifier: Modifier = Modifier
+    navController: NavController,
+    userName: String = "Tom Holland",
+    userPhotoUrl: String? = null,
+    modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_HOME) }
     val scope = rememberCoroutineScope()
@@ -312,7 +314,40 @@ modifier: Modifier = Modifier
                                         .background(Color(0xFFFFB74D)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("T", color = Color.White, fontWeight = FontWeight.Bold)
+                                    val bitmap = remember(userPhotoUrl) {
+                                        if (!userPhotoUrl.isNullOrEmpty()){
+                                            try {
+                                                val pureBase64 = userPhotoUrl.substringAfter(",")
+                                                val decodedBytes = android.util.Base64.decode(
+                                                    pureBase64,
+                                                    android.util.Base64.DEFAULT
+                                                )
+                                                android.graphics.BitmapFactory.decodeByteArray(
+                                                    decodedBytes,
+                                                    0,
+                                                    decodedBytes.size
+                                                )
+                                            }catch (e: Exception){
+                                                null
+                                            }
+                                        }else{
+                                            null
+                                        }
+                                    }
+                                    if (bitmap != null){
+                                        Image(
+                                            bitmap = bitmap.asImageBitmap(),
+                                            contentDescription = "Profile Picture",
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Text(
+                                            text = if (userName.isNotEmpty()) userName.take(1).uppercase() else "U",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
 

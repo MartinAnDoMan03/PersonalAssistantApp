@@ -69,7 +69,7 @@ fun AppNavigation(
                 viewModel = loginViewModel,
                 navController = navController,
                 onLoginSuccess = { username ->
-                    authViewModel.updateUserName(username)
+                    authViewModel.updateUserProfile(username, null)
                     navController.navigateAndClearBackStack("home")
                 }
             )
@@ -132,7 +132,8 @@ fun AppNavigation(
         composable("home") {
             HomeScreen(
                 navController = navController,
-                userName = authViewModel.userName.value ?: "User"
+                userName = authViewModel.userName.value ?: "User",
+                userPhotoUrl = authViewModel.userPhotoUrl.value
             )
         }
 
@@ -145,6 +146,7 @@ fun AppNavigation(
                 navController = navController,
                 userName = authViewModel.userName.value ?: "User",
                 userEmail = authViewModel.currentUser.value?.email ?: "user@example.com",
+                userPhotoUrl = authViewModel.userPhotoUrl.value,
                 totalTasks = 10,         // sementara dummy
                 completedTasks = 6,      // sementara dummy
                 onLogout = {
@@ -164,12 +166,10 @@ fun AppNavigation(
                 navController = navController,
                 currentName = authViewModel.userName.value ?: "User",
                 currentEmail = authViewModel.currentUser.value?.email ?: "user@example.com",
-                onSaveProfile = { newName ->
-                    authViewModel.updateUserName(newName)
-                },
-                isSaving = authViewModel.isProfileUpdating.value,
-                errorMessage = authViewModel.profileError.value,
-                onErrorShown = { authViewModel.profileError.value = null }
+                currentPhotoUrl = authViewModel.userPhotoUrl.value,
+                onSaveProfile = { newName, newPhotoUrl ->
+                    authViewModel.updateUserProfile(newName, newPhotoUrl)
+                }
             )
         }
 

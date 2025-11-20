@@ -22,6 +22,9 @@ class AuthViewModel : ViewModel() {
     var userName = mutableStateOf<String?>(null)
         private set
 
+    var userPhotoUrl = mutableStateOf<String?>(null)
+        private set
+
     var isLoading = mutableStateOf(true)
         private set
 
@@ -42,14 +45,29 @@ class AuthViewModel : ViewModel() {
         currentUser.value = user
 
         if (user != null) {
-            // sementara: pakai displayName/email prefix
             userName.value = user.displayName ?: user.email?.substringBefore("@") ?: "User"
+
+            viewModelScope.launch {
+                try {
+                    val document = db.collection("users").document(user.uid).get().await()
+                    if (document.exists()) {
+                        val nameFromDb = document.getString("username")
+                        val photoFromDb = document.getString("photoUrl")
+
+                        if (nameFromDb != null) userName.value = nameFromDb
+                        if (photoFromDb != null) userPhotoUrl.value = photoFromDb
+                    }
+                } catch (e: Exception) {
+                }
+            }
         } else {
             userName.value = null
+            userPhotoUrl.value = null
         }
 
         isLoading.value = false
     }
+
 
     fun signOut() {
         auth.signOut()
@@ -62,7 +80,7 @@ class AuthViewModel : ViewModel() {
      * - update displayName di FirebaseAuth
      * - update field "username" di Firestore (collection "users")
      */
-    fun updateUserName(newName: String) {
+    fun updateUserProfile(newName: String, newPhotoBase64: String?) {
         val user = auth.currentUser ?: return
 
         isProfileUpdating.value = true
@@ -70,24 +88,25 @@ class AuthViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // 🔹 1) update displayName di Firebase Auth
                 val profileUpdates = userProfileChangeRequest {
                     displayName = newName
                 }
                 user.updateProfile(profileUpdates).await()
 
-                // 🔹 2) update Firestore (merge biar field lain gak ketimpa)
-                val userData = mapOf(
+                val userData = mutableMapOf<String, Any>(
                     "username" to newName,
                     "email" to (user.email ?: "")
                 )
+
+                if (newPhotoBase64 != null) {
+                    userPhotoUrl.value = newPhotoBase64
+                }
 
                 db.collection("users")
                     .document(user.uid)
                     .set(userData, SetOptions.merge())
                     .await()
 
-                // 🔹 3) update state lokal
                 userName.value = newName
                 currentUser.value = auth.currentUser
 
@@ -98,4 +117,6 @@ class AuthViewModel : ViewModel() {
             }
         }
     }
+
+
 }
