@@ -35,6 +35,7 @@ import com.example.yourassistantyora.screen.Task
 import com.example.yourassistantyora.screen.Note
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import com.example.yourassistantyora.viewModel.CreateTaskViewModel // Import ViewModel
 
 // ... and so on for all screens
 /**
@@ -263,8 +264,11 @@ fun AppNavigation(
          * Route: "create_task"
          */
         composable("create_task") {
+            // ViewModel akan otomatis dibuat dan di-scope ke NavBackStackEntry ini
+            val createTaskViewModel: CreateTaskViewModel = viewModel()
             CreateTaskScreen(
-                navController = navController
+                navController = navController,
+                viewModel = createTaskViewModel
             )
         }
 

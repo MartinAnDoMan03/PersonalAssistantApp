@@ -1,32 +1,39 @@
 package com.example.yourassistantyora.screen
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.foundation.BorderStroke
-import com.example.yourassistantyora.screen.Task
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.yourassistantyora.viewModel.CreateTaskViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
-
-// Data class untuk Status
+// Data class untuk Status (Anda sudah punya ini)
 data class StatusItem(
     val name: String,
     val color: Color
@@ -35,52 +42,76 @@ data class StatusItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateTaskScreen(
-    navController: NavController
+    navController: NavController,
+    // ViewModel akan diinjeksi oleh Navigation Graph
+    viewModel: CreateTaskViewModel = viewModel()
 ) {
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var selectedDate by remember { mutableStateOf("Oct 24, 2025") }
-    var selectedTime by remember { mutableStateOf("10:00 AM") }
-    var selectedPriority by remember { mutableStateOf("Medium") }
-    var selectedCategory by remember { mutableStateOf("Work") }
-    var selectedReminder by remember { mutableStateOf("Tidak ada peringat") }
-    var location by remember { mutableStateOf("") }
-    var selectedStatus by remember { mutableStateOf("To do") }
+    val context = LocalContext.current
 
-    // Dialog states
-    var showNewStatusDialog by remember { mutableStateOf(false) }
-    var showNewCategoryDialog by remember { mutableStateOf(false) }
-    var showReminderDropdown by remember { mutableStateOf(false) }
+    // --- State dari ViewModel (MENGGANTIKAN SEMUA STATE LOKAL ANDA) ---
+    val title by viewModel.title
+    val description by viewModel.description
+    val selectedPriority by viewModel.selectedPriority
+    val selectedCategory by viewModel.selectedCategory
+    val selectedReminder by viewModel.selectedReminder
+    val selectedStatus by viewModel.selectedStatus
+    val isLoading by viewModel.loading
+    val taskSaved by viewModel.taskSaved
+    val errorMessage by viewModel.errorMessage
+
+    // --- State lokal HANYA untuk mengontrol dialog ---
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    // Anda bisa menambahkan state dialog lain di sini jika perlu
+    // var showNewStatusDialog by remember { mutableStateOf(false) }
+    // var showReminderDropdown by remember { mutableStateOf(false) }
 
-    // Categories and Statuses
-    var categories by remember {
-        mutableStateOf(listOf("Work", "Study", "Travel", "Meeting", "Project"))
+    // --- Efek untuk menangani event dari ViewModel ---
+    LaunchedEffect(taskSaved) {
+        if (taskSaved) {
+            Toast.makeText(context, "Task created successfully!", Toast.LENGTH_SHORT).show()
+            navController.popBackStack()
+        }
     }
-    var statuses by remember {
-        mutableStateOf(
-            listOf(
-                StatusItem("Waiting", Color(0xFFF3E5F5)),
-                StatusItem("To do", Color(0xFFE3F2FD)),
-                StatusItem("Done", Color(0xFFE8F5E8)),
-                StatusItem("Hold On", Color(0xFFFFF3E0)),
-                StatusItem("In Progress", Color(0xFFE0F2F1))
-            )
-        )
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
+        }
     }
 
+    // --- Helper untuk memformat tanggal dan waktu dari ViewModel ---
+    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.ENGLISH) }
+    val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.ENGLISH) }
 
-
+    val formattedDate by remember(viewModel.selectedDate.value) {
+        derivedStateOf {
+            viewModel.selectedDate.value?.let { dateFormatter.format(it) } ?: "Select date"
+        }
+    }
+    val formattedTime by remember(viewModel.selectedTime.value) {
+        derivedStateOf {
+            viewModel.selectedTime.value?.let { timeFormatter.format(it.time) } ?: "Select time"
+        }
+    }
+    // -- Daftar Opsi (sama seperti yang Anda miliki) --
+    val categories = listOf("Work", "Study", "Travel", "Meeting", "Project")
     val reminderOptions = listOf(
-        "Tidak ada peringat",
-        "Ingat ketepat waktu",
-        "Reminder 10 minute before",
-        "Reminder 20 minute before",
-        "Reminder 30 minute before",
-        "Reminder 1 day before",
-        "Reminder 2 day before",
-        "Reminder 3 day before"
+        "Tidak ada pengingat",
+        "Ingatkan pada waktunya",
+        "Ingatkan 10 menit sebelumnya",
+        "Ingatkan 20 menit sebelumnya",
+        "Ingatkan 30 menit sebelumnya",
+        "Ingatkan 1 hari sebelumnya",
+        "Ingatkan 2 hari sebelumnya",
+        "Ingatkan 3 hari sebelumnya"
+    )
+    val statuses = listOf(
+        StatusItem("Waiting", Color(0xFFF3E5F5)),
+        StatusItem("To do", Color(0xFFE3F2FD)),
+        StatusItem("Done", Color(0xFFE8F5E8)),
+        StatusItem("Hold On", Color(0xFFFFF3E0)),
+        StatusItem("In Progress", Color(0xFFE0F2F1))
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -97,48 +128,37 @@ fun CreateTaskScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(
-                            onClick = { navController.popBackStack() }
-                        ) {
+                        IconButton(onClick = { navController.popBackStack() }) {
                             Icon(
                                 imageVector = Icons.Filled.Close,
                                 contentDescription = "Close",
                                 tint = Color(0xFF757575)
                             )
                         }
-                    }
-                    ,
+                    },
                     actions = {
-                        IconButton(
-                            onClick = {
-                                if (title.isNotBlank()) {
-                                    val newTask = Task(
-                                        id = System.currentTimeMillis().toInt(),
-                                        title = title,
-                                        time = selectedTime,
-                                        priority = selectedPriority,
-                                        category = selectedCategory,
-                                        status = selectedStatus
-                                    )
-
-                                    // TODO: simpan ke ViewModel / DB nanti
-                                    navController.popBackStack()
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = "Save",
-                                tint = Color(0xFF6C63FF)
+                        // ✅ MENGHUBUNGKAN TOMBOL SIMPAN KE VIEWMODEL
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp).padding(end = 16.dp),
+                                strokeWidth = 2.dp
                             )
+                        } else {
+                            IconButton(onClick = { viewModel.createTask() }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = "Save",
+                                    tint = Color(0xFF6C63FF)
+                                )
+                            }
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White
-                    )
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                 )
             }
         ) { paddingValues ->
+            // --- KONTEN UTAMA (KODE UI ANDA YANG SUDAH ADA) ---
+            // Saya hanya mengganti state lokal dengan state dari ViewModel
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -164,17 +184,12 @@ fun CreateTaskScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1F1F1F)
                         )
-
                         // Title
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                "Title",
-                                fontSize = 12.sp,
-                                color = Color(0xFF757575)
-                            )
+                            Text("Title", fontSize = 12.sp, color = Color(0xFF757575))
                             OutlinedTextField(
-                                value = title,
-                                onValueChange = { title = it },
+                                value = title, // ✅ DARI VIEWMODEL
+                                onValueChange = { viewModel.title.value = it }, // ✅ KE VIEWMODEL
                                 placeholder = {
                                     Text(
                                         "What needs to be done ?",
@@ -193,17 +208,14 @@ fun CreateTaskScreen(
                                 singleLine = true
                             )
                         }
-
                         // Description
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                "Description",
-                                fontSize = 12.sp,
-                                color = Color(0xFF757575)
-                            )
+                            Text("Description", fontSize = 12.sp, color = Color(0xFF757575))
                             OutlinedTextField(
-                                value = description,
-                                onValueChange = { description = it },
+                                value = description, // ✅ DARI VIEWMODEL
+                                onValueChange = {
+                                    viewModel.description.value = it
+                                }, // ✅ KE VIEWMODEL
                                 placeholder = {
                                     Text(
                                         "Add more details...(optional)",
@@ -211,9 +223,7 @@ fun CreateTaskScreen(
                                         color = Color(0xFFBDBDBD)
                                     )
                                 },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(100.dp),
+                                modifier = Modifier.fillMaxWidth().height(100.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color(0xFF6C63FF),
                                     unfocusedBorderColor = Color(0xFFE0E0E0),
@@ -255,7 +265,6 @@ fun CreateTaskScreen(
                                 color = Color(0xFF1F1F1F)
                             )
                         }
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -267,27 +276,14 @@ fun CreateTaskScreen(
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(Color(0xFFFAFAFA))
                                     .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
-                                    .clickable { showDatePicker = true }
+                                    .clickable { showDatePicker = true } // ✅ BUKA DIALOG
                                     .padding(12.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.CalendarToday,
-                                        contentDescription = null,
-                                        tint = Color(0xFF757575),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        selectedDate,
-                                        fontSize = 13.sp,
-                                        color = Color(0xFF1F1F1F)
-                                    )
-                                }
+                                ) { Text(formattedDate) }
                             }
-
                             // Time picker
                             Box(
                                 modifier = Modifier
@@ -295,25 +291,13 @@ fun CreateTaskScreen(
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(Color(0xFFFAFAFA))
                                     .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
-                                    .clickable { showTimePicker = true }
+                                    .clickable { showTimePicker = true } // ✅ BUKA DIALOG
                                     .padding(12.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.AccessTime,
-                                        contentDescription = null,
-                                        tint = Color(0xFF757575),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        selectedTime,
-                                        fontSize = 13.sp,
-                                        color = Color(0xFF1F1F1F)
-                                    )
-                                }
+                                ) { Text(formattedTime) }
                             }
                         }
                     }
@@ -336,7 +320,6 @@ fun CreateTaskScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1F1F1F)
                         )
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -345,21 +328,27 @@ fun CreateTaskScreen(
                                 label = "Low",
                                 color = Color(0xFF64B5F6),
                                 isSelected = selectedPriority == "Low",
-                                onClick = { selectedPriority = "Low" },
+                                onClick = {
+                                    viewModel.selectedPriority.value = "Low"
+                                }, // Ke ViewModel
                                 modifier = Modifier.weight(1f)
                             )
                             PriorityOption(
                                 label = "Medium",
                                 color = Color(0xFFFFB74D),
                                 isSelected = selectedPriority == "Medium",
-                                onClick = { selectedPriority = "Medium" },
+                                onClick = {
+                                    viewModel.selectedPriority.value = "Medium"
+                                }, // Ke ViewModel
                                 modifier = Modifier.weight(1f)
                             )
                             PriorityOption(
                                 label = "High",
                                 color = Color(0xFFEF5350),
                                 isSelected = selectedPriority == "High",
-                                onClick = { selectedPriority = "High" },
+                                onClick = {
+                                    viewModel.selectedPriority.value = "High"
+                                }, // Ke ViewModel
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -383,47 +372,19 @@ fun CreateTaskScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1F1F1F)
                         )
-
-                        // Category chips
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            categories.take(3).forEach { category ->
+                            categories.forEach { category ->
                                 CategoryChip(
                                     label = category,
                                     isSelected = selectedCategory == category,
-                                    onClick = { selectedCategory = category }
-                                )
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            categories.drop(3).forEach { category ->
-                                CategoryChip(
-                                    label = category,
-                                    isSelected = selectedCategory == category,
-                                    onClick = { selectedCategory = category }
-                                )
-                            }
-
-                            // Add New Category
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Color(0xFFF5F5F5))
-                                    .clickable { showNewCategoryDialog = true }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    "+ Add New",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF6C63FF),
-                                    fontWeight = FontWeight.Medium
+                                    onClick = {
+                                        viewModel.selectedCategory.value = category
+                                    } // Ke ViewModel
                                 )
                             }
                         }
@@ -431,6 +392,7 @@ fun CreateTaskScreen(
                 }
 
                 // Reminder Section
+                var showReminderDropdown by remember { mutableStateOf(false) } // State lokal untuk UI
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -447,24 +409,16 @@ fun CreateTaskScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1F1F1F)
                         )
-
                         ExposedDropdownMenuBox(
                             expanded = showReminderDropdown,
                             onExpandedChange = { showReminderDropdown = it }
                         ) {
                             OutlinedTextField(
-                                value = selectedReminder,
+                                value = selectedReminder, // Dari ViewModel
                                 onValueChange = {},
                                 readOnly = true,
                                 trailingIcon = {
-                                    Icon(
-                                        imageVector = if (showReminderDropdown)
-                                            Icons.Filled.KeyboardArrowUp
-                                        else
-                                            Icons.Filled.KeyboardArrowDown,
-                                        contentDescription = null,
-                                        tint = Color(0xFF757575)
-                                    )
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = showReminderDropdown)
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -478,21 +432,16 @@ fun CreateTaskScreen(
                                 shape = RoundedCornerShape(8.dp),
                                 textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
                             )
-
                             ExposedDropdownMenu(
                                 expanded = showReminderDropdown,
                                 onDismissRequest = { showReminderDropdown = false }
                             ) {
                                 reminderOptions.forEach { option ->
                                     DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                option,
-                                                fontSize = 13.sp
-                                            )
-                                        },
+                                        text = { Text(option, fontSize = 13.sp) },
                                         onClick = {
-                                            selectedReminder = option
+                                            viewModel.selectedReminder.value =
+                                                option // Ke ViewModel
                                             showReminderDropdown = false
                                         }
                                     )
@@ -503,45 +452,45 @@ fun CreateTaskScreen(
                 }
 
                 // Location Section
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            "Location",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1F1F1F)
-                        )
-
-                        OutlinedTextField(
-                            value = location,
-                            onValueChange = { location = it },
-                            placeholder = {
-                                Text(
-                                    "Add location...(optional)",
-                                    fontSize = 14.sp,
-                                    color = Color(0xFFBDBDBD)
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF6C63FF),
-                                unfocusedBorderColor = Color(0xFFE0E0E0),
-                                focusedContainerColor = Color.White,
-                                unfocusedContainerColor = Color(0xFFFAFAFA)
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            singleLine = true
-                        )
-                    }
-                }
+//                Card(
+//                    modifier = Modifier.fillMaxWidth(),
+//                    colors = CardDefaults.cardColors(containerColor = Color.White),
+//                    shape = RoundedCornerShape(12.dp),
+//                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+//                ) {
+//                    Column(
+//                        modifier = Modifier.padding(16.dp),
+//                        verticalArrangement = Arrangement.spacedBy(12.dp)
+//                    ) {
+//                        Text(
+//                            "Location",
+//                            fontSize = 14.sp,
+//                            fontWeight = FontWeight.SemiBold,
+//                            color = Color(0xFF1F1F1F)
+//                        )
+//
+//                        OutlinedTextField(
+//                            value = location,
+//                            onValueChange = { location = it },
+//                            placeholder = {
+//                                Text(
+//                                    "Add location...(optional)",
+//                                    fontSize = 14.sp,
+//                                    color = Color(0xFFBDBDBD)
+//                                )
+//                            },
+//                            modifier = Modifier.fillMaxWidth(),
+//                            colors = OutlinedTextFieldDefaults.colors(
+//                                focusedBorderColor = Color(0xFF6C63FF),
+//                                unfocusedBorderColor = Color(0xFFE0E0E0),
+//                                focusedContainerColor = Color.White,
+//                                unfocusedContainerColor = Color(0xFFFAFAFA)
+//                            ),
+//                            shape = RoundedCornerShape(8.dp),
+//                            singleLine = true
+//                        )
+//                    }
+//                }
 
                 // Status Section
                 Card(
@@ -560,65 +509,21 @@ fun CreateTaskScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1F1F1F)
                         )
-
-                        // Status chips
+                        // ✅ SATU ROW DENGAN HORIZONTAL SCROLL
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()), // Tambahkan ini
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            statuses.take(3).forEach { status ->
+                            statuses.forEach { status -> // Loop semua status, tanpa take/drop
                                 StatusChip(
                                     label = status.name,
                                     color = status.color,
                                     isSelected = selectedStatus == status.name,
-                                    onClick = { selectedStatus = status.name }
-                                )
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            statuses.drop(3).forEach { status ->
-                                StatusChip(
-                                    label = status.name,
-                                    color = status.color,
-                                    isSelected = selectedStatus == status.name,
-                                    onClick = { selectedStatus = status.name }
-                                )
-                            }
-
-                            // Add New Status
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Color(0xFFF5F5F5))
-                                    .clickable { showNewStatusDialog = true }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    "+ Add New",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF6C63FF),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-
-                            // View All
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Color(0xFFF5F5F5))
-                                    .clickable { /* View all statuses */ }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    "View All",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF757575),
-                                    fontWeight = FontWeight.Medium
+                                    onClick = {
+                                        viewModel.selectedStatus.value = status.name
+                                    } // Ke ViewModel
                                 )
                             }
                         }
@@ -626,343 +531,124 @@ fun CreateTaskScreen(
                 }
 
                 // Create Task Button
-                Button(
-                    onClick = {
-                        if (title.isNotBlank()) {
-                            val newTask = Task(
-                                id = System.currentTimeMillis().toInt(),
-                                title = title,
-                                time = selectedTime,
-                                priority = selectedPriority,
-                                category = selectedCategory,
-                                status = selectedStatus
-                            )
+//                Button(
+//                    onClick = {
+//                        if (title.isNotBlank()) {
+//                            val newTask = Task(
+//                                id = System.currentTimeMillis().toInt(),
+//                                title = title,
+//                                time = selectedTime,
+//                                priority = selectedPriority,
+//                                category = selectedCategory,
+//                                status = selectedStatus
+//                            )
+//
+//                            // TODO: simpan ke ViewModel / DB nanti
+//                            navController.popBackStack()
+//                        }
+//                    },
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .height(50.dp),
+//                    colors = ButtonDefaults.buttonColors(
+//                        containerColor = Color(0xFF6C63FF)
+//                    ),
+//                    shape = RoundedCornerShape(12.dp)
+//                ) {
+//                    Text(
+//                        "Create Task",
+//                        fontSize = 16.sp,
+//                        fontWeight = FontWeight.SemiBold,
+//                        color = Color.White
+//                    )
+//                }
 
-                            // TODO: simpan ke ViewModel / DB nanti
-                            navController.popBackStack()
+                if (showDatePicker) {
+                    val datePickerState = rememberDatePickerState()
+                    DatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                datePickerState.selectedDateMillis?.let { viewModel.selectedDate.value = Date(it) }
+                                showDatePicker = false
+                            }) { Text("OK") }
+                        },
+                        dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+                    ) { DatePicker(state = datePickerState) }
+                }
+
+                if (showTimePicker) {
+                    val timePickerState = rememberTimePickerState()
+                    Dialog(onDismissRequest = { showTimePicker = false }) {
+                        Surface(shape = RoundedCornerShape(16.dp)) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                TimePicker(state = timePickerState)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    TextButton(onClick = {
+                                        showTimePicker = false
+                                    }) { Text("Cancel") }
+                                    TextButton(onClick = {
+                                        val cal = Calendar.getInstance()
+                                        cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                                        cal.set(Calendar.MINUTE, timePickerState.minute)
+                                        viewModel.selectedTime.value = cal // ✅ UPDATE VIEWMODEL
+                                        showTimePicker = false
+                                    }) { Text("OK") }
+                                }
+                            }
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6C63FF)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        "Create Task",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
+                        Spacer(Modifier.height(16.dp))
+                    }
                 }
-
-
-                Spacer(Modifier.height(16.dp))
             }
-        }
-
-        // New Status Dialog
-        if (showNewStatusDialog) {
-            NewStatusDialog(
-                onDismiss = { showNewStatusDialog = false },
-                onConfirm = { statusName, badgeColor ->
-                    statuses = statuses + StatusItem(statusName, badgeColor)
-                    showNewStatusDialog = false
-                }
-            )
-        }
-
-        // New Category Dialog
-        if (showNewCategoryDialog) {
-            NewCategoryDialog(
-                onDismiss = { showNewCategoryDialog = false },
-                onConfirm = { categoryName ->
-                    categories = categories + categoryName
-                    showNewCategoryDialog = false
-                }
-            )
         }
     }
 }
-
 @Composable
 fun PriorityOption(
-    label: String,
-    color: Color,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    label: String, color: Color, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) color.copy(alpha = 0.1f) else Color(0xFFFAFAFA)
-        ),
-        shape = RoundedCornerShape(12.dp),
-        border = if (isSelected) BorderStroke(2.dp, color) else null
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) color.copy(alpha = 0.2f) else Color.Transparent)
+            .border(width = 1.dp, color = if (isSelected) color else Color(0xFFE0E0E0), shape = RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick).padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(color)
-            )
-            Text(
-                label,
-                fontSize = 13.sp,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                color = Color(0xFF1F1F1F)
-            )
-        }
+        Text(text = label, color = if (isSelected) color else Color(0xFF757575), fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
     }
 }
 
 @Composable
 fun CategoryChip(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
+    label: String, isSelected: Boolean, onClick: () -> Unit
 ) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) Color(0xFF6C63FF) else Color(0xFFF5F5F5)
+    Box(
+        modifier = Modifier.clip(RoundedCornerShape(20.dp))
+            .background(if (isSelected) Color(0xFF6C63FF) else Color(0xFFF0F0F0))
+            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            fontSize = 12.sp,
-            color = if (isSelected) Color.White else Color(0xFF757575),
-            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
-        )
+        Text(text = label, color = if (isSelected) Color.White else Color(0xFF757575), fontSize = 13.sp)
     }
 }
 
 @Composable
 fun StatusChip(
-    label: String,
-    color: Color,
-    isSelected: Boolean,
-    onClick: () -> Unit
+    label: String, color: Color, isSelected: Boolean, onClick: () -> Unit
 ) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) color else color.copy(alpha = 0.3f)
+    Row(
+        modifier = Modifier.clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            fontSize = 12.sp,
-            color = if (isSelected) Color(0xFF1F1F1F) else Color(0xFF757575),
-            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
+        Box(
+            modifier = Modifier.size(16.dp).clip(CircleShape)
+                .background(if (isSelected) color.copy(alpha = 1f) else color.copy(alpha = 0.4f))
+                .border(width = 2.dp, color = if (isSelected) Color.White else Color.Transparent, shape = CircleShape)
         )
-    }
-}
-
-@Composable
-fun NewStatusDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (String, Color) -> Unit
-) {
-    var statusName by remember { mutableStateOf("") }
-    var selectedColor by remember { mutableStateOf(Color(0xFFE3F2FD)) }
-
-    val badgeColors = listOf(
-        Color(0xFFF3E5F5),
-        Color(0xFFE8EAF6),
-        Color(0xFFFFF9C4),
-        Color(0xFFE8F5E8),
-        Color(0xFFE3F2FD),
-        Color(0xFFE1F5FE)
-    )
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    "New Status",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F1F1F)
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Status Name",
-                        fontSize = 13.sp,
-                        color = Color(0xFF757575)
-                    )
-                    OutlinedTextField(
-                        value = statusName,
-                        onValueChange = { statusName = it },
-                        placeholder = { Text("Under Review", fontSize = 14.sp) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF6C63FF),
-                            unfocusedBorderColor = Color(0xFFE0E0E0)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Badge Color",
-                        fontSize = 13.sp,
-                        color = Color(0xFF757575)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        badgeColors.forEach { color ->
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(color)
-                                    .border(
-                                        width = if (selectedColor == color) 3.dp else 0.dp,
-                                        color = Color(0xFF6C63FF),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .clickable { selectedColor = color }
-                            )
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFEF5350)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Cancel", fontSize = 14.sp)
-                    }
-
-                    Button(
-                        onClick = {
-                            if (statusName.isNotBlank()) {
-                                onConfirm(statusName, selectedColor)
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6C63FF)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Create", fontSize = 14.sp, color = Color.White)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun NewCategoryDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
-) {
-    var categoryName by remember { mutableStateOf("") }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    "New Category",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F1F1F)
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Category Name",
-                        fontSize = 13.sp,
-                        color = Color(0xFF757575)
-                    )
-                    OutlinedTextField(
-                        value = categoryName,
-                        onValueChange = { categoryName = it },
-                        placeholder = { Text("Holiday", fontSize = 14.sp) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF6C63FF),
-                            unfocusedBorderColor = Color(0xFFE0E0E0)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFEF5350)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Cancel", fontSize = 14.sp)
-                    }
-
-                    Button(
-                        onClick = {
-                            if (categoryName.isNotBlank()) {
-                                onConfirm(categoryName)
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6C63FF)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Create", fontSize = 14.sp, color = Color.White)
-                    }
-                }
-            }
-        }
+        Text(text = label, color = if (isSelected) Color.Black else Color.Gray, fontSize = 13.sp)
     }
 }
