@@ -32,7 +32,6 @@ import com.example.yourassistantyora.screen.TaskScreen
 import com.example.yourassistantyora.screen.NoteScreen
 import com.example.yourassistantyora.screen.HomeScreen
 import com.example.yourassistantyora.screen.Task
-import com.example.yourassistantyora.screen.Note
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import com.example.yourassistantyora.viewModel.CreateTaskViewModel // Import ViewModel
@@ -191,6 +190,18 @@ fun AppNavigation(
             )
         }
 
+        // ✅ BARU: Tambahkan route untuk TaskDetailScreen
+        /**
+         * Task Detail Screen - Menampilkan detail dan form edit
+         * Route: "task_detail/{taskId}"
+         */
+        composable(
+            route = "task_detail/{taskId}",
+            arguments = listOf(navArgument("taskId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val taskId = backStackEntry.arguments?.getString("taskId") ?: ""
+            TaskDetailScreen(taskId = taskId, navController = navController)
+        }
         /**
          * Daily Task Screen - View tasks per hari
          * Route: "task_daily"
@@ -222,41 +233,6 @@ fun AppNavigation(
          * Cara navigate:
          * navController.navigate("task_detail/${task.id}")
          */
-        composable(
-            route = "task_detail/{taskId}",
-            arguments = listOf(
-                navArgument("taskId") {
-                    type = NavType.StringType
-                    nullable = false
-                }
-            )
-        ) { backStackEntry ->
-            val taskIdArg = backStackEntry.arguments?.getString("taskId") ?: "0"
-            val taskId = taskIdArg.toIntOrNull() ?: 0
-
-            // Dummy Task SEMENTARA supaya compile & UI jalan
-            val dummyTask = Task(
-                id = taskId,
-                title = "Sample Task #$taskId",
-                time = "10:00 AM",
-                priority = "High",
-                category = "Work",
-                status = "To do"
-            )
-
-            TaskDetailScreen(
-                task = dummyTask,
-                onBackClick = { navController.popBackStack() },
-                onDeleteClick = {
-                    // TODO: nanti hapus beneran di repo / ViewModel
-                    navController.popBackStack()
-                },
-                onSaveChanges = {
-                    // TODO: nanti simpan beneran di repo / ViewModel
-                    navController.popBackStack()
-                }
-            )
-        }
 
 
         /**

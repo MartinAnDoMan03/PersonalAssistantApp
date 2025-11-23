@@ -1,485 +1,497 @@
 package com.example.yourassistantyora.screen
 
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// Extended Task data class dengan field tambahan
-data class TaskDetail(
-    val id: Int,
-    val title: String,
-    val time: String,
-    val priority: String,
-    val category: String,
-    val status: String?,
-    val isCompleted: Boolean = false,
-    val date: String = "Wednesday, October 23, 2025",
-    val description: String = "",
-    val reminder: String = "30 minutes before (09:30 AM)",
-    val location: String = ""
-)
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.example.yourassistantyora.models.TaskModel
+import com.example.yourassistantyora.viewModel.EditTaskViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskDetailScreen(
-    task: Task,
-    onBackClick: () -> Unit = {},
-    onEditClick: () -> Unit = {},
-    onDeleteClick: () -> Unit = {},
-    onSaveChanges: () -> Unit = {},
-    modifier: Modifier = Modifier
+    taskId: String,
+    navController: NavController,
+    viewModel: EditTaskViewModel = viewModel()
 ) {
-    // Convert Task to TaskDetail (you can pass additional data if needed)
-    val taskDetail = TaskDetail(
-        id = task.id,
-        title = task.title,
-        time = task.time,
-        priority = task.priority,
-        category = task.category,
-        status = task.status,
-        isCompleted = task.isCompleted,
-        date = "Wednesday, October 23, 2025",
-        description = "Prepare agenda and presentation materials for the quarterly team meeting. Review last month's progress, gather feedback from team members, and create action items for next quarter.",
-        reminder = "30 minutes before (09:30 AM)",
-        location = "Lee Polonia Hotel, Medan"
-    )
+    val context = LocalContext.current
+    var isInEditMode by remember { mutableStateOf(false) }
 
-    var selectedStatus by remember { mutableStateOf(taskDetail.status ?: "To do") }
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    // --- State dari ViewModel ---
+    val task by viewModel.originalTask
+    val isLoading by viewModel.isLoading
+    val taskUpdated by viewModel.taskUpdated
+    val taskDeleted by viewModel.taskDeleted
+    val errorMessage by viewModel.errorMessage
 
-    // Priority color
-    val priorityColor = when (taskDetail.priority) {
-        "High" -> Color(0xFFEF5350)
-        "Medium" -> Color(0xFFFFB74D)
-        "Low" -> Color(0xFF64B5F6)
-        else -> Color(0xFF64B5F6)
+    // --- Load data saat pertama kali masuk ---
+    LaunchedEffect(key1 = taskId) {
+        viewModel.loadTask(taskId)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            containerColor = Color(0xFFF5F7FA),
-            topBar = {
-                TopAppBar(
-                    title = { },
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(
-                                imageVector = Icons.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color.White
-                            )
+    // --- Handle Events dari ViewModel ---
+    LaunchedEffect(taskUpdated, taskDeleted, errorMessage) {
+        if (taskUpdated || taskDeleted) {
+            val message = if (taskUpdated) "Task updated!" else "Task deleted!"
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            navController.popBackStack()
+        }
+        errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
+        }
+    }
+
+    Scaffold(
+        containerColor = if(isInEditMode) Color.White else Color(0xFFF5F7FA),
+        topBar = {
+            TopAppBar(
+                title = { Text(if (isInEditMode) "Edit Task" else "Task Detail") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (!isInEditMode && task != null) {
+                        IconButton(onClick = { isInEditMode = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit")
                         }
-                    },
-                    actions = {
-                        IconButton(onClick = { /* More options */ }) {
-                            Icon(
-                                imageVector = Icons.Filled.MoreVert,
-                                contentDescription = "More",
-                                tint = Color.White
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xFF6A70D7)
-                    )
-                )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = if(isInEditMode) Color.White else Color(0xFF6A70D7), titleContentColor = if(isInEditMode) Color.Black else Color.White, navigationIconContentColor = if(isInEditMode) Color.Black else Color.White, actionIconContentColor = if(isInEditMode) Color.Black else Color.White )
+            )
+        },
+        bottomBar = {
+            if (isInEditMode) {
+                // Bottom bar untuk mode edit
+                Surface(shadowElevation = 8.dp) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        OutlinedButton(onClick = { viewModel.deleteTask() }, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red), border = BorderStroke(1.dp, Color.Red)) { Text("Delete") }
+                        Button(onClick = { viewModel.updateTask() }, modifier = Modifier.weight(2f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7))) { Text("Save Changes") }
+                    }
+                }
             }
-        ) { paddingValues ->
+        }
+    ) { paddingValues ->
+        if (isLoading && task == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (task != null) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
             ) {
-                // Header Section (Purple Background)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF6A70D7))
-                        .padding(horizontal = 24.dp, vertical = 24.dp)
-                ) {
-                    Text(
-                        text = taskDetail.title,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Priority Badge
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = priorityColor
-                        ) {
-                            Text(
-                                text = "${taskDetail.priority} Priority",
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                        }
-                        // Category Badge
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.White.copy(alpha = 0.2f)
-                        ) {
-                            Text(
-                                text = taskDetail.category,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-
-                // Content Section
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Schedule Card
-                    DetailCard {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.CalendarToday,
-                                contentDescription = null,
-                                tint = Color(0xFF6A70D7),
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Text(
-                                text = "Schedule",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF2D2D2D)
-                            )
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        DetailRow(label = "Date", value = taskDetail.date)
-                        Spacer(Modifier.height(8.dp))
-                        DetailRow(label = "Time", value = taskDetail.time)
-                    }
-
-                    // Description Card
-                    DetailCard {
-                        Text(
-                            text = "Description",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF2D2D2D)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = taskDetail.description,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = Color(0xFF666666),
-                            lineHeight = 20.sp
-                        )
-                    }
-
-                    // Reminder Card
-                    DetailCard {
-                        Text(
-                            text = "Reminder",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF2D2D2D)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = taskDetail.reminder,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = Color(0xFF666666)
-                        )
-                    }
-
-                    // Location Card
-                    DetailCard {
-                        Text(
-                            text = "Location",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF2D2D2D)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = taskDetail.location,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = Color(0xFF666666)
-                        )
-                    }
-
-                    // Status Card
-                    DetailCard {
-                        Text(
-                            text = "Status",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF2D2D2D)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = selectedStatus,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = Color(0xFF666666)
-                        )
-                        Spacer(Modifier.height(12.dp))
-
-                        // Status Options
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            StatusChip(
-                                text = "Waiting",
-                                isSelected = selectedStatus == "Waiting",
-                                onClick = { selectedStatus = "Waiting" },
-                                backgroundColor = Color(0xFFF3E5F5),
-                                textColor = Color(0xFF7B1FA2)
-                            )
-                            StatusChip(
-                                text = "To do",
-                                isSelected = selectedStatus == "To do",
-                                onClick = { selectedStatus = "To do" },
-                                backgroundColor = Color(0xFFE3F2FD),
-                                textColor = Color(0xFF1976D2)
-                            )
-                            StatusChip(
-                                text = "Done",
-                                isSelected = selectedStatus == "Done",
-                                onClick = { selectedStatus = "Done" },
-                                backgroundColor = Color(0xFFE8F5E8),
-                                textColor = Color(0xFF388E3C)
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            StatusChip(
-                                text = "Hold On",
-                                isSelected = selectedStatus == "Hold On",
-                                onClick = { selectedStatus = "Hold On" },
-                                backgroundColor = Color(0xFFFFF3E0),
-                                textColor = Color(0xFFEF6C00)
-                            )
-                            StatusChip(
-                                text = "In Progress",
-                                isSelected = selectedStatus == "In Progress",
-                                onClick = { selectedStatus = "In Progress" },
-                                backgroundColor = Color(0xFFE0F2F1),
-                                textColor = Color(0xFF00695C)
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            TextButton(
-                                onClick = { /* Add New Status */ },
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = Color(0xFF6A70D7)
-                                )
-                            ) {
-                                Text("+ Add New", fontSize = 12.sp)
-                            }
-                            TextButton(
-                                onClick = { /* View All */ },
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = Color(0xFF6A70D7)
-                                )
-                            ) {
-                                Text("View All", fontSize = 12.sp)
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // Action Buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Edit Button
-                        OutlinedButton(
-                            onClick = onEditClick,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF6A70D7)
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Edit,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Edit", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        }
-
-                        // Delete Button
-                        OutlinedButton(
-                            onClick = { showDeleteDialog = true },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFFF44336)
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Delete,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Delete", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-
-                    // Save Changes Button
-                    Button(
-                        onClick = onSaveChanges,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6A70D7)
-                        )
-                    ) {
-                        Text(
-                            "Save Changes",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
-                    }
-
-                    Spacer(Modifier.height(20.dp))
+                if (isInEditMode) {
+                    // Tampilkan form edit (mirip CreateTaskScreen)
+                    EditTaskForm(viewModel)
+                } else {
+                    // Tampilkan detail task
+                    ViewTaskDetail(task!!)
                 }
             }
         }
+    }
+}
 
-        // Delete Confirmation Dialog
-        if (showDeleteDialog) {
-            AlertDialog(
-                onDismissRequest = { showDeleteDialog = false },
-                title = { Text("Delete Task?") },
-                text = { Text("Are you sure you want to delete this task? This action cannot be undone.") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showDeleteDialog = false
-                            onDeleteClick()
+
+@Composable
+fun ViewTaskDetail(task: TaskModel) {
+    val priorityColor = when (task.Priority) { 2->Color(0xFFEF5350); 1->Color(0xFFFFB74D); else->Color(0xFF64B5F6) }
+
+    Column {
+        // Header Section
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF6A70D7))
+                .padding(horizontal = 24.dp, vertical = 24.dp)
+        ) {
+            Text(task.Title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(shape = RoundedCornerShape(16.dp), color = priorityColor) { Text(task.priorityText, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White) }
+                Surface(shape = RoundedCornerShape(16.dp), color = Color.White.copy(alpha = 0.2f)) { Text(task.categoryText, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White) }
+            }
+        }
+
+        // Content Section
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            DetailCard(title = "Schedule", details = mapOf("Date" to task.deadlineDateFormatted, "Time" to task.deadlineTimeFormatted))
+            DetailCard(title = "Description", content = task.Description)
+            DetailCard(title = "Status", content = task.statusText)
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditTaskForm(viewModel: EditTaskViewModel) {
+    // --- State dari ViewModel ---
+    val title by viewModel.title
+    val description by viewModel.description
+    val selectedDate by viewModel.selectedDate
+    val selectedTime by viewModel.selectedTime
+    val selectedPriority by viewModel.selectedPriority
+    val selectedCategory by viewModel.selectedCategory
+    val selectedStatus by viewModel.selectedStatus
+    val selectedReminder by viewModel.selectedReminder
+
+    // ✅ --- State lokal untuk mengontrol dialog bawaan Material 3 ---
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = selectedDate?.time ?: System.currentTimeMillis()
+    )
+    val timePickerState = rememberTimePickerState(
+        initialHour = selectedTime?.get(Calendar.HOUR_OF_DAY) ?: 12,
+        initialMinute = selectedTime?.get(Calendar.MINUTE) ?: 0,
+        is24Hour = false
+    )
+
+    // ✅ --- Dialog untuk Date Picker ---
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            viewModel.selectedDate.value = Date(millis)
                         }
-                    ) {
-                        Text("Delete", color = Color(0xFFF44336), fontWeight = FontWeight.Bold)
+                        showDatePicker = false
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
+                ) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // ✅ --- Dialog untuk Time Picker ---
+    if (showTimePicker) {
+        // ✅ PERBAIKAN: Panggil TimePickerDialog dengan state
+        TimePickerDialog(
+            state = timePickerState, // Kirim state ke dialog
+            onDismissRequest = { showTimePicker = false },
+            onConfirm = {
+                val cal = Calendar.getInstance()
+                cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                cal.set(Calendar.MINUTE, timePickerState.minute)
+                viewModel.selectedTime.value = cal
+                showTimePicker = false
+            }
+        )
+    }
+
+    // --- Helper untuk format Tanggal & Waktu ---
+    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.ENGLISH) }
+    val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.ENGLISH) }
+    val formattedDate = selectedDate?.let { dateFormatter.format(it) } ?: "Select date"
+    val formattedTime = selectedTime?.let { timeFormatter.format(it.time) } ?: "Select time"
+
+    Column(
+        modifier = Modifier
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        // --- Title ---
+        OutlinedTextField(
+            value = title,
+            onValueChange = { viewModel.title.value = it },
+            label = { Text("Title") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // --- Description ---
+        OutlinedTextField(
+            value = description,
+            onValueChange = { viewModel.description.value = it },
+            label = { Text("Description") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+        )
+
+        // ✅ --- Date and Time Picker (sekarang memicu state lokal) ---
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            FormInputChip(
+                text = formattedDate,
+                onClick = { showDatePicker = true },
+                modifier = Modifier.weight(1f)
+            )
+            FormInputChip(
+                text = formattedTime,
+                onClick = { showTimePicker = true },
+                modifier = Modifier.weight(1f)
             )
         }
+
+        // --- Priority, Category, Status Selector (TETAP SAMA) ---
+        PrioritySelector(
+            selectedPriority = selectedPriority,
+            onPrioritySelected = { viewModel.selectedPriority.value = it }
+        )
+        CategorySelector(
+            selectedCategory = selectedCategory,
+            onCategorySelected = { viewModel.selectedCategory.value = it }
+        )
+        StatusSelector(
+            selectedStatus = selectedStatus,
+            onStatusSelected = { viewModel.selectedStatus.value = it }
+        )
+        ReminderSelector(
+            selectedReminder = selectedReminder,
+            onReminderSelected = { viewModel.selectedReminder.value = it }
+        )
     }
 }
 
+// ✅ Composable khusus untuk TimePickerDialog (karena M3 belum punya yang simpel)
+@ExperimentalMaterial3Api
 @Composable
-fun DetailCard(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
+// ✅ PERBAIKAN: Ganti Composable TimePickerDialog yang lama@OptIn(ExperimentalMaterial3Api::class) // Tambahkan ini jika perlu
+private fun TimePickerDialog(
+    state: TimePickerState, // ✅ 1. Terima TimePickerState
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    // Gunakan BasicAlertDialog agar bisa di-custom penuh
+    BasicAlertDialog(
+        onDismissRequest = onDismissRequest,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(16.dp)
+            )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .background(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .padding(top = 28.dp, start = 20.dp, end = 20.dp, bottom = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            content()
+            // ✅ 2. Tampilkan komponen TimePicker
+            TimePicker(state = state)
+            Spacer(modifier = Modifier.height(12.dp))
+            // ✅ 3. Tombol Aksi (Confirm & Cancel)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismissRequest) { Text("Cancel") }
+                Spacer(modifier = Modifier.width(8.dp))
+                TextButton(onClick = onConfirm) { Text("OK") }
+            }
         }
     }
 }
 
-@Composable
-fun DetailRow(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = "$label :",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color(0xFF666666)
-        )
-        Text(
-            text = value,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color(0xFF2D2D2D)
-        )
-    }
-}
+
+// --- HELPER COMPOSABLES (TIDAK ADA PERUBAHAN) ---
 
 @Composable
-fun StatusChip(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    backgroundColor: Color,
-    textColor: Color,
-    modifier: Modifier = Modifier
-) {
+private fun FormInputChip(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) backgroundColor else backgroundColor.copy(alpha = 0.3f),
-        onClick = onClick
+        border = BorderStroke(1.dp, Color.LightGray),
+        color = Color.White
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (isSelected) textColor else textColor.copy(alpha = 0.6f)
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            color = Color.DarkGray
         )
+    }
+}
+
+@Composable
+private fun PrioritySelector(selectedPriority: String, onPrioritySelected: (String) -> Unit) {
+    val priorities = listOf("Low", "Medium", "High")
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Priority", fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            priorities.forEach { priority ->
+                FilterChip(
+                    selected = selectedPriority == priority,
+                    onClick = { onPrioritySelected(priority) },
+                    label = { Text(priority) }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategorySelector(selectedCategory: String, onCategorySelected: (String) -> Unit) {
+    val categories = listOf("Work", "Study", "Project", "Meeting", "Travel")
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Category", fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            categories.forEach { category ->
+                FilterChip(
+                    selected = selectedCategory == category,
+                    onClick = { onCategorySelected(category) },
+                    label = { Text(category) }
+                )
+            }
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StatusSelector(selectedStatus: String, onStatusSelected: (String) -> Unit) {
+    val statuses = listOf("To do", "On Progress", "Hold On", "Done", "Waiting")
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Status", fontWeight = FontWeight.SemiBold)
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
+            OutlinedTextField(
+                value = selectedStatus,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                statuses.forEach { status ->
+                    DropdownMenuItem(
+                        text = { Text(status) },
+                        onClick = {
+                            onStatusSelected(status)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailCard(title: String, content: String? = null, details: Map<String, String>? = null) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(12.dp), elevation = CardDefaults.cardElevation(1.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF2D2D2D))
+            Spacer(Modifier.height(12.dp))
+            content?.let {
+                Text(it, fontSize = 14.sp, color = Color(0xFF666666), lineHeight = 20.sp)
+            }
+            details?.forEach { (label, value) ->
+                Row {
+                    Text("$label : ", fontSize = 14.sp, color = Color(0xFF666666))
+                    Text(value, fontSize = 14.sp, color = Color.Black, fontWeight = FontWeight.Medium)
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+        }
+    }
+}
+// ✅ TAMBAHKAN COMPOSABLE BARU INI DI BAWAH STATUSSELECTOR
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderSelector(selectedReminder: String, onReminderSelected: (String) -> Unit) {
+    val reminderOptions = listOf(
+        "Tidak ada pengingat",
+        "Ingatkan pada waktunya",
+        "Ingatkan 10 menit sebelumnya",
+        "Ingatkan 20 menit sebelumnya",
+        "Ingatkan 30 menit sebelumnya",
+        "Ingatkan 1 hari sebelumnya",
+        "Ingatkan 2 hari sebelumnya",
+        "Ingatkan 3 hari sebelumnya"
+    )
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Reminder", fontWeight = FontWeight.SemiBold)
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
+            OutlinedTextField(
+                value = selectedReminder,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                reminderOptions.forEach { reminder ->
+                    DropdownMenuItem(
+                        text = { Text(reminder) },
+                        onClick = {
+                            onReminderSelected(reminder)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
     }
 }
