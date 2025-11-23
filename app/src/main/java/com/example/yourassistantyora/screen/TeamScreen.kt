@@ -43,6 +43,7 @@ data class Team(
 @Composable
 fun TeamScreen(
     onNavigateToHome: () -> Unit = {},
+    viewModel: com.example.yourassistantyora.viewModel.TeamViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     onNavigateToTasks: () -> Unit = {},
     onNavigateToNotes: () -> Unit = {},
     onNavigateToTeam: () -> Unit = {},
@@ -54,14 +55,13 @@ fun TeamScreen(
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TEAM) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // ✅ Contoh data dummy
-    val teams = remember {
-        listOf(
-            Team("1", "Mobile Dev Team", "React Native & Flutter Development", "Project", TeamColorScheme.BLUE, 5, 12, 7, 0.60f, "Admin"),
-            Team("2", "Design Squad", "UI/UX Design Team", "Project", TeamColorScheme.PINK, 3, 5, 8, 0.47f, "Member"),
-            Team("3", "Study Group CS50", "Computer Science Learning", "Project", TeamColorScheme.GREEN, 8, 15, 10, 0.47f, "Admin")
-        )
+    val teamList by viewModel.teams
+    val isLoading by viewModel.isLoading
+
+    LaunchedEffect(Unit) {
+        viewModel.fetchTeams()
     }
+
 
     Scaffold(
         containerColor = Color(0xFFF8F9FA),
@@ -96,7 +96,7 @@ fun TeamScreen(
                         color = Color(0xFF2D2D2D)
                     )
                     Text(
-                        "${teams.size} teams",
+                        "${teamList.size} teams",
                         fontSize = 13.sp,
                         color = Color(0xFF9E9E9E)
                     )
@@ -167,13 +167,31 @@ fun TeamScreen(
                 }
             }
 
-            // ✅ LIST TEAM CARD
-            items(teams) { team ->
-                TeamCard(
-                    team = team,
-                    onClick = { onTeamClick(team.id) }
-                )
+            val filteredTeams = if (searchQuery.isBlank()) {
+                teamList
+            } else {
+                teamList.filter { it.name.contains(searchQuery, ignoreCase = true)}
             }
+
+            if (isLoading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center){
+                        CircularProgressIndicator(color = Color(0xFF6A70D7))
+                    }
+                }
+            } else if (filteredTeams.isEmpty()) {
+                item {
+                    Text("No teams found", modifier = Modifier.padding(20.dp), color = Color.Gray)
+                }
+            } else {
+                items(filteredTeams) { team ->
+                    TeamCard(
+                        team = team,
+                        onClick = {onTeamClick(team.id)}
+                    )
+                }
+            }
+
         }
     }
 }

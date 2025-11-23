@@ -594,63 +594,36 @@ fun MemberCard(
 @Composable
 fun TeamDetailScreen(
     navController: NavController,
-    teamId: String
+    teamId: String,
+    viewModel: com.example.yourassistantyora.viewModel.TeamViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
-    // Dummy data sementara (supaya UI jalan)
-    val members = listOf(
-        TeamMember("1", "Gladys", "Admin", tasksCompleted = 12),
-        TeamMember("2", "Rizky", "Member", tasksCompleted = 5),
-        TeamMember("3", "Dita", "Member", tasksCompleted = 3)
-    )
+    val teamDetail by viewModel.selectedTeam
+    val isLoading by viewModel.isLoading
 
-    val tasks = listOf(
-        TeamTask(
-            id = "101",
-            title = "Setup Repository",
-            description = "Create GitHub repo & branches",
-            status = TaskStatus.IN_PROGRESS,
-            priority = TaskPriority.HIGH,
-            assignedTo = members.take(2),
-            deadline = "2025-11-30",
-            createdBy = "1",
-            createdAt = "2025-11-15"
-        ),
-        TeamTask(
-            id = "102",
-            title = "Design Wireframe",
-            description = "Create initial UI wireframe for main screens",
-            status = TaskStatus.NOT_STARTED,
-            priority = TaskPriority.MEDIUM,
-            assignedTo = members.drop(1),
-            deadline = "2025-12-05",
-            createdBy = "1",
-            createdAt = "2025-11-16"
-        )
-    )
+    LaunchedEffect(teamId) {
+        viewModel.fetchTeamDetails(teamId)
+    }
 
-    val teamDetail = TeamDetail(
-        id = teamId,
-        name = "Mobile Dev Team",
-        description = "Team for mobile app development and experiments.",
-        category = "Project",
-        colorScheme = TeamColorScheme.BLUE,
-        members = members,
-        tasks = tasks,
-        currentUserRole = "Admin",
-        currentUserId = "1",
-        inviteCode = "ABC123"
-    )
-
-    TeamDetailScreen(
-        teamDetail = teamDetail,
-        onBackClick = { navController.popBackStack() },
-        onInviteClick = { /* TODO: open share/invite bottom sheet */ },
-        onProgressClick = { /* TODO: navigate to progress screen */ },
-        onCreateTaskClick = {
-            navController.navigate("create_task")
-        },
-        onTaskClick = { task ->
-            navController.navigate("task_detail/${task.id}")
+    if (isLoading || teamDetail == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Color(0xFF6A70D7))
         }
-    )
+    } else {
+        TeamDetailScreen(
+            teamDetail = teamDetail!!,
+            onBackClick = {navController.popBackStack()},
+            onInviteClick = {
+                navController.navigate("team_invite/${teamId}")
+            },
+            onProgressClick = {
+                navController.navigate("team_progress/${teamId}")
+            },
+            onCreateTaskClick = {
+                navController.navigate("create_task/$teamId")
+            },
+            onTaskClick = {task ->
+                navController.navigate("task_detail/${task.id}")
+            }
+        )
+    }
 }

@@ -73,11 +73,31 @@ fun GradientElevatedButton(
 @Composable
 fun JoinTeamScreen(
     onBackClick: () -> Unit = {},
+    viewModel: com.example.yourassistantyora.viewModel.TeamViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     onJoinClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var inviteCode by remember { mutableStateOf("") }
     val isValidCode = inviteCode.length == 6
+
+    val isLoading by viewModel.isLoading
+    val isSuccess by viewModel.isSuccess
+    val errorMessage by viewModel.errorMessage
+
+    LaunchedEffect(isSuccess) {
+        if (isSuccess) {
+            android.widget.Toast.makeText(context, "Joined successfully!", android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.resetState()
+            onBackClick()
+        }
+    }
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Scaffold(
         containerColor = Color(0xFFF8F9FA)
@@ -259,14 +279,18 @@ fun JoinTeamScreen(
                     .padding(24.dp, 24.dp)
             ) {
                 GradientElevatedButton(
-                    onClick = { onJoinClick(inviteCode) },
-                    enabled = isValidCode,
+                    onClick = { viewModel.joinTeam(inviteCode) },
+                    enabled = isValidCode && !isLoading,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        "Join Team",
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    } else {
+                        Text(
+                            "Join Team",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }

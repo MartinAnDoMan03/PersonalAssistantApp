@@ -33,16 +33,35 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import com.example.yourassistantyora.models.TeamColorScheme
-
-
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.FlowRow
+import android.widget.Toast
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedTextFieldDefaults
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CreateTeamScreen(
     onBackClick: () -> Unit = {},
+    viewModel: com.example.yourassistantyora.viewModel.TeamViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     onCreateClick: (String, String, List<String>, TeamColorScheme) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
+    LaunchedEffect(viewModel.isSuccess.value) {
+        if(viewModel.isSuccess.value) {
+            viewModel.resetState()
+            onBackClick()
+        }
+    }
+
+    val context= LocalContext.current
+    LaunchedEffect(viewModel.errorMessage.value) {
+        viewModel.errorMessage.value?.let { error ->
+            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     var teamName by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf<TeamColorScheme?>(TeamColorScheme.BLUE) }
@@ -299,24 +318,38 @@ fun CreateTeamScreen(
                     }
                     Button(
                         onClick = {
-                            selectedColor?.let {
-                                onCreateClick(teamName, description, selectedCategories, it)
+                            if (teamName.isNotBlank() && selectedColor != null) {
+                                viewModel.createTeam(
+                                    name = teamName,
+                                    description = description,
+                                    categories = selectedCategories,
+                                    colorScheme = selectedColor!!
+                                )
+                            } else {
+                                Toast.makeText(context, "Please enter a name and pick a color", Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.weight(1f).height(46.dp),
-                        enabled = isFormValid,
+                        enabled = !viewModel.isLoading.value,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF6A70D7),
                             disabledContainerColor = Color(0xFFE0E0E0)
                         ),
-                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(
-                            "Create",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
+                        if (viewModel.isLoading.value) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                "Create Team",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             }
