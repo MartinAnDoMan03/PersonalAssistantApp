@@ -595,21 +595,21 @@ fun KeyPointItem(text: String) {
 }
 
 // ---------- PREVIEW ----------
-@Preview(showBackground = true)
-@Composable
-fun NoteDetailScreenPreview() {
-    YourAssistantYoraTheme {
-        NoteDetailScreen(
-            note = Note(
-                1,
-                "Project Requirements",
-                "Discuss with team about new mobile app requirements. Need to finalize UI/UX designs and prepare for client presentation next week.",
-                "Project",
-                "10:30 AM"
-            )
-        )
-    }
-}
+//@Preview(showBackground = true)
+//@Composable
+//fun NoteDetailScreenPreview() {
+//    YourAssistantYoraTheme {
+//        NoteDetailScreen(
+//            note = Note(
+//                1,
+//                "Project Requirements",
+//                "Discuss with team about new mobile app requirements. Need to finalize UI/UX designs and prepare for client presentation next week.",
+//                "Project",
+//                ""
+//            )
+//        )
+//    }
+//}
 
 @Preview(showBackground = true)
 @Composable

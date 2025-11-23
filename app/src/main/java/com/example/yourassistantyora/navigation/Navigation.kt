@@ -296,40 +296,13 @@ fun AppNavigation(
          */
         composable(
             route = "note_detail/{noteId}",
-            arguments = listOf(
-                navArgument("noteId") {
-                    type = NavType.StringType
-                    nullable = false
-                }
-            )
+            arguments = listOf(navArgument("noteId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val noteIdArg = backStackEntry.arguments?.getString("noteId") ?: ""
-
-            // TODO: nanti ambil dari database / ViewModel berdasarkan noteIdArg
-            // Untuk sekarang pakai dummy dulu
-            val dummyNote = Note(
-                id = noteIdArg.toIntOrNull() ?: 1,
-                title = "Project Requirements",
-                content = "Discuss with team about new mobile app requirements. " +
-                        "Need to finalize UI/UX designs and prepare for client presentation next week.",
-                category = "Project",
-                time = "10:30 AM"
-            )
+            val noteId = backStackEntry.arguments?.getString("noteId")
 
             NoteDetailScreen(
-                note = dummyNote,
-                onBackClick = { navController.popBackStack() },
-                onSaveClick = { title, content, categoriesString ->
-                    // TODO: simpan update ke DB / ViewModel
-                    // title -> judul baru
-                    // content -> isi baru
-                    // categoriesString -> "Work, Study" dll (kalau mau dipecah lagi)
-                    navController.popBackStack()
-                },
-                onDeleteClick = {
-                    // TODO: hapus dari DB / ViewModel pakai dummyNote.id / noteIdArg
-                    navController.popBackStack()
-                }
+                noteId = noteId,
+                navController = navController
             )
         }
 
