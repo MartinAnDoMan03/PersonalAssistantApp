@@ -132,8 +132,6 @@ fun AppNavigation(
         composable("home") {
             HomeScreen(
                 navController = navController,
-                userName = authViewModel.userName.value ?: "User",
-                userPhotoUrl = authViewModel.userPhotoUrl.value
             )
         }
 
