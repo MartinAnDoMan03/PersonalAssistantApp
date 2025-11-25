@@ -326,7 +326,7 @@ fun EditProfileScreen(
                             if (!isSaving) {
                                 scope.launch {
                                     isSaving = true
-                                    var base64Image: String? = null
+                                    var base64Image: String? = currentPhotoUrl
 
                                     // --- NEW BASE64 LOGIC ---
                                     if (imageBytesToUpload != null) {

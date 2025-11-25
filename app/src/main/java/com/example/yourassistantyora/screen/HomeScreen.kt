@@ -1,26 +1,63 @@
 package com.example.yourassistantyora.screen
 
-import android.content.Context
-import android.media.MediaPlayer
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,7 +66,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
@@ -39,16 +75,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.yourassistantyora.R
+import com.example.yourassistantyora.components.BottomNavigationBar
+import com.example.yourassistantyora.navigateSingleTop
+import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+import com.example.yourassistantyora.utils.NavigationConstants
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-import com.example.yourassistantyora.components.BottomNavigationBar
-import com.example.yourassistantyora.utils.NavigationConstants
-import androidx.navigation.NavController
-import com.example.yourassistantyora.navigateSingleTop
-import androidx.navigation.compose.rememberNavController
 
 // ---------- DATA ----------
 data class Task(
@@ -68,12 +106,44 @@ data class Task(
 @Composable
 fun HomeScreen(
     navController: NavController,
-    userName: String = "Tom Holland",
-    userPhotoUrl: String? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_HOME) }
     val scope = rememberCoroutineScope()
+    var userName by remember {mutableStateOf("User")}
+    var userPhotoUrl by remember {mutableStateOf<String?>(null)}
+
+    LaunchedEffect(Unit) {
+        val auth = FirebaseAuth.getInstance()
+        val db = FirebaseFirestore.getInstance()
+        val currentUser = auth.currentUser
+
+        if (currentUser != null) {
+            android.util.Log.d("HomeScreenDebug", "Current User UID: ${currentUser.uid}")
+            val docRef = db.collection("users").document(currentUser.uid)
+            docRef.addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    android.util.Log.e("HomeScreenDebug", "Listen failed.", e)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null && snapshot.exists()) {
+                    android.util.Log.d("HomeScreenDebug", "FULL DATA: ${snapshot.data}")
+                    val fetchedName = snapshot.getString("username")
+                    val fetchedPhoto = snapshot.getString("photoUrl")
+                    android.util.Log.d("HomeScreenDebug", "Fetched 'username': '$fetchedName'")
+                    android.util.Log.d("HomeScreenDebug", "Fetched 'photoUrl' length: ${fetchedPhoto?.length ?: 0}")
+                    userName = fetchedName ?: "User"
+                    userPhotoUrl = fetchedPhoto
+                } else {
+                    android.util.Log.d("HomeScreenDebug", "Snapshot is null or doesn't exist")
+                }
+            }
+        } else {
+            android.util.Log.d("HomeScreenDebug", "Current User is NULL")
+        }
+    }
+
 
     // State untuk tasks yang bisa diubah
     var tasks by remember {
@@ -314,12 +384,23 @@ fun HomeScreen(
                                         .background(Color(0xFFFFB74D)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    val bitmap = remember(userPhotoUrl) {
-                                        if (!userPhotoUrl.isNullOrEmpty()){
+                                    val currentPhotoUrl = userPhotoUrl
+                                    val bitmap = remember(currentPhotoUrl) {
+                                        if (!currentPhotoUrl.isNullOrEmpty()){
                                             try {
-                                                val pureBase64 = userPhotoUrl.substringAfter(",")
+                                                val pureBase64 = if(currentPhotoUrl.contains(",")) {
+                                                    currentPhotoUrl.substringAfter(",")
+                                                } else {
+                                                    currentPhotoUrl
+                                                }
+
+                                                val cleanBase64 = pureBase64.trim()
+                                                    .replace("\n","")
+                                                    .replace("\r","")
+                                                    .replace(" ","")
+
                                                 val decodedBytes = android.util.Base64.decode(
-                                                    pureBase64,
+                                                    cleanBase64,
                                                     android.util.Base64.DEFAULT
                                                 )
                                                 android.graphics.BitmapFactory.decodeByteArray(
@@ -328,6 +409,7 @@ fun HomeScreen(
                                                     decodedBytes.size
                                                 )
                                             }catch (e: Exception){
+                                                android.util.Log.e("HomeScreen", "Image decode failed", e)
                                                 null
                                             }
                                         }else{
@@ -1068,8 +1150,6 @@ fun HomeScreenPreview() {
         val navController = rememberNavController()
         HomeScreen(
             navController = navController,
-            modifier = Modifier.fillMaxSize(),
-            userName = "Tom Holland"
         )
     }
 }

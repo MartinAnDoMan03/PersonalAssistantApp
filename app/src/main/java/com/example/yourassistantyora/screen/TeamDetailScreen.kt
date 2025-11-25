@@ -37,6 +37,7 @@ fun TeamDetailScreen(
 
     // Filter state
     var selectedFilter by remember { mutableStateOf<TaskStatus?>(null) }
+    var showInviteDialog by remember {mutableStateOf(false)}
 
     // Filter tasks based on selected status
     val filteredTasks = if (selectedFilter != null) {
@@ -97,7 +98,7 @@ fun TeamDetailScreen(
 
                             if (isAdmin) {
                                 Button(
-                                    onClick = onInviteClick,
+                                    onClick = {showInviteDialog = true},
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color.White.copy(alpha = 0.2f)
                                     ),
@@ -335,6 +336,33 @@ fun TeamDetailScreen(
             }
 
             item { Spacer(Modifier.height(80.dp)) }
+        }
+
+        if (showInviteDialog) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+
+            InviteMembersDialog(
+                inviteCode = teamDetail.inviteCode,
+                teamColor = teamDetail.colorScheme.gradient.last(),
+                showDialog = showInviteDialog,
+                onDismiss = {showInviteDialog = false},
+                onCopyCode = {
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("Invite Code", teamDetail.inviteCode)
+                    clipboard.setPrimaryClip(clip)
+                    android.widget.Toast.makeText(context, "Code Copied", android.widget.Toast.LENGTH_SHORT).show()
+                },
+                onSendEmail= {
+                    email ->
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                        data = android.net.Uri.parse("mailto:$email")
+                        putExtra(android.content.Intent.EXTRA_SUBJECT, "Join my team, team '${teamDetail.name}' on Yora")
+                        putExtra(android.content.Intent.EXTRA_TEXT, "Hey! Lets go and join my team '${teamDetail.name}' using this code: ${teamDetail.inviteCode}")
+                    }
+                    context.startActivity(intent)
+                    showInviteDialog = false
+                }
+            )
         }
     }
 }
@@ -612,9 +640,7 @@ fun TeamDetailScreen(
         TeamDetailScreen(
             teamDetail = teamDetail!!,
             onBackClick = {navController.popBackStack()},
-            onInviteClick = {
-                navController.navigate("team_invite/${teamId}")
-            },
+            onInviteClick = {},
             onProgressClick = {
                 navController.navigate("team_progress/${teamId}")
             },
