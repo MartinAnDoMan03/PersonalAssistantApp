@@ -24,6 +24,33 @@ enum class TaskPriority(val displayName: String, val color: Color, val bgColor: 
     HIGH("High", Color(0xFFEF5350), Color(0xFFFFEBEE))
 }
 
+// ✅✅✅ TAMBAHKAN DATA CLASS INI ✅✅✅
+/**
+ * Representasi data mentah sebuah tim dari koleksi 'teams' di Firestore.
+ * Nama-nama field (name, description, dll.) harus sama persis dengan
+ * field yang ada di dokumen Firestore Anda.
+ */
+data class Team(
+    val name: String = "",
+    val description: String = "",
+    val category: String = "",
+    val colorScheme: String = TeamColorScheme.BLUE.name,
+    val members: List<String> = emptyList(), // Ini adalah list of user UIDs
+    val createdBy: String = "",
+    val inviteCode: String = ""
+) {
+    /**
+     * Helper untuk mendapatkan objek Enum dari nama String yang disimpan di Firestore.
+     * Ini berguna agar UI bisa langsung menggunakan objek Enum untuk mendapatkan gradient, dll.
+     */
+    val colorSchemeEnum: TeamColorScheme
+        get() = try {
+            TeamColorScheme.valueOf(colorScheme)
+        } catch (e: IllegalArgumentException) {
+            TeamColorScheme.BLUE // Default value jika ada nama yang tidak valid
+        }
+}
+
 // Team Member
 data class TeamMember(
     val id: String,

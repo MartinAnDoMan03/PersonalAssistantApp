@@ -56,7 +56,7 @@ fun TeamDetailScreen(
         floatingActionButton = {
             if (isAdmin) {
                 FloatingActionButton(
-                    onClick = onCreateTaskClick,
+                    onClick = { onCreateTaskClick() },
                     containerColor = teamDetail.colorScheme.gradient.last(),
                     contentColor = Color.White
                 ) {
@@ -353,7 +353,7 @@ fun TeamDetailScreen(
                     android.widget.Toast.makeText(context, "Code Copied", android.widget.Toast.LENGTH_SHORT).show()
                 },
                 onSendEmail= {
-                    email ->
+                        email ->
                     val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
                         data = android.net.Uri.parse("mailto:$email")
                         putExtra(android.content.Intent.EXTRA_SUBJECT, "Join my team, team '${teamDetail.name}' on Yora")
@@ -645,7 +645,7 @@ fun TeamDetailScreen(
                 navController.navigate("team_progress/${teamId}")
             },
             onCreateTaskClick = {
-                navController.navigate("create_task/$teamId")
+                navController.navigate("create_team_task/${teamId}")
             },
             onTaskClick = {task ->
                 navController.navigate("task_detail/${task.id}")

@@ -5,6 +5,16 @@
     <!-- permission (jika butuh internet) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <uses-permission android:name="android.permission.READ_MEDIA_*"/>
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />-->
+
+
+<!--    <uses-permission-->
+<!--        android:name="android.permission.WRITE_EXTERNAL_STORAGE"-->
+<!--        tools:ignore="ScopedStorage" />-->
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -14,7 +24,8 @@
         android:roundIcon="@drawable/ic_checkmark"
         android:supportsRtl="true"
         android:theme="@style/Theme.YourAssistantYora"
-        tools:targetApi="31">
+        tools:targetApi="31"
+        android:name=".Cloudinary">
 
         <!-- SPLASH ACTIVITY - ENTRY POINT APP -->
         <activity
@@ -56,7 +67,6 @@
            SUDAH TIDAK PERLU dideklarasikan lagi di sini,
            karena sekarang layarnya di-handle di AppNavigation (NavHost).
         -->
-
     </application>
 
 </manifest>

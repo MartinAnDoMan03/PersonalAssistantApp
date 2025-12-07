@@ -34,6 +34,7 @@ import com.example.yourassistantyora.screen.HomeScreen
 import com.example.yourassistantyora.screen.Task
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import com.example.yourassistantyora.screen.CreateTeamTaskScreen
 import com.example.yourassistantyora.viewModel.CreateTaskViewModel // Import ViewModel
 
 // ... and so on for all screens
@@ -409,20 +410,23 @@ fun AppNavigation(
          * Cara navigate:
          * navController.navigate("team_detail/${team.id}")
          */
-        composable(
-            route = "team_detail/{teamId}",
-            arguments = listOf(
-                navArgument("teamId") {
-                    type = NavType.StringType
-                    nullable = false
-                }
-            )
-        ) { backStackEntry ->
-            val teamId = backStackEntry.arguments?.getString("teamId")
 
-            TeamDetailScreen(
+        composable("team_detail/{teamId}") { backStackEntry ->
+        val teamId = backStackEntry.arguments?.getString("teamId") ?: ""
+        TeamDetailScreen(
+            navController = navController,
+            teamId = teamId
+            )
+        }
+
+        composable(
+            route = "create_team_task/{teamId}",
+            arguments = listOf(navArgument("teamId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val teamId = backStackEntry.arguments?.getString("teamId") ?: ""
+            CreateTeamTaskScreen(
                 navController = navController,
-                teamId = teamId ?: ""
+                teamId = teamId
             )
         }
     }
