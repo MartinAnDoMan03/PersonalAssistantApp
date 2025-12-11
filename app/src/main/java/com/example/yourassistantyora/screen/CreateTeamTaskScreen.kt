@@ -85,7 +85,7 @@ fun CreateTeamTaskScreen(
         if (permissions.values.any { it }) {
             // Jika setidaknya satu izin diberikan (cukup untuk membuka galeri),
             // langsung luncurkan pemilih file.
-            filePickerLauncher.launch("image/*,application/pdf")
+            filePickerLauncher.launch("*/*")
         } else {
             // Hanya tampilkan toast jika SEMUA izin ditolak.
             Toast.makeText(context, "Storage permission is required to attach files.", Toast.LENGTH_LONG).show()

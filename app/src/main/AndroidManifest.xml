@@ -5,9 +5,9 @@
     <!-- permission (jika butuh internet) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <uses-permission android:name="android.permission.READ_MEDIA_*"/>
-<!--    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />-->
-<!--    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_*"/>-->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 <!--    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />-->
 
 
@@ -25,7 +25,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.YourAssistantYora"
         tools:targetApi="31"
-        android:name=".Cloudinary">
+        android:name=".CloudinaryApp">
 
         <!-- SPLASH ACTIVITY - ENTRY POINT APP -->
         <activity

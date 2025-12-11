@@ -81,7 +81,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.2.0")
 
     //Cloudinary
-    implementation("com.cloudinary:cloudinary-android:2.4.0")
+    implementation("com.cloudinary:cloudinary-android:3.0.2")
     implementation("io.coil-kt:coil-compose:2.5.0")
 
     // Networking
