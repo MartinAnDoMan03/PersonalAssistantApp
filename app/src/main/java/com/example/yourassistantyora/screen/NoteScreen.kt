@@ -295,7 +295,13 @@ fun NoteCardWithSwipe(
                     },
                     onDragEnd = {
                         if (offsetX.value < swipeLimit * 0.75f) {
+                            // Trigger dialog konfirmasi
                             onDeleteSwipe()
+                            // Reset posisi swipe
+                            scope.launch {
+                                offsetX.animateTo(0f, animationSpec = tween(300))
+                                onSwipeChange(note.id, false)
+                            }
                         } else {
                             scope.launch {
                                 offsetX.animateTo(0f, animationSpec = tween(300))
@@ -452,6 +458,10 @@ fun NoteScreen(
     var lastDeletedNote by remember { mutableStateOf<Note?>(null) }
     var showDeleteSnackbar by remember { mutableStateOf(false) }
 
+    // State untuk dialog konfirmasi delete dari swipe
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var noteToDelete by remember { mutableStateOf<Note?>(null) }
+
     val allCategories = remember(notes) {
         notes.flatMap { it.categories }.distinct().sorted()
     }
@@ -463,16 +473,27 @@ fun NoteScreen(
         }
     }
 
-    fun deleteNoteFromSwipe(note: Note) {
-        lastDeletedNote = note
-        viewModel.deleteNote(note.id)
-        showDeleteSnackbar = true
+    // Fungsi untuk menampilkan dialog konfirmasi
+    fun confirmDeleteNote(note: Note) {
+        noteToDelete = note
+        showDeleteDialog = true
+    }
 
-        scope.launch {
-            delay(4000)
-            showDeleteSnackbar = false
-            lastDeletedNote = null
+    // Fungsi untuk benar-benar menghapus setelah konfirmasi
+    fun deleteNoteConfirmed() {
+        noteToDelete?.let { note ->
+            lastDeletedNote = note
+            viewModel.deleteNote(note.id)
+            showDeleteSnackbar = true
+
+            scope.launch {
+                delay(4000)
+                showDeleteSnackbar = false
+                lastDeletedNote = null
+            }
         }
+        showDeleteDialog = false
+        noteToDelete = null
     }
 
     fun undoDelete() {
@@ -603,7 +624,7 @@ fun NoteScreen(
                                     onNoteClick = {
                                         navController.navigate("note_detail/${note.id}")
                                     },
-                                    onDeleteSwipe = { deleteNoteFromSwipe(note) },
+                                    onDeleteSwipe = { confirmDeleteNote(note) },
                                     swipedNoteId = swipedNoteId,
                                     onSwipeChange = { id, isSwiped ->
                                         if (isSwiped) swipedNoteId = id
@@ -615,6 +636,57 @@ fun NoteScreen(
                     }
                 }
             }
+        }
+
+        // Dialog Konfirmasi Delete dari Swipe
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showDeleteDialog = false
+                    noteToDelete = null
+                },
+                icon = {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = null,
+                        tint = Color(0xFFF44336),
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        "Delete Note?",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        "Are you sure you want to delete \"${noteToDelete?.title}\"? You can undo this action.",
+                        textAlign = TextAlign.Center
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { deleteNoteConfirmed() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFF44336)
+                        )
+                    ) {
+                        Text("Delete", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteDialog = false
+                            noteToDelete = null
+                        }
+                    ) {
+                        Text("Cancel", color = Color(0xFF757575))
+                    }
+                },
+                shape = RoundedCornerShape(16.dp)
+            )
         }
 
         // Undo Snackbar
@@ -942,7 +1014,7 @@ fun NoteDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            "Description",
+                            "Catatan",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF757575)
@@ -1156,24 +1228,46 @@ fun NoteDetailScreen(
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
-                title = { Text("Delete Note?") },
-                text = { Text("Are you sure you want to permanently delete this note?") },
+                icon = {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = null,
+                        tint = Color(0xFFF44336),
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        "Delete Note?",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        "Are you sure you want to permanently delete this note?",
+                        textAlign = TextAlign.Center
+                    )
+                },
                 confirmButton = {
-                    TextButton(
+                    Button(
                         onClick = {
                             note?.let { viewModel.deleteNote(it.id) }
                             navController.popBackStack()
                             showDeleteDialog = false
-                        }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFF44336)
+                        )
                     ) {
-                        Text("Delete", color = Color(0xFFF44336), fontWeight = FontWeight.Bold)
+                        Text("Delete", fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteDialog = false }) {
-                        Text("Cancel")
+                        Text("Cancel", color = Color(0xFF757575))
                     }
-                }
+                },
+                shape = RoundedCornerShape(16.dp)
             )
         }
     }
