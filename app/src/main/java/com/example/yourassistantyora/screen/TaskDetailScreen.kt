@@ -1,8 +1,10 @@
 package com.example.yourassistantyora.screen
 
 import android.widget.Toast
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -18,11 +20,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape // ✅1. TAMBAHKAN IMPORT INI
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.yourassistantyora.models.TaskModel
@@ -58,6 +63,7 @@ fun TaskDetailScreen(
             val message = if (taskUpdated) "Task updated!" else "Task deleted!"
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             navController.popBackStack()
+            viewModel.resetEvents()
         }
         errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
@@ -66,7 +72,7 @@ fun TaskDetailScreen(
     }
 
     Scaffold(
-        containerColor = if(isInEditMode) Color.White else Color(0xFFF5F7FA),
+        containerColor = Color(0xFFF8F9FA),
         topBar = {
             TopAppBar(
                 title = { Text(if (isInEditMode) "Edit Task" else "Task Detail") },
@@ -82,7 +88,11 @@ fun TaskDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = if(isInEditMode) Color.White else Color(0xFF6A70D7), titleContentColor = if(isInEditMode) Color.Black else Color.White, navigationIconContentColor = if(isInEditMode) Color.Black else Color.White, actionIconContentColor = if(isInEditMode) Color.Black else Color.White )
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = if(isInEditMode) Color.White else Color(0xFF6A70D7),
+                    titleContentColor = if(isInEditMode) Color(0xFF1F1F1F) else Color.White,
+                    navigationIconContentColor = if(isInEditMode) Color(0xFF757575) else Color.White
+                )
             )
         },
         bottomBar = {
@@ -95,8 +105,34 @@ fun TaskDetailScreen(
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        OutlinedButton(onClick = { viewModel.deleteTask() }, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red), border = BorderStroke(1.dp, Color.Red)) { Text("Delete") }
-                        Button(onClick = { viewModel.updateTask() }, modifier = Modifier.weight(2f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7))) { Text("Save Changes") }
+                        // ✅ Tombol Delete dibuat Outlined
+                        OutlinedButton(
+                            onClick = { viewModel.deleteTask() },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
+                            border = BorderStroke(1.dp, Color.Red)
+                        ) {
+                            Text("Delete")
+                        }
+                        // ✅ Tombol Save disamakan
+                        Button(
+                            onClick = { viewModel.updateTask() },
+                            modifier = Modifier
+                                .weight(2f)
+                                .height(52.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7)),
+                            enabled = !isLoading
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                            } else {
+                                Text("Save Changes", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                     }
                 }
             }
@@ -150,6 +186,7 @@ fun ViewTaskDetail(task: TaskModel) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             DetailCard(title = "Schedule", details = mapOf("Date" to task.deadlineDateFormatted, "Time" to task.deadlineTimeFormatted))
             DetailCard(title = "Description", content = task.Description)
+            DetailCard(title = "Reminder", content = task.reminderText)
             DetailCard(title = "Status", content = task.statusText)
         }
     }
@@ -159,127 +196,197 @@ fun ViewTaskDetail(task: TaskModel) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditTaskForm(viewModel: EditTaskViewModel) {
-    // --- State dari ViewModel ---
     val title by viewModel.title
     val description by viewModel.description
-    val selectedDate by viewModel.selectedDate
-    val selectedTime by viewModel.selectedTime
-    val selectedPriority by viewModel.selectedPriority
-    val selectedCategory by viewModel.selectedCategory
-    val selectedStatus by viewModel.selectedStatus
     val selectedReminder by viewModel.selectedReminder
-
-    // ✅ --- State lokal untuk mengontrol dialog bawaan Material 3 ---
+    val selectedPriority by viewModel.selectedPriority
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = selectedDate?.time ?: System.currentTimeMillis()
-    )
-    val timePickerState = rememberTimePickerState(
-        initialHour = selectedTime?.get(Calendar.HOUR_OF_DAY) ?: 12,
-        initialMinute = selectedTime?.get(Calendar.MINUTE) ?: 0,
-        is24Hour = false
-    )
+    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.ENGLISH) }
+    val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.ENGLISH) }
 
-    // ✅ --- Dialog untuk Date Picker ---
+    val formattedDate by remember(viewModel.selectedDate.value) {
+        derivedStateOf { viewModel.selectedDate.value?.let { dateFormatter.format(it) } ?: "Select date" }
+    }
+    val formattedTime by remember(viewModel.selectedTime.value) {
+        derivedStateOf { viewModel.selectedTime.value?.let { timeFormatter.format(it.time) } ?: "Select time" }
+    }
+
     if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = viewModel.selectedDate.value?.time ?: System.currentTimeMillis())
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            viewModel.selectedDate.value = Date(millis)
-                        }
-                        showDatePicker = false
-                    }
-                ) { Text("OK") }
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { viewModel.selectedDate.value = Date(it) }
+                    showDatePicker = false
+                }) { Text("OK") }
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = datePickerState) }
     }
 
-    // ✅ --- Dialog untuk Time Picker ---
+    val timePickerState = rememberTimePickerState(
+        initialHour = viewModel.selectedTime.value?.get(Calendar.HOUR_OF_DAY) ?: Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+        initialMinute = viewModel.selectedTime.value?.get(Calendar.MINUTE) ?: Calendar.getInstance().get(Calendar.MINUTE)
+    )
+
     if (showTimePicker) {
-        // ✅ PERBAIKAN: Panggil TimePickerDialog dengan state
+        // ✅ 3. PERBAIKI PEMANGGILAN TimePickerDialog
         TimePickerDialog(
-            state = timePickerState, // Kirim state ke dialog
+            state = timePickerState,
             onDismissRequest = { showTimePicker = false },
             onConfirm = {
-                val cal = Calendar.getInstance()
-                cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
-                cal.set(Calendar.MINUTE, timePickerState.minute)
+                val cal = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                    set(Calendar.MINUTE, timePickerState.minute)
+                }
                 viewModel.selectedTime.value = cal
                 showTimePicker = false
             }
         )
     }
 
-    // --- Helper untuk format Tanggal & Waktu ---
-    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.ENGLISH) }
-    val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.ENGLISH) }
-    val formattedDate = selectedDate?.let { dateFormatter.format(it) } ?: "Select date"
-    val formattedTime = selectedTime?.let { timeFormatter.format(it.time) } ?: "Select time"
-
     Column(
         modifier = Modifier
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // --- Title ---
-        OutlinedTextField(
-            value = title,
-            onValueChange = { viewModel.title.value = it },
-            label = { Text("Title") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // --- Description ---
-        OutlinedTextField(
-            value = description,
-            onValueChange = { viewModel.description.value = it },
-            label = { Text("Description") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-        )
-
-        // ✅ --- Date and Time Picker (sekarang memicu state lokal) ---
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            FormInputChip(
-                text = formattedDate,
-                onClick = { showDatePicker = true },
-                modifier = Modifier.weight(1f)
-            )
-            FormInputChip(
-                text = formattedTime,
-                onClick = { showTimePicker = true },
-                modifier = Modifier.weight(1f)
-            )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Task Details", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { viewModel.title.value = it },
+                    placeholder = { Text("What needs to be done?", fontSize = 14.sp, color = Color(0xFFBDBDBD)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
+                )
+                HorizontalDivider()
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { viewModel.description.value = it },
+                    placeholder = { Text("Add more details...(optional)", fontSize = 14.sp, color = Color(0xFFBDBDBD)) },
+                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent),
+                    shape = RoundedCornerShape(8.dp),
+                    maxLines = 4
+                )
+            }
         }
 
-        // --- Priority, Category, Status Selector (TETAP SAMA) ---
-        PrioritySelector(
-            selectedPriority = selectedPriority,
-            onPrioritySelected = { viewModel.selectedPriority.value = it }
-        )
-        CategorySelector(
-            selectedCategory = selectedCategory,
-            onCategorySelected = { viewModel.selectedCategory.value = it }
-        )
-        StatusSelector(
-            selectedStatus = selectedStatus,
-            onStatusSelected = { viewModel.selectedStatus.value = it }
-        )
-        ReminderSelector(
-            selectedReminder = selectedReminder,
-            onReminderSelected = { viewModel.selectedReminder.value = it }
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(imageVector = Icons.Outlined.CalendarToday, contentDescription = null, tint = Color(0xFF6C63FF), modifier = Modifier.size(20.dp))
+                    Text("Schedule", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FormInputChip(text = formattedDate, onClick = { showDatePicker = true }, modifier = Modifier.weight(1f))
+                    FormInputChip(text = formattedTime, onClick = { showTimePicker = true }, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Reminder", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                DropdownInputChip(
+                    selectedText = selectedReminder,
+                    options = listOf(
+                        "Tidak ada pengingat", "Ingatkan pada waktunya", "Ingatkan 10 menit sebelumnya",
+                        "Ingatkan 20 menit sebelumnya", "Ingatkan 30 menit sebelumnya", "Ingatkan 1 hari sebelumnya",
+                        "Ingatkan 2 hari sebelumnya", "Ingatkan 3 hari sebelumnya"
+                    ),
+                    onOptionSelected = { viewModel.selectedReminder.value = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Priority", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PriorityOption(label = "High", color = Color(0xFFEF5350), isSelected = selectedPriority == "High", onClick = { viewModel.selectedPriority.value = "High" }, modifier = Modifier.weight(1f))
+                    PriorityOption(label = "Medium", color = Color(0xFFFFB74D), isSelected = selectedPriority == "Medium", onClick = { viewModel.selectedPriority.value = "Medium" }, modifier = Modifier.weight(1f))
+                    PriorityOption(label = "Low", color = Color(0xFF64B5F6), isSelected = selectedPriority == "Low", onClick = { viewModel.selectedPriority.value = "Low" }, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+@Composable
+private fun FormInputChip(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFFF5F7FA))
+            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text, fontSize = 14.sp, color = Color(0xFF424242))
+    }
+}
+
+@Composable
+private fun PriorityOption(
+    label: String,
+    color: Color,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor by animateColorAsState(if (isSelected) color.copy(alpha = 0.1f) else Color.White, label = "")
+    val borderColor by animateColorAsState(if (isSelected) color else Color.LightGray.copy(alpha = 0.5f), label = "")
+
+    Surface(
+        modifier = modifier
+            .height(80.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(14.dp),
+//        color = backgroundColor,
+        border = BorderStroke(1.dp, borderColor),
+        shadowElevation = if (isSelected) 3.dp else 1.dp
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(color))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF424242))
+        }
     }
 }
 
@@ -327,105 +434,6 @@ private fun TimePickerDialog(
     }
 }
 
-
-// --- HELPER COMPOSABLES (TIDAK ADA PERUBAHAN) ---
-
-@Composable
-private fun FormInputChip(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, Color.LightGray),
-        color = Color.White
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            color = Color.DarkGray
-        )
-    }
-}
-
-@Composable
-private fun PrioritySelector(selectedPriority: String, onPrioritySelected: (String) -> Unit) {
-    val priorities = listOf("Low", "Medium", "High")
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Priority", fontWeight = FontWeight.SemiBold)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            priorities.forEach { priority ->
-                FilterChip(
-                    selected = selectedPriority == priority,
-                    onClick = { onPrioritySelected(priority) },
-                    label = { Text(priority) }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CategorySelector(selectedCategory: String, onCategorySelected: (String) -> Unit) {
-    val categories = listOf("Work", "Study", "Project", "Meeting", "Travel")
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Category", fontWeight = FontWeight.SemiBold)
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            categories.forEach { category ->
-                FilterChip(
-                    selected = selectedCategory == category,
-                    onClick = { onCategorySelected(category) },
-                    label = { Text(category) }
-                )
-            }
-        }
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun StatusSelector(selectedStatus: String, onStatusSelected: (String) -> Unit) {
-    val statuses = listOf("To do", "On Progress", "Hold On", "Done", "Waiting")
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Status", fontWeight = FontWeight.SemiBold)
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
-        ) {
-            OutlinedTextField(
-                value = selectedStatus,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor()
-            )
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                statuses.forEach { status ->
-                    DropdownMenuItem(
-                        text = { Text(status) },
-                        onClick = {
-                            onStatusSelected(status)
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
 @Composable
 fun DetailCard(title: String, content: String? = null, details: Map<String, String>? = null) {
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(12.dp), elevation = CardDefaults.cardElevation(1.dp)) {
@@ -445,53 +453,166 @@ fun DetailCard(title: String, content: String? = null, details: Map<String, Stri
         }
     }
 }
-// ✅ TAMBAHKAN COMPOSABLE BARU INI DI BAWAH STATUSSELECTOR
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
-private fun ReminderSelector(selectedReminder: String, onReminderSelected: (String) -> Unit) {
-    val reminderOptions = listOf(
-        "Tidak ada pengingat",
-        "Ingatkan pada waktunya",
-        "Ingatkan 10 menit sebelumnya",
-        "Ingatkan 20 menit sebelumnya",
-        "Ingatkan 30 menit sebelumnya",
-        "Ingatkan 1 hari sebelumnya",
-        "Ingatkan 2 hari sebelumnya",
-        "Ingatkan 3 hari sebelumnya"
-    )
+private fun DropdownInputChip(
+    selectedText: String,
+    options: List<String>,
+    onOptionSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     var expanded by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Reminder", fontWeight = FontWeight.SemiBold)
-        ExposedDropdownMenuBox(
+    Box(modifier = modifier) {
+        FormInputChip(text = selectedText, onClick = { expanded = true }, modifier = Modifier.fillMaxWidth())
+
+        DropdownMenu(
             expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color.White)
         ) {
-            OutlinedTextField(
-                value = selectedReminder,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor()
-            )
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                reminderOptions.forEach { reminder ->
-                    DropdownMenuItem(
-                        text = { Text(reminder) },
-                        onClick = {
-                            onReminderSelected(reminder)
-                            expanded = false
-                        }
-                    )
-                }
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onOptionSelected(option)
+                        expanded = false
+                    }
+                )
             }
         }
     }
 }
+// --- HELPER COMPOSABLES (TIDAK ADA PERUBAHAN) unused---
+
+//@Composable
+//private fun PrioritySelector(selectedPriority: String, onPrioritySelected: (String) -> Unit) {
+//    val priorities = listOf("Low", "Medium", "High")
+//    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+//        Text("Priority", fontWeight = FontWeight.SemiBold)
+//        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+//            priorities.forEach { priority ->
+//                FilterChip(
+//                    selected = selectedPriority == priority,
+//                    onClick = { onPrioritySelected(priority) },
+//                    label = { Text(priority) }
+//                )
+//            }
+//        }
+//    }
+//}
+//
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//private fun CategorySelector(selectedCategory: String, onCategorySelected: (String) -> Unit) {
+//    val categories = listOf("Work", "Study", "Project", "Meeting", "Travel")
+//    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+//        Text("Category", fontWeight = FontWeight.SemiBold)
+//        Row(
+//            modifier = Modifier.horizontalScroll(rememberScrollState()),
+//            horizontalArrangement = Arrangement.spacedBy(10.dp)
+//        ) {
+//            categories.forEach { category ->
+//                FilterChip(
+//                    selected = selectedCategory == category,
+//                    onClick = { onCategorySelected(category) },
+//                    label = { Text(category) }
+//                )
+//            }
+//        }
+//    }
+//}
+//
+//
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//private fun StatusSelector(selectedStatus: String, onStatusSelected: (String) -> Unit) {
+//    val statuses = listOf("To do", "On Progress", "Hold On", "Done", "Waiting")
+//    var expanded by remember { mutableStateOf(false) }
+//
+//    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+//        Text("Status", fontWeight = FontWeight.SemiBold)
+//        ExposedDropdownMenuBox(
+//            expanded = expanded,
+//            onExpandedChange = { expanded = !expanded }
+//        ) {
+//            OutlinedTextField(
+//                value = selectedStatus,
+//                onValueChange = {},
+//                readOnly = true,
+//                trailingIcon = {
+//                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+//                },
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .menuAnchor()
+//            )
+//            ExposedDropdownMenu(
+//                expanded = expanded,
+//                onDismissRequest = { expanded = false }
+//            ) {
+//                statuses.forEach { status ->
+//                    DropdownMenuItem(
+//                        text = { Text(status) },
+//                        onClick = {
+//                            onStatusSelected(status)
+//                            expanded = false
+//                        }
+//                    )
+//                }
+//            }
+//        }
+//    }
+//}
+
+
+//// ✅ TAMBAHKAN COMPOSABLE BARU INI DI BAWAH STATUSSELECTOR
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//private fun ReminderSelector(selectedReminder: String, onReminderSelected: (String) -> Unit) {
+//    val reminderOptions = listOf(
+//        "Tidak ada pengingat",
+//        "Ingatkan pada waktunya",
+//        "Ingatkan 10 menit sebelumnya",
+//        "Ingatkan 20 menit sebelumnya",
+//        "Ingatkan 30 menit sebelumnya",
+//        "Ingatkan 1 hari sebelumnya",
+//        "Ingatkan 2 hari sebelumnya",
+//        "Ingatkan 3 hari sebelumnya"
+//    )
+//    var expanded by remember { mutableStateOf(false) }
+//
+//    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+//        Text("Reminder", fontWeight = FontWeight.SemiBold)
+//        ExposedDropdownMenuBox(
+//            expanded = expanded,
+//            onExpandedChange = { expanded = !expanded }
+//        ) {
+//            OutlinedTextField(
+//                value = selectedReminder,
+//                onValueChange = {},
+//                readOnly = true,
+//                trailingIcon = {
+//                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+//                },
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .menuAnchor()
+//            )
+//            ExposedDropdownMenu(
+//                expanded = expanded,
+//                onDismissRequest = { expanded = false }
+//            ) {
+//                reminderOptions.forEach { reminder ->
+//                    DropdownMenuItem(
+//                        text = { Text(reminder) },
+//                        onClick = {
+//                            onReminderSelected(reminder)
+//                            expanded = false
+//                        }
+//                    )
+//                }
+//            }
+//        }
+//    }
+//}

@@ -57,7 +57,7 @@ class EditTaskViewModel : ViewModel() {
                     selectedPriority.value = task.priorityText
                     selectedCategory.value = task.categoryText
                     selectedStatus.value = task.statusText
-                    selectedReminder.value = getReminderText(task.Reminder)
+                    selectedReminder.value = task.reminderText
                     // Anda bisa menambahkan logika untuk reminder jika perlu
                 } else {
                     errorMessage.value = "Task not found."
@@ -95,7 +95,6 @@ class EditTaskViewModel : ViewModel() {
                     "Status" to getStatusNumber(selectedStatus.value),
                     "Reminder" to getReminderNumber(selectedReminder.value)
                 )
-
                 db.collection("tasks").document(taskId).update(updatedData).await()
                 taskUpdated.value = true
             } catch (e: Exception) {
@@ -124,6 +123,11 @@ class EditTaskViewModel : ViewModel() {
         }
     }
 
+    fun resetEvents() {
+        taskUpdated.value = false
+        taskDeleted.value = false
+        errorMessage.value = null
+    }
 
     fun clearError() {
         errorMessage.value = null

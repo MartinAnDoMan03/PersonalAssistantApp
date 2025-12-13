@@ -71,6 +71,23 @@ data class TaskModel(
         }
 
     /**
+     * Mengonversi angka `Reminder` menjadi teks yang mudah dibaca.
+     * Contoh: 2 -> "Ingatkan 10 menit sebelumnya"
+     */
+    val reminderText: String
+        get() = when (Reminder) {
+            7 -> "Ingatkan 3 hari sebelumnya"
+            6 -> "Ingatkan 2 hari sebelumnya"
+            5 -> "Ingatkan 1 hari sebelumnya"
+            4 -> "Ingatkan 30 menit sebelumnya"
+            3 -> "Ingatkan 20 menit sebelumnya"
+            2 -> "Ingatkan 10 menit sebelumnya"
+            1 -> "Ingatkan pada waktunya"
+            0 -> "Tidak ada pengingat"
+            else -> "Tidak ada pengingat"
+        }
+
+    /**
      * Properti untuk mengecek apakah task sudah selesai (status == 2).
      * Ini akan sangat berguna untuk memisahkan task aktif dan selesai di UI.
      */
