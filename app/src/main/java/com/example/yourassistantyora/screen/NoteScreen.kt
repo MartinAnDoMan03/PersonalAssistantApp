@@ -75,11 +75,18 @@ class NoteViewModel : ViewModel() {
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
     val notes: StateFlow<List<Note>> = _notes.asStateFlow()
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
     init {
         fetchNotes()
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
     }
 
     private fun fetchNotes() {
@@ -507,7 +514,9 @@ fun NoteScreen(
     viewModel: NoteViewModel = viewModel()
 ) {
     val notes by viewModel.notes.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
     var selectedCategory by remember { mutableStateOf("All") }
+    var isSearchActive by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val selectedTab = NavigationConstants.TAB_NOTE
 
@@ -523,11 +532,19 @@ fun NoteScreen(
         notes.flatMap { it.categories }.distinct().sorted()
     }
 
+    // Filter notes berdasarkan category dan search query
     val filteredNotes = notes.filter { note ->
-        when (selectedCategory) {
+        val matchesCategory = when (selectedCategory) {
             "All" -> true
             else -> note.categories.any { it.equals(selectedCategory, ignoreCase = true) }
         }
+        val matchesSearch = if (searchQuery.isBlank()) {
+            true
+        } else {
+            note.title.contains(searchQuery, ignoreCase = true) ||
+                    note.content.contains(searchQuery, ignoreCase = true)
+        }
+        matchesCategory && matchesSearch
     }
 
     // Fungsi untuk menampilkan dialog konfirmasi
@@ -567,12 +584,58 @@ fun NoteScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(
-                            "My Notes",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2D2D2D)
-                        )
+                        // Tampilkan search bar jika isSearchActive true
+                        AnimatedVisibility(
+                            visible = !isSearchActive,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            Text(
+                                "My Notes",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2D2D2D)
+                            )
+                        }
+                        AnimatedVisibility(
+                            visible = isSearchActive,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { viewModel.setSearchQuery(it) },
+                                placeholder = { Text("Search notes...", fontSize = 14.sp) },
+                                textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(end = 8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    cursorColor = Color(0xFF6A70D7),
+                                    focusedContainerColor = Color(0xFFF0F0F0),
+                                    unfocusedContainerColor = Color(0xFFF0F0F0)
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                singleLine = true
+                            )
+                        }
+                    },
+                    actions = {
+                        // Tombol Search
+                        IconButton(onClick = {
+                            if (isSearchActive) {
+                                viewModel.setSearchQuery("")
+                            }
+                            isSearchActive = !isSearchActive
+                        }) {
+                            Icon(
+                                imageVector = if (isSearchActive) Icons.Filled.Close else Icons.Outlined.Search,
+                                contentDescription = "Search",
+                                tint = Color(0xFF2D2D2D)
+                            )
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                 )
