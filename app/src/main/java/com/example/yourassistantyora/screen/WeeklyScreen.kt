@@ -33,6 +33,7 @@ import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.navigateSingleTop
 import com.example.yourassistantyora.utils.NavigationConstants
 import com.example.yourassistantyora.viewModel.TaskViewModel
+import com.example.yourassistantyora.models.TaskModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -59,6 +60,11 @@ fun WeeklyScreen(
 
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
 
+    // ✅ 1. Tambahkan state untuk dialog
+    var taskToConfirm by remember { mutableStateOf<Pair<TaskModel, Boolean>?>(null) }
+    var taskToDelete by remember { mutableStateOf<TaskModel?>(null) }
+
+
     LaunchedEffect(Unit) {
         viewModel.setViewMode("Weekly")
     }
@@ -81,6 +87,48 @@ fun WeeklyScreen(
     }
 
     val (completedTasks, activeTasks) = tasksForSelectedDate.partition { it.isCompleted }
+
+
+    // ✅ 2. Tambahkan semua dialog konfirmasi
+    taskToConfirm?.let { (task, isCompleting) ->
+        AlertDialog(
+            onDismissRequest = { taskToConfirm = null },
+            title = { Text(if (isCompleting) "Complete Task" else "Restore Task") },
+            text = { Text("Are you sure?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateTaskStatus(task.id, isCompleting)
+                        taskToConfirm = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7))
+                ) { Text("Confirm") }
+            },
+            dismissButton = {
+                TextButton(onClick = { taskToConfirm = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    taskToDelete?.let { task ->
+        AlertDialog(
+            onDismissRequest = { taskToDelete = null },
+            title = { Text("Delete Task") },
+            text = { Text("Are you sure you want to permanently delete '${task.Title}'?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteTask(task.id)
+                        taskToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { taskToDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
 
     // ✅ PERBAIKAN: Lengkapi Scaffold
     Scaffold(
@@ -183,13 +231,15 @@ fun WeeklyScreen(
                         }
                     }
 
+                    // ✅ 3. Ganti TaskCard menjadi SwipeableTaskCard
                     if(activeTasks.isNotEmpty()) {
                         items(activeTasks, key = { "active_${it.id}" }) { task ->
-                            TaskCard(
+                            SwipeableTaskCard(
                                 modifier = Modifier.animateItemPlacement(),
                                 task = task,
                                 onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                                onCheckboxClick = { viewModel.updateTaskStatus(task.id, it) }
+                                onSwipeToDelete = { taskToDelete = it },
+                                onCheckboxClick = { isChecked -> taskToConfirm = Pair(task, isChecked) }
                             )
                         }
                     }

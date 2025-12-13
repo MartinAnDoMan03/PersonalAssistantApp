@@ -37,7 +37,7 @@ class TaskViewModel : ViewModel() {
     val selectedStatus = MutableStateFlow("All")
     val selectedCategory = MutableStateFlow("All")
     val selectedDate = MutableStateFlow(getStartOfToday().time) // Untuk Weekly & Monthly
-
+    val searchQuery = MutableStateFlow("")
     // --- STATE YANG AKAN DIGUNAKAN OLEH UI ---
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
@@ -49,12 +49,16 @@ class TaskViewModel : ViewModel() {
     private val baseFilteredTasks = combine(
         _allTasks,
         selectedStatus,
-        selectedCategory
-    ) { tasks, status, category ->
+        selectedCategory,
+        searchQuery // Sertakan searchQuery dalam combine
+    ) { tasks, status, category, query ->
         tasks.filter { task ->
             val statusMatch = if (status == "All") true else task.statusText.equals(status, ignoreCase = true)
             val categoryMatch = if (category == "All") true else task.categoryText.equals(category, ignoreCase = true)
-            statusMatch && categoryMatch
+            // Tambahkan kondisi pencarian berdasarkan judul
+            val queryMatch = if (query.isBlank()) true else task.Title.contains(query, ignoreCase = true)
+
+            statusMatch && categoryMatch && queryMatch
         }
     }
 
@@ -142,11 +146,24 @@ class TaskViewModel : ViewModel() {
         }
     }
 
+    fun deleteTask(taskId: String) {
+        viewModelScope.launch {
+            try {
+                db.collection("tasks").document(taskId).delete().await()
+                // Tidak perlu mengubah state lokal karena listener Firestore akan melakukannya secara otomatis
+            } catch (e: Exception) {
+                _error.value = "Failed to delete task: ${e.message}"
+                Log.e("TaskViewModel", "Delete task error", e)
+            }
+        }
+    }
+
     // --- Fungsi Aksi untuk mengubah filter dari UI ---
     fun setViewMode(mode: String) { selectedViewMode.value = mode }
     fun setStatusFilter(status: String) { selectedStatus.value = status }
     fun setCategoryFilter(category: String) { selectedCategory.value = category }
     fun setSelectedDate(date: Date) { selectedDate.value = date }
+    fun setSearchQuery(query: String) { searchQuery.value = query }
 
     override fun onCleared() {
         super.onCleared()

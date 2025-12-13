@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +38,7 @@ import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.navigateSingleTop
 import com.example.yourassistantyora.utils.NavigationConstants
 import com.example.yourassistantyora.viewModel.TaskViewModel
+import com.example.yourassistantyora.models.TaskModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -61,6 +64,11 @@ fun MonthlyScreen(
 
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
 
+    // ✅ 1. Tambahkan state untuk dialog
+    var taskToConfirm by remember { mutableStateOf<Pair<TaskModel, Boolean>?>(null) }
+    var taskToDelete by remember { mutableStateOf<TaskModel?>(null) }
+
+
     LaunchedEffect(Unit) {
         viewModel.setViewMode("Monthly")
     }
@@ -70,6 +78,48 @@ fun MonthlyScreen(
     }
 
     val (completedTasks, activeTasks) = tasksForSelectedDate.partition { it.isCompleted }
+
+
+    // ✅ 2. Tambahkan semua dialog konfirmasi
+    taskToConfirm?.let { (task, isCompleting) ->
+        AlertDialog(
+            onDismissRequest = { taskToConfirm = null },
+            title = { Text(if (isCompleting) "Complete Task" else "Restore Task") },
+            text = { Text("Are you sure?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateTaskStatus(task.id, isCompleting)
+                        taskToConfirm = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7))
+                ) { Text("Confirm") }
+            },
+            dismissButton = {
+                TextButton(onClick = { taskToConfirm = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    taskToDelete?.let { task ->
+        AlertDialog(
+            onDismissRequest = { taskToDelete = null },
+            title = { Text("Delete Task") },
+            text = { Text("Are you sure you want to permanently delete '${task.Title}'?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteTask(task.id)
+                        taskToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { taskToDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
 
     Scaffold(
         containerColor = Color(0xFFF5F7FA),
@@ -155,13 +205,14 @@ fun MonthlyScreen(
                 modifier = Modifier
                     .background(Color.White)
                     .padding(8.dp)
+                    .heightIn(max = 280.dp)
             ) {
                 items(listOf("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa")) { day ->
                     Text(
                         day,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(8.dp),
-                        fontSize = 12.sp,
+                        modifier = Modifier.padding(4.dp),
+                        fontSize = 11.sp,
                         color = Color.Gray
                     )
                 }
@@ -210,13 +261,14 @@ fun MonthlyScreen(
                         }
                     }
                 } else {
-                    // Active tasks
+                    // ✅ 3. Ganti TaskCard menjadi SwipeableTaskCard
                     items(activeTasks, key = { it.id }) { task ->
-                        TaskCard(
+                        SwipeableTaskCard(
                             modifier = Modifier.animateItemPlacement(),
                             task = task,
                             onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                            onCheckboxClick = { viewModel.updateTaskStatus(task.id, it) }
+                            onSwipeToDelete = { taskToDelete = it },
+                            onCheckboxClick = { isChecked -> taskToConfirm = Pair(task, isChecked) }
                         )
                     }
 
@@ -277,6 +329,11 @@ private fun CalendarHeader(date: Date, onPrevMonth: () -> Unit, onNextMonth: () 
 
 @Composable
 private fun SelectedDateHeader(selectedDate: Date, onTodayClick: () -> Unit) {
+    // ✅ Cek apakah tanggal yang dipilih adalah hari ini
+    val isToday = remember(selectedDate) {
+        isDaySame(selectedDate, Date())
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -289,13 +346,15 @@ private fun SelectedDateHeader(selectedDate: Date, onTodayClick: () -> Unit) {
             fontWeight = FontWeight.SemiBold,
             color = Color.Gray
         )
-        Button(
-            onClick = onTodayClick,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8E7FF)),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text("Today", color = Color(0xFF6A70D7), fontSize = 12.sp)
+        if (isToday) {
+            Button(
+                onClick = onTodayClick,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8E7FF)),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Today", color = Color(0xFF6A70D7), fontSize = 12.sp)
+            }
         }
     }
 }
@@ -305,6 +364,7 @@ private fun CalendarCell(date: CalendarDate, onDateSelected: (Date) -> Unit) {
     Box(
         modifier = Modifier
             .aspectRatio(1f)
+            .padding(2.dp)
             .clip(CircleShape)
             .background(
                 when {
@@ -317,6 +377,7 @@ private fun CalendarCell(date: CalendarDate, onDateSelected: (Date) -> Unit) {
     ) {
         Text(
             text = date.dayOfMonth.toString(),
+            fontSize = 13.sp,
             color = when {
                 !date.isCurrentMonth -> Color.LightGray
                 date.isSelected -> Color.White
@@ -326,21 +387,35 @@ private fun CalendarCell(date: CalendarDate, onDateSelected: (Date) -> Unit) {
     }
 }
 
+// ✅ Fungsi helper untuk membandingkan dua tanggal (tanpa waktu)
+private fun isDaySame(date1: Date, date2: Date): Boolean {
+    val cal1 = Calendar.getInstance().apply { time = date1 }
+    val cal2 = Calendar.getInstance().apply { time = date2 }
+    return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+            cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+}
+
 private fun generateCalendarDatesForMonth(monthDate: Date, selectedDate: Date): List<CalendarDate> {
     val cal = Calendar.getInstance().apply { time = monthDate }
     cal.set(Calendar.DAY_OF_MONTH, 1)
     val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) - 1
     cal.add(Calendar.DAY_OF_MONTH, -firstDayOfWeek)
 
+    val currentMonth = Calendar.getInstance().apply { time = monthDate }.get(Calendar.MONTH)
+
     return (0..41).map {
         val date = cal.time
-        val day = CalendarDate(
-            date = date,
-            dayOfMonth = cal.get(Calendar.DAY_OF_MONTH),
-            isCurrentMonth = cal.get(Calendar.MONTH) == monthDate.month,
-            isSelected = isSameDay(date, selectedDate)
-        )
+        val dayOfMonth = cal.get(Calendar.DAY_OF_MONTH)
+        val isCurrentMonthDay = cal.get(Calendar.MONTH) == currentMonth
+        val isSelected = isDaySame(date, selectedDate)
+
         cal.add(Calendar.DAY_OF_MONTH, 1)
-        day
+
+        CalendarDate(
+            date = date,
+            dayOfMonth = dayOfMonth,
+            isCurrentMonth = isCurrentMonthDay,
+            isSelected = isSelected
+        )
     }
 }

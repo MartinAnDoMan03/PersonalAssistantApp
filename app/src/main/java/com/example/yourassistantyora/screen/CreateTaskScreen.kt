@@ -1,6 +1,8 @@
 package com.example.yourassistantyora.screen
 
 import android.widget.Toast
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -116,45 +118,40 @@ fun CreateTaskScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            containerColor = Color(0xFFF5F5F5),
+            containerColor = Color(0xFFF8F9FA),
             topBar = {
                 TopAppBar(
-                    title = {
-                        Text(
-                            "New Task",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1F1F1F)
-                        )
-                    },
+                    title = { Text("New Task", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1F1F1F)) },
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = "Close",
-                                tint = Color(0xFF757575)
-                            )
+                            Icon(imageVector = Icons.Filled.Close, contentDescription = "Close", tint = Color(0xFF757575))
                         }
                     },
-                    actions = {
-                        // ✅ MENGHUBUNGKAN TOMBOL SIMPAN KE VIEWMODEL
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp).padding(end = 16.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            IconButton(onClick = { viewModel.createTask() }) {
-                                Icon(
-                                    imageVector = Icons.Filled.Check,
-                                    contentDescription = "Save",
-                                    tint = Color(0xFF6C63FF)
-                                )
-                            }
-                        }
-                    },
+                    // ✅ TOMBOL SIMPAN DIHAPUS DARI SINI
+                    actions = {},
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                 )
+            },
+            // ✅ 2. TAMBAHKAN TOMBOL SIMPAN DI BAGIAN BAWAH
+            bottomBar = {
+                Surface(shadowElevation = 8.dp, color = Color.White) {
+                    Button(
+                        onClick = { viewModel.createTask() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7)),
+                        enabled = !isLoading // Disable tombol saat loading
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Text("Create Task", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
             }
         ) { paddingValues ->
             // --- KONTEN UTAMA (KODE UI ANDA YANG SUDAH ADA) ---
@@ -223,7 +220,9 @@ fun CreateTaskScreen(
                                         color = Color(0xFFBDBDBD)
                                     )
                                 },
-                                modifier = Modifier.fillMaxWidth().height(100.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(100.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color(0xFF6C63FF),
                                     unfocusedBorderColor = Color(0xFFE0E0E0),
@@ -303,52 +302,37 @@ fun CreateTaskScreen(
                     }
                 }
 
-                // Priority Section
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            "Priority",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1F1F1F)
-                        )
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Priority", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             PriorityOption(
-                                label = "Low",
-                                color = Color(0xFF64B5F6),
-                                isSelected = selectedPriority == "Low",
-                                onClick = {
-                                    viewModel.selectedPriority.value = "Low"
-                                }, // Ke ViewModel
+                                label = "High",
+                                color = Color(0xFFEF5350),
+                                isSelected = selectedPriority == "High",
+                                onClick = { viewModel.selectedPriority.value = "High" },
                                 modifier = Modifier.weight(1f)
                             )
                             PriorityOption(
                                 label = "Medium",
                                 color = Color(0xFFFFB74D),
                                 isSelected = selectedPriority == "Medium",
-                                onClick = {
-                                    viewModel.selectedPriority.value = "Medium"
-                                }, // Ke ViewModel
+                                onClick = { viewModel.selectedPriority.value = "Medium" },
                                 modifier = Modifier.weight(1f)
                             )
                             PriorityOption(
-                                label = "High",
-                                color = Color(0xFFEF5350),
-                                isSelected = selectedPriority == "High",
-                                onClick = {
-                                    viewModel.selectedPriority.value = "High"
-                                }, // Ke ViewModel
+                                label = "Low",
+                                color = Color(0xFF64B5F6),
+                                isSelected = selectedPriority == "Low",
+                                onClick = { viewModel.selectedPriority.value = "Low" },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -608,28 +592,69 @@ fun CreateTaskScreen(
     }
 }
 @Composable
-fun PriorityOption(
-    label: String, color: Color, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier
+private fun PriorityOption(    label: String,
+                               color: Color,
+                               isSelected: Boolean,
+                               onClick: () -> Unit,
+                               modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier.clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) color.copy(alpha = 0.2f) else Color.Transparent)
-            .border(width = 1.dp, color = if (isSelected) color else Color(0xFFE0E0E0), shape = RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick).padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center
+//    val backgroundColor by animateColorAsState(
+//        targetValue = if (isSelected) color.copy(alpha = 0.1f) else Color.White,
+//        label = "BackgroundColorAnimation"
+//    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) color else Color.LightGray.copy(alpha = 0.5f),
+        label = "BorderColorAnimation"
+    )
+
+    // ✅ HANYA GUNAKAN SATU SURFACE SEBAGAI PEMBUNGKUS UTAMA
+    Surface(
+        modifier = modifier
+            .height(80.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(14.dp),
+//        color = backgroundColor, // Warna latar belakang diatur di sini
+        border = BorderStroke(1.dp, borderColor),
+        shadowElevation = if (isSelected) 3.dp else 1.dp
     ) {
-        Text(text = label, color = if (isSelected) color else Color(0xFF757575), fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+        // Langsung gunakan Column untuk menata elemen di dalamnya
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+//            horizontalArrangement = Arrangement.spacedBy(8.dp) // Beri jarak antara lingkaran dan teks
+        ) {
+            // Lingkaran berwarna
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+
+            // Teks di bawah lingkaran
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF424242)
+            )
+        }
     }
 }
+
+
 
 @Composable
 fun CategoryChip(
     label: String, isSelected: Boolean, onClick: () -> Unit
 ) {
     Box(
-        modifier = Modifier.clip(RoundedCornerShape(20.dp))
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
             .background(if (isSelected) Color(0xFF6C63FF) else Color(0xFFF0F0F0))
-            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Text(text = label, color = if (isSelected) Color.White else Color(0xFF757575), fontSize = 13.sp)
     }
@@ -645,9 +670,15 @@ fun StatusChip(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
-            modifier = Modifier.size(16.dp).clip(CircleShape)
+            modifier = Modifier
+                .size(16.dp)
+                .clip(CircleShape)
                 .background(if (isSelected) color.copy(alpha = 1f) else color.copy(alpha = 0.4f))
-                .border(width = 2.dp, color = if (isSelected) Color.White else Color.Transparent, shape = CircleShape)
+                .border(
+                    width = 2.dp,
+                    color = if (isSelected) Color.White else Color.Transparent,
+                    shape = CircleShape
+                )
         )
         Text(text = label, color = if (isSelected) Color.Black else Color.Gray, fontSize = 13.sp)
     }
