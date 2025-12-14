@@ -1,5 +1,8 @@
-package com.example.yourassistantyora.screen
+package com.example.yourassistantyora.screen // ✅ PACKAGE DITAMBAHKAN
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -10,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,17 +49,36 @@ fun DailyScreen(
     val error: String? by viewModel.error.collectAsState(initial = null)
     val selectedStatus: String by viewModel.selectedStatus.collectAsState(initial = "All")
     val selectedCategory: String by viewModel.selectedCategory.collectAsState(initial = "All")
-
-    // ✅ pastikan ini memang List<TaskModel> dari VM
     val tasksForToday: List<TaskModel> by viewModel.tasksForToday.collectAsState(initial = emptyList())
 
-    // ✅ Completed rule untuk TaskModel: Status == 2 (Done)
+    // ✅ BARU: State untuk fitur Search
+    var isSearching by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Completed rule untuk TaskModel: Status == 2 (Done)
     fun isCompletedTask(t: TaskModel) = t.Status == 2
 
-    val completedTasks = tasksForToday.filter(::isCompletedTask)
-    val activeTasks = tasksForToday.filterNot(::isCompletedTask)
+    // --- LOGIKA FILTERING DENGAN SEARCH QUERY ---
+    val filteredTasksBySearch = remember(tasksForToday, searchQuery, selectedStatus, selectedCategory) {
+        tasksForToday.filter { task ->
+            val statusMatch = (selectedStatus == "All") || (task.statusText == selectedStatus)
+            val categoryMatch = (selectedCategory == "All") || task.categoryNamesSafe.contains(selectedCategory)
 
-    // ✅ grouping session pakai Deadline time
+            val queryMatch = if (searchQuery.isBlank()) {
+                true
+            } else {
+                task.Title.contains(searchQuery, ignoreCase = true) ||
+                        task.Description.contains(searchQuery, ignoreCase = true)
+            }
+            statusMatch && categoryMatch && queryMatch
+        }
+    }
+
+    // Split active vs completed DENGAN filter search
+    val completedTasks = filteredTasksBySearch.filter(::isCompletedTask)
+    val activeTasks = filteredTasksBySearch.filterNot(::isCompletedTask)
+
+    // grouping session pakai Deadline time DENGAN filter search
     val groupedTasks: Map<DailySession, List<TaskModel>> =
         activeTasks.groupBy { getSessionForTaskModel(it) }
 
@@ -114,18 +138,69 @@ fun DailyScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Today's Tasks", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = SimpleDateFormat("EEEE, MMMM dd, yyyy", Locale.getDefault()).format(Date()),
-                            fontSize = 12.sp,
-                            color = Color.Gray
+                    // Tampilkan Title biasa
+                    AnimatedVisibility(
+                        visible = !isSearching,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Column {
+                            Text("Today's Tasks", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2D2D2D))
+                            Text(
+                                text = SimpleDateFormat("EEEE, MMMM dd, yyyy", Locale.getDefault()).format(Date()),
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+
+                    // ✅ Tampilkan Search Bar saat isSearching true
+                    AnimatedVisibility(
+                        visible = isSearching,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search tasks...", fontSize = 14.sp) },
+                            textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(end = 8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                cursorColor = Color(0xFF6A70D7),
+                                focusedContainerColor = Color(0xFFF0F0F0),
+                                unfocusedContainerColor = Color(0xFFF0F0F0)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
                         )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                    // Navigation Icon hanya ditampilkan saat tidak mencari
+                    if (!isSearching) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.Default.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
+                        }
+                    }
+                },
+                actions = {
+                    // ✅ Tombol Toggle Search/Close
+                    IconButton(onClick = {
+                        if (isSearching) {
+                            searchQuery = ""
+                        }
+                        isSearching = !isSearching
+                    }) {
+                        Icon(
+                            imageVector = if (isSearching) Icons.Filled.Close else Icons.Outlined.Search,
+                            contentDescription = "Toggle Search",
+                            tint = Color(0xFF2D2D2D)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
@@ -169,13 +244,16 @@ fun DailyScreen(
                 }
             )
 
-            TaskFilterRow(
-                selectedStatus = selectedStatus,
-                onStatusSelected = { viewModel.setStatusFilter(it) },
-                selectedCategory = selectedCategory,
-                onCategorySelected = { viewModel.setCategoryFilter(it) },
-                categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel")
-            )
+            // ✅ TaskFilterRow hanya tampil jika TIDAK sedang mencari
+            if (!isSearching) {
+                TaskFilterRow(
+                    selectedStatus = selectedStatus,
+                    onStatusSelected = { viewModel.setStatusFilter(it) },
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = { viewModel.setCategoryFilter(it) },
+                    categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel")
+                )
+            }
 
             Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
@@ -190,88 +268,99 @@ fun DailyScreen(
                 Text(error ?: "", color = Color.Red, modifier = Modifier.padding(16.dp))
             }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (groupedTasks.isEmpty() && completedTasks.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillParentMaxSize()
-                                .padding(bottom = 80.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("No tasks for today!", color = Color.Gray, textAlign = TextAlign.Center)
+            // ✅ Tambahkan pesan jika tidak ada hasil saat pencarian
+            if (activeTasks.isEmpty() && completedTasks.isEmpty() && searchQuery.isNotBlank()) {
+                Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        "Tidak ada tugas yang cocok dengan \"$searchQuery\" pada hari ini.",
+                        color = Color(0xFF757575),
+                        fontSize = 16.sp
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (groupedTasks.isEmpty() && completedTasks.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillParentMaxSize()
+                                    .padding(bottom = 80.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No tasks for today!", color = Color.Gray, textAlign = TextAlign.Center)
+                            }
                         }
                     }
-                }
 
-                displaySessionTasks(
-                    groupedTasks = groupedTasks,
-                    session = DailySession.Morning,
-                    timeRange = "05:00 - 10:59",
-                    navController = navController,
-                    swipedTaskId = swipedTaskId,
-                    onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
-                    onDeleteClick = { taskToDelete = it },
-                    onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
-                )
+                    displaySessionTasks(
+                        groupedTasks = groupedTasks,
+                        session = DailySession.Morning,
+                        timeRange = "05:00 - 10:59",
+                        navController = navController,
+                        swipedTaskId = swipedTaskId,
+                        onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
+                        onDeleteClick = { taskToDelete = it },
+                        onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
+                    )
 
-                displaySessionTasks(
-                    groupedTasks = groupedTasks,
-                    session = DailySession.Afternoon,
-                    timeRange = "11:00 - 14:59",
-                    navController = navController,
-                    swipedTaskId = swipedTaskId,
-                    onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
-                    onDeleteClick = { taskToDelete = it },
-                    onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
-                )
+                    displaySessionTasks(
+                        groupedTasks = groupedTasks,
+                        session = DailySession.Afternoon,
+                        timeRange = "11:00 - 14:59",
+                        navController = navController,
+                        swipedTaskId = swipedTaskId,
+                        onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
+                        onDeleteClick = { taskToDelete = it },
+                        onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
+                    )
 
-                displaySessionTasks(
-                    groupedTasks = groupedTasks,
-                    session = DailySession.Evening,
-                    timeRange = "15:00 - 18:59",
-                    navController = navController,
-                    swipedTaskId = swipedTaskId,
-                    onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
-                    onDeleteClick = { taskToDelete = it },
-                    onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
-                )
+                    displaySessionTasks(
+                        groupedTasks = groupedTasks,
+                        session = DailySession.Evening,
+                        timeRange = "15:00 - 18:59",
+                        navController = navController,
+                        swipedTaskId = swipedTaskId,
+                        onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
+                        onDeleteClick = { taskToDelete = it },
+                        onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
+                    )
 
-                displaySessionTasks(
-                    groupedTasks = groupedTasks,
-                    session = DailySession.Night,
-                    timeRange = "19:00 - 23:59",
-                    navController = navController,
-                    swipedTaskId = swipedTaskId,
-                    onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
-                    onDeleteClick = { taskToDelete = it },
-                    onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
-                )
+                    displaySessionTasks(
+                        groupedTasks = groupedTasks,
+                        session = DailySession.Night,
+                        timeRange = "19:00 - 23:59",
+                        navController = navController,
+                        swipedTaskId = swipedTaskId,
+                        onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
+                        onDeleteClick = { taskToDelete = it },
+                        onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
+                    )
 
-                if (completedTasks.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Completed (${completedTasks.size})",
-                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Gray
-                        )
-                    }
+                    if (completedTasks.isNotEmpty()) {
+                        item {
+                            Text(
+                                "Completed (${completedTasks.size})",
+                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Gray
+                            )
+                        }
 
-                    items(completedTasks, key = { "completed_${it.id}" }) { task ->
-                        TaskCardDesignStyle(
-                            task = task,
-                            onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                            onCheckboxClick = { checked -> taskToConfirm = Pair(task, checked) },
-                            onDeleteIconClick = { taskToDelete = task },
-                            isCompleted = true,
-                            swipedTaskId = swipedTaskId,
-                            onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null }
-                        )
+                        items(completedTasks, key = { "completed_${it.id}" }) { task ->
+                            TaskCardDesignStyle(
+                                task = task,
+                                onTaskClick = { navController.navigate("task_detail/${task.id}") },
+                                onCheckboxClick = { checked -> taskToConfirm = Pair(task, checked) },
+                                onDeleteIconClick = { taskToDelete = task },
+                                isCompleted = true,
+                                swipedTaskId = swipedTaskId,
+                                onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null }
+                            )
+                        }
                     }
                 }
             }
