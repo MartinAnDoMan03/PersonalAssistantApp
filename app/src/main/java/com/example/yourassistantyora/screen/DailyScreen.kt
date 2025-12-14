@@ -12,8 +12,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.yourassistantyora.components.BottomNavigationBar
-import com.example.yourassistantyora.components.TaskCard
+import com.example.yourassistantyora.components.TaskCardDesignStyle
 import com.example.yourassistantyora.components.TaskFilterRow
 import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.models.TaskModel
@@ -40,45 +38,49 @@ import java.util.*
 fun DailyScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
-    viewModel: TaskViewModel = viewModel() // 1. Inject ViewModel
+    viewModel: TaskViewModel = viewModel()
 ) {
-// 2. Kumpulkan state dari ViewModel
-    val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
-    val selectedStatus by viewModel.selectedStatus.collectAsState()
-    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val isLoading: Boolean by viewModel.isLoading.collectAsState(initial = false)
+    val error: String? by viewModel.error.collectAsState(initial = null)
+    val selectedStatus: String by viewModel.selectedStatus.collectAsState(initial = "All")
+    val selectedCategory: String by viewModel.selectedCategory.collectAsState(initial = "All")
 
-// ✅ PERBAIKAN: Ambil HANYA tugas untuk hari ini, lalu pisahkan.
-    val tasksForToday by viewModel.tasksForToday.collectAsState(initial = emptyList())
-    val (completedTasks, activeTasks) = tasksForToday.partition { it.isCompleted }
+    // ✅ pastikan ini memang List<TaskModel> dari VM
+    val tasksForToday: List<TaskModel> by viewModel.tasksForToday.collectAsState(initial = emptyList())
 
-// Kelompokkan tugas aktif berdasarkan sesi (Pagi, Siang, dll.)
-    val groupedTasks = activeTasks.groupBy { viewModel.getSessionForTask(it) }
+    // ✅ Completed rule untuk TaskModel: Status == 2 (Done)
+    fun isCompletedTask(t: TaskModel) = t.Status == 2
 
-// State lokal untuk UI
+    val completedTasks = tasksForToday.filter(::isCompletedTask)
+    val activeTasks = tasksForToday.filterNot(::isCompletedTask)
+
+    // ✅ grouping session pakai Deadline time
+    val groupedTasks: Map<DailySession, List<TaskModel>> =
+        activeTasks.groupBy { getSessionForTaskModel(it) }
+
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
 
-    // ✅ 1. TAMBAHKAN STATE UNTUK DIALOG
     var taskToConfirm by remember { mutableStateOf<Pair<TaskModel, Boolean>?>(null) }
     var taskToDelete by remember { mutableStateOf<TaskModel?>(null) }
 
+    var swipedTaskId by remember { mutableStateOf<String?>(null) }
 
-    // Set view mode ke "Daily" saat masuk ke screen ini
-    LaunchedEffect(Unit) {
-        viewModel.setViewMode("Daily")
-    }
+    LaunchedEffect(Unit) { viewModel.setViewMode("Daily") }
 
-    // ✅ 2. TAMBAHKAN SEMUA DIALOG KONFIRMASI (SAMA SEPERTI DI TASKSCREEN)
+    // ---------- DIALOG COMPLETE / RESTORE ----------
     taskToConfirm?.let { (task, isCompleting) ->
         AlertDialog(
             onDismissRequest = { taskToConfirm = null },
             title = { Text(if (isCompleting) "Complete Task" else "Restore Task") },
             text = { Text("Are you sure?") },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.updateTaskStatus(task.id, isCompleting)
-                    taskToConfirm = null
-                }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7))) { Text("Confirm") }
+                Button(
+                    onClick = {
+                        viewModel.updateTaskStatus(task.id, isCompleting)
+                        taskToConfirm = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7))
+                ) { Text("Confirm") }
             },
             dismissButton = {
                 TextButton(onClick = { taskToConfirm = null }) { Text("Cancel") }
@@ -86,16 +88,20 @@ fun DailyScreen(
         )
     }
 
+    // ---------- DIALOG DELETE ----------
     taskToDelete?.let { task ->
         AlertDialog(
             onDismissRequest = { taskToDelete = null },
             title = { Text("Delete Task") },
             text = { Text("Are you sure you want to permanently delete '${task.Title}'?") },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.deleteTask(task.id)
-                    taskToDelete = null
-                }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { Text("Delete") }
+                Button(
+                    onClick = {
+                        viewModel.deleteTask(task.id)
+                        taskToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) { Text("Delete") }
             },
             dismissButton = {
                 TextButton(onClick = { taskToDelete = null }) { Text("Cancel") }
@@ -130,7 +136,6 @@ fun DailyScreen(
                 selectedTab = selectedTab,
                 onTabSelected = { index ->
                     selectedTab = index
-                    // Navigasi
                     when (index) {
                         NavigationConstants.TAB_HOME -> navController.navigateSingleTop("home")
                         NavigationConstants.TAB_TASK -> navController.navigateSingleTop("task_list")
@@ -144,9 +149,7 @@ fun DailyScreen(
             FloatingActionButton(
                 onClick = { navController.navigate("create_task") },
                 containerColor = Color(0xFF6A70D7)
-            ) {
-                Icon(Icons.Default.Add, "Create Task", tint = Color.White)
-            }
+            ) { Icon(Icons.Default.Add, "Create Task", tint = Color.White) }
         }
     ) { paddingValues ->
         Column(
@@ -154,12 +157,11 @@ fun DailyScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // 3. Hubungkan komponen filter ke ViewModel
+
             TaskViewModeNavigation(
                 selectedViewMode = "Daily",
                 onViewModeChange = {
-                    // Jika user klik mode lain, navigasikan
-                    when(it) {
+                    when (it) {
                         "List" -> navController.navigateSingleTop("task_list")
                         "Weekly" -> navController.navigateSingleTop("weekly_tasks")
                         "Monthly" -> navController.navigateSingleTop("monthly_tasks")
@@ -178,81 +180,98 @@ fun DailyScreen(
             Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Tampilkan pesan jika tidak ada task sama sekali untuk hari ini
-                    if (groupedTasks.isEmpty() && completedTasks.isEmpty()) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillParentMaxSize()
-                                    .padding(bottom = 80.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "No tasks for today!",
-                                    color = Color.Gray,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
+                return@Column
+            }
+
+            if (!error.isNullOrBlank()) {
+                Text(error ?: "", color = Color.Red, modifier = Modifier.padding(16.dp))
+            }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (groupedTasks.isEmpty() && completedTasks.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillParentMaxSize()
+                                .padding(bottom = 80.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No tasks for today!", color = Color.Gray, textAlign = TextAlign.Center)
                         }
                     }
+                }
 
-                    // ✅ 3. UBAH displaySessionTasks AGAR MENGGUNAKAN SwipeableTaskCard
-                    displaySessionTasks(
-                        groupedTasks = groupedTasks,
-                        session = DailySession.Morning,
-                        timeRange = "05:00 - 10:59",
-                        navController = navController,onSwipeToDelete = { taskToDelete = it },
-                        // ✅ TERUSKAN LOGIKA UNTUK MENAMPILKAN DIALOG
-                        onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
-                    )
-                    displaySessionTasks(
-                        groupedTasks = groupedTasks,
-                        session = DailySession.Afternoon,
-                        timeRange = "11:00 - 14:59",
-                        navController = navController,
-                        onSwipeToDelete = { taskToDelete = it },
-                        onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
-                    )
-                    displaySessionTasks(
-                        groupedTasks = groupedTasks,
-                        session = DailySession.Evening,
-                        timeRange = "15:00 - 18:59",
-                        navController = navController,
-                        onSwipeToDelete = { taskToDelete = it },
-                        onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
-                    )
-                    displaySessionTasks(
-                        groupedTasks = groupedTasks,
-                        session = DailySession.Night,
-                        timeRange = "19:00 - 23:59",
-                        navController = navController,
-                        onSwipeToDelete = { taskToDelete = it },
-                        onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
-                    )
-                    // Section Completed
-                    if (completedTasks.isNotEmpty()) {
-                        item(key = "completed_header_daily") {
-                            Text("Completed (${completedTasks.size})", modifier = Modifier.padding(top = 16.dp, bottom = 8.dp), fontWeight = FontWeight.SemiBold, color = Color.Gray)
-                        }
-                        items(completedTasks, key = { "completed_${it.id}" }) { task ->
-                            SwipeableTaskCard(
-                                task = task,
-                                onSwipeToDelete = { taskToDelete = it },
-                                onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                                onCheckboxClick = { isChecked ->
-                                    taskToConfirm = Pair(task, isChecked)
-                                }
-                            )
-                        }
+                displaySessionTasks(
+                    groupedTasks = groupedTasks,
+                    session = DailySession.Morning,
+                    timeRange = "05:00 - 10:59",
+                    navController = navController,
+                    swipedTaskId = swipedTaskId,
+                    onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
+                    onDeleteClick = { taskToDelete = it },
+                    onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
+                )
+
+                displaySessionTasks(
+                    groupedTasks = groupedTasks,
+                    session = DailySession.Afternoon,
+                    timeRange = "11:00 - 14:59",
+                    navController = navController,
+                    swipedTaskId = swipedTaskId,
+                    onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
+                    onDeleteClick = { taskToDelete = it },
+                    onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
+                )
+
+                displaySessionTasks(
+                    groupedTasks = groupedTasks,
+                    session = DailySession.Evening,
+                    timeRange = "15:00 - 18:59",
+                    navController = navController,
+                    swipedTaskId = swipedTaskId,
+                    onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
+                    onDeleteClick = { taskToDelete = it },
+                    onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
+                )
+
+                displaySessionTasks(
+                    groupedTasks = groupedTasks,
+                    session = DailySession.Night,
+                    timeRange = "19:00 - 23:59",
+                    navController = navController,
+                    swipedTaskId = swipedTaskId,
+                    onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null },
+                    onDeleteClick = { taskToDelete = it },
+                    onCheckboxClick = { task, isChecked -> taskToConfirm = Pair(task, isChecked) }
+                )
+
+                if (completedTasks.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Completed (${completedTasks.size})",
+                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Gray
+                        )
+                    }
+
+                    items(completedTasks, key = { "completed_${it.id}" }) { task ->
+                        TaskCardDesignStyle(
+                            task = task,
+                            onTaskClick = { navController.navigate("task_detail/${task.id}") },
+                            onCheckboxClick = { checked -> taskToConfirm = Pair(task, checked) },
+                            onDeleteIconClick = { taskToDelete = task },
+                            isCompleted = true,
+                            swipedTaskId = swipedTaskId,
+                            onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null }
+                        )
                     }
                 }
             }
@@ -260,37 +279,6 @@ fun DailyScreen(
     }
 }
 
-// 4. Helper Composable untuk menampilkan header dan list task per sesi
-@OptIn(ExperimentalFoundationApi::class)
-private fun LazyListScope.displaySessionTasks(
-    groupedTasks: Map<DailySession, List<TaskModel>>,
-    session: DailySession,
-    timeRange: String,
-    viewModel: TaskViewModel
-) {
-    val tasksForSession = groupedTasks[session]
-    if (!tasksForSession.isNullOrEmpty()) {
-        item(key = session.name) {
-            TimePeriodHeader(
-                title = session.name,
-                timeRange = timeRange,
-                taskCount = tasksForSession.size
-            )
-        }
-        items(tasksForSession, key = { it.id }) { task ->
-            TaskCard(
-                modifier = Modifier.animateItemPlacement(),
-                task = task,
-                onTaskClick = { /* Navigasi ke detail */ },
-                onCheckboxClick = { isChecked ->
-                    viewModel.updateTaskStatus(task.id, isChecked)
-                }
-            )
-        }
-    }
-}
-
-// Header untuk setiap sesi (Morning, Afternoon, dll.)
 @Composable
 fun TimePeriodHeader(title: String, timeRange: String, taskCount: Int) {
     Row(
@@ -307,40 +295,57 @@ fun TimePeriodHeader(title: String, timeRange: String, taskCount: Int) {
             fontSize = 12.sp,
             color = Color(0xFF6A70D7),
             modifier = Modifier
-                .background(
-                    Color(0xFFE8E7FF),
-                    RoundedCornerShape(8.dp)
-                )
+                .background(Color(0xFFE8E7FF), RoundedCornerShape(8.dp))
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         )
     }
 }
 
-// ✅ 4. MODIFIKASI HELPER UNTUK MENGGUNAKAN SwipeableTaskCard
 @OptIn(ExperimentalFoundationApi::class)
 private fun LazyListScope.displaySessionTasks(
     groupedTasks: Map<DailySession, List<TaskModel>>,
     session: DailySession,
     timeRange: String,
     navController: NavController,
-    onSwipeToDelete: (TaskModel) -> Unit,
-    // ✅ TAMBAHKAN PARAMETER BARU INI
+    swipedTaskId: String?,
+    onSwipeChange: (String, Boolean) -> Unit,
+    onDeleteClick: (TaskModel) -> Unit,
     onCheckboxClick: (task: TaskModel, isChecked: Boolean) -> Unit
 ) {
-    val tasksForSession = groupedTasks[session]
-    if (!tasksForSession.isNullOrEmpty()) {
-        item(key = session.name) {
-            TimePeriodHeader(title = session.name, timeRange = timeRange, taskCount = tasksForSession.size)
-        }
-        items(tasksForSession, key = { it.id }) { task ->
-            SwipeableTaskCard(
-                modifier = Modifier.animateItemPlacement(), // Jangan lupa tambahkan ini untuk animasi
-                task = task,
-                onSwipeToDelete = onSwipeToDelete,
-                onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                // ✅ GUNAKAN PARAMETER onCheckboxClick
-                onCheckboxClick = { isChecked -> onCheckboxClick(task, isChecked) }
-            )
-        }
+    val tasksForSession = groupedTasks[session].orEmpty()
+    if (tasksForSession.isEmpty()) return
+
+    item(key = "header_${session.name}") {
+        TimePeriodHeader(title = session.name, timeRange = timeRange, taskCount = tasksForSession.size)
+    }
+
+    items(tasksForSession, key = { it.id }) { task ->
+        TaskCardDesignStyle(
+            modifier = Modifier.animateItemPlacement(),
+            task = task,
+            onTaskClick = { navController.navigate("task_detail/${task.id}") },
+            onCheckboxClick = { checked -> onCheckboxClick(task, checked) },
+            onDeleteIconClick = { onDeleteClick(task) },
+            isCompleted = false,
+            swipedTaskId = swipedTaskId,
+            onSwipeChange = onSwipeChange
+        )
+    }
+}
+
+/**
+ * DailySession berdasarkan jam di Deadline (Firestore Timestamp -> Date).
+ * Kalau Deadline null, taruh ke Night biar ga crash.
+ */
+private fun getSessionForTaskModel(task: TaskModel): DailySession {
+    val date = task.Deadline?.toDate() ?: return DailySession.Night
+    val cal = Calendar.getInstance().apply { time = date }
+    val hour = cal.get(Calendar.HOUR_OF_DAY)
+
+    return when (hour) {
+        in 5..10 -> DailySession.Morning
+        in 11..14 -> DailySession.Afternoon
+        in 15..18 -> DailySession.Evening
+        else -> DailySession.Night
     }
 }

@@ -1,6 +1,11 @@
 package com.example.yourassistantyora.screen
 
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,286 +16,492 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.yourassistantyora.components.BottomNavigationBar
-import com.example.yourassistantyora.components.TaskCard
+import com.example.yourassistantyora.components.TaskCardDesignStyle
 import com.example.yourassistantyora.components.TaskFilterRow
 import com.example.yourassistantyora.components.TaskViewModeNavigation
+import com.example.yourassistantyora.models.TaskModel
 import com.example.yourassistantyora.navigateSingleTop
 import com.example.yourassistantyora.utils.NavigationConstants
 import com.example.yourassistantyora.viewModel.TaskViewModel
-import com.example.yourassistantyora.models.TaskModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
-// Data class untuk item di strip kalender mingguan
-private data class CalendarDay(
+private data class WeekDayItem(
     val date: Date,
-    val dayName: String, // "SUN", "MON"
-    val dayNumber: String, // "1", "2"
+    val dayName: String,
+    val dayNumber: String,
+    val taskCount: Int,
     val isSelected: Boolean
 )
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun WeeklyScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
     viewModel: TaskViewModel = viewModel()
 ) {
-    val tasksForSelectedDate by viewModel.dateFilteredTasks.collectAsState(initial = emptyList())
+    // --------- STATE FROM VM ----------
     val isLoading by viewModel.isLoading.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val selectedStatus by viewModel.selectedStatus.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
 
+    val allTasks by viewModel.listTasks.collectAsState(initial = emptyList())
+    val tasksForSelectedDate by viewModel.dateFilteredTasks.collectAsState(initial = emptyList())
+
+    // --------- LOCAL UI STATE ----------
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
+    val scope = rememberCoroutineScope()
 
-    // ✅ 1. Tambahkan state untuk dialog
-    var taskToConfirm by remember { mutableStateOf<Pair<TaskModel, Boolean>?>(null) }
-    var taskToDelete by remember { mutableStateOf<TaskModel?>(null) }
+    // biar cuma 1 card swipe kebuka
+    var swipedTaskId by remember { mutableStateOf<String?>(null) }
 
+    // snackbar undo complete
+    var lastCompletedTask by remember { mutableStateOf<TaskModel?>(null) }
+    var showUndoSnackbar by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        viewModel.setViewMode("Weekly")
+    // snackbar undo delete (UI-only)
+    var lastDeletedTask by remember { mutableStateOf<TaskModel?>(null) }
+    var showDeleteSnackbar by remember { mutableStateOf(false) }
+
+    // dialogs
+    var showRestoreDialog by remember { mutableStateOf(false) }
+    var taskToRestore by remember { mutableStateOf<TaskModel?>(null) }
+
+    var deletingTask by remember { mutableStateOf<TaskModel?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { viewModel.setViewMode("Weekly") }
+
+    // --------- HELPERS (FIX isCompleted ISSUE) ----------
+    fun isCompletedTask(t: TaskModel): Boolean = (t.Status == 2) // Done
+
+    // split active vs completed (✅ FIXED)
+    val (completedTasks, activeTasks) = remember(tasksForSelectedDate) {
+        tasksForSelectedDate.partition { isCompletedTask(it) }
     }
 
-    // ✅ PERBAIKAN: Generate 7 hari dalam satu minggu, dimulai dari hari Minggu.
-    val weekDays = remember(selectedDate) {
-        val calendar = Calendar.getInstance().apply { time = selectedDate }
-        calendar.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY) // Set ke hari Minggu minggu ini
-        (0..6).map { dayIndex ->
-            val date = calendar.time
-            val day = CalendarDay(
-                date = date,
-                dayName = SimpleDateFormat("EEE", Locale.getDefault()).format(date).uppercase(),
-                dayNumber = SimpleDateFormat("d", Locale.getDefault()).format(date),
-                isSelected = isSameDay(date, selectedDate)
+    // generate week strip (start Sunday)
+    val weekDays = remember(selectedDate, allTasks) {
+        val cal = Calendar.getInstance().apply { time = selectedDate }
+        cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
+
+        (0..6).map {
+            val d = cal.time
+
+            val count = allTasks.count { t ->
+                val td = t.Deadline?.toDate() ?: return@count false
+                isSameDay(td, d)
+            }
+
+            val item = WeekDayItem(
+                date = d,
+                dayName = SimpleDateFormat("EEE", Locale.getDefault()).format(d).uppercase(),
+                dayNumber = SimpleDateFormat("d", Locale.getDefault()).format(d),
+                taskCount = count,
+                isSelected = isSameDay(d, selectedDate)
             )
-            calendar.add(Calendar.DAY_OF_YEAR, 1) // Maju ke hari berikutnya
-            day
+            cal.add(Calendar.DAY_OF_YEAR, 1)
+            item
         }
     }
 
-    val (completedTasks, activeTasks) = tasksForSelectedDate.partition { it.isCompleted }
+    // --------- ACTIONS ----------
+    fun onComplete(task: TaskModel) {
+        if (!isCompletedTask(task)) {
+            viewModel.updateTaskStatus(task.id, true)
+            lastCompletedTask = task
+            showUndoSnackbar = true
+            showDeleteSnackbar = false
+            swipedTaskId = null
 
-
-    // ✅ 2. Tambahkan semua dialog konfirmasi
-    taskToConfirm?.let { (task, isCompleting) ->
-        AlertDialog(
-            onDismissRequest = { taskToConfirm = null },
-            title = { Text(if (isCompleting) "Complete Task" else "Restore Task") },
-            text = { Text("Are you sure?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.updateTaskStatus(task.id, isCompleting)
-                        taskToConfirm = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7))
-                ) { Text("Confirm") }
-            },
-            dismissButton = {
-                TextButton(onClick = { taskToConfirm = null }) { Text("Cancel") }
-            }
-        )
-    }
-
-    taskToDelete?.let { task ->
-        AlertDialog(
-            onDismissRequest = { taskToDelete = null },
-            title = { Text("Delete Task") },
-            text = { Text("Are you sure you want to permanently delete '${task.Title}'?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteTask(task.id)
-                        taskToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                ) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { taskToDelete = null }) { Text("Cancel") }
-            }
-        )
-    }
-
-    // ✅ PERBAIKAN: Lengkapi Scaffold
-    Scaffold(
-        containerColor = Color(0xFFF5F7FA),
-        topBar = {
-            TopAppBar(
-                title = { Text("My Tasks", fontSize = 20.sp, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { /*TODO*/ }) {
-                        Icon(Icons.Outlined.Search, "Search")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                selectedTab = selectedTab,
-                onTabSelected = { index ->
-                    selectedTab = index
-                    when (index) {
-                        NavigationConstants.TAB_HOME -> navController.navigateSingleTop("home")
-                        NavigationConstants.TAB_TASK -> navController.navigateSingleTop("task_list")
-                        NavigationConstants.TAB_NOTE -> navController.navigateSingleTop("notes")
-                        NavigationConstants.TAB_TEAM -> navController.navigateSingleTop("team")
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navController.navigate("create_task") },
-                containerColor = Color(0xFF6A70D7),
-                contentColor = Color.White
-            ) {
-                Icon(Icons.Default.Add, "Create Task")
+            scope.launch {
+                delay(8000)
+                showUndoSnackbar = false
+                lastCompletedTask = null
             }
         }
-    ) { paddingValues ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            TaskViewModeNavigation(
-                selectedViewMode = "Weekly",
-                onViewModeChange = { viewModel.setViewMode(it) },
-                onNavigateToList = { navController.navigate("task_list") },
-                onNavigateToDaily = { navController.navigate("daily_tasks") },
-                onNavigateToWeekly = { /* Sudah di sini, tidak perlu aksi */ },
-                onNavigateToMonthly = { navController.navigate("monthly_tasks") }
-            )
-            TaskFilterRow(
-                selectedStatus = selectedStatus,
-                onStatusSelected = { viewModel.setStatusFilter(it) },
-                selectedCategory = selectedCategory,
-                onCategorySelected = { viewModel.setCategoryFilter(it) },
-                categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel")
-            )
+    }
 
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp)
-            ) {
-                items(weekDays, key = { it.date }) { day ->
-                    DayChip(day = day, onDateSelected = { viewModel.setSelectedDate(it) })
-                }
-            }
+    fun undoCompletion() {
+        lastCompletedTask?.let { viewModel.updateTaskStatus(it.id, false) }
+        showUndoSnackbar = false
+        lastCompletedTask = null
+    }
 
-            Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+    fun showRestoreConfirmation(task: TaskModel) {
+        taskToRestore = task
+        showRestoreDialog = true
+        swipedTaskId = null
+    }
 
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+    fun restoreTask() {
+        taskToRestore?.let { viewModel.updateTaskStatus(it.id, false) }
+        showRestoreDialog = false
+        taskToRestore = null
+    }
+
+    fun deleteTaskConfirmed(task: TaskModel) {
+        lastDeletedTask = task
+        viewModel.deleteTask(task.id)
+
+        showDeleteSnackbar = true
+        showUndoSnackbar = false
+        swipedTaskId = null
+
+        scope.launch {
+            delay(8000)
+            showDeleteSnackbar = false
+            lastDeletedTask = null
+        }
+    }
+
+    fun undoDelete() {
+        // UI-only undo (kalau mau “beneran restore”, kamu butuh soft delete di Firestore)
+        showDeleteSnackbar = false
+        lastDeletedTask = null
+    }
+
+    // --------- UI ----------
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Color(0xFFF5F7FA),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "My Tasks",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2D2D2D)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.Filled.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { /* optional: search */ }) {
+                            Icon(Icons.Outlined.Search, "Search", tint = Color(0xFF2D2D2D))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                )
+            },
+            bottomBar = {
+                BottomNavigationBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = { index ->
+                        selectedTab = index
+                        when (index) {
+                            NavigationConstants.TAB_HOME -> navController.navigateSingleTop("home")
+                            NavigationConstants.TAB_TASK -> navController.navigateSingleTop("task_list")
+                            NavigationConstants.TAB_NOTE -> navController.navigateSingleTop("notes")
+                            NavigationConstants.TAB_TEAM -> navController.navigateSingleTop("team")
+                        }
+                    }
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { navController.navigate("create_task") },
+                    containerColor = Color(0xFF6A70D7),
+                    contentColor = Color.White,
+                    modifier = Modifier.size(56.dp)
                 ) {
-                    if (tasksForSelectedDate.isEmpty()) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillParentMaxSize()
-                                    .padding(bottom = 80.dp), contentAlignment = Alignment.Center
-                            ) {
-                                Text("No tasks for this day.", color = Color.Gray)
+                    Icon(Icons.Filled.Add, "Create Task", modifier = Modifier.size(28.dp))
+                }
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                TaskViewModeNavigation(
+                    selectedViewMode = "Weekly",
+                    onViewModeChange = { viewModel.setViewMode(it) },
+                    onNavigateToList = { navController.navigateSingleTop("task_list") },
+                    onNavigateToDaily = { navController.navigateSingleTop("daily_tasks") },
+                    onNavigateToWeekly = { /* already */ },
+                    onNavigateToMonthly = { navController.navigateSingleTop("monthly_tasks") }
+                )
+
+                TaskFilterRow(
+                    selectedStatus = selectedStatus,
+                    onStatusSelected = { viewModel.setStatusFilter(it) },
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = { viewModel.setCategoryFilter(it) },
+                    categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel", "Personal")
+                )
+
+                Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+
+                // Calendar strip
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White)
+                        .padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp)
+                ) {
+                    items(weekDays, key = { it.date.time }) { day ->
+                        WeekDayCard(
+                            day = day,
+                            onClick = { viewModel.setSelectedDate(day.date) }
+                        )
+                    }
+                }
+
+                Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+
+                if (isLoading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (activeTasks.isEmpty() && completedTasks.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillParentMaxSize()
+                                        .padding(bottom = 80.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("No tasks for this day.", color = Color.Gray)
+                                }
+                            }
+                        }
+
+                        items(activeTasks, key = { "active_${it.id}" }) { task ->
+                            TaskCardDesignStyle(
+                                task = task,
+                                onTaskClick = { navController.navigate("task_detail/${task.id}") },
+                                onCheckboxClick = { checked ->
+                                    if (checked) onComplete(task)
+                                },
+                                onDeleteIconClick = {
+                                    deletingTask = task
+                                    showDeleteConfirmDialog = true
+                                },
+                                swipedTaskId = swipedTaskId,
+                                onSwipeChange = { id, isSwiped ->
+                                    swipedTaskId = if (isSwiped) id else null
+                                }
+                            )
+                        }
+
+                        if (completedTasks.isNotEmpty()) {
+                            item {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Completed (${completedTasks.size})",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF9E9E9E)
+                                )
+                            }
+                            items(completedTasks, key = { "done_${it.id}" }) { task ->
+                                TaskCardDesignStyle(
+                                    task = task,
+                                    isCompleted = true,
+                                    onTaskClick = { navController.navigate("task_detail/${task.id}") },
+                                    onCheckboxClick = { checked ->
+                                        // kalau user uncheck -> restore confirm
+                                        if (!checked) showRestoreConfirmation(task)
+                                    },
+                                    onDeleteIconClick = {
+                                        deletingTask = task
+                                        showDeleteConfirmDialog = true
+                                    },
+                                    swipedTaskId = swipedTaskId,
+                                    onSwipeChange = { id, isSwiped ->
+                                        swipedTaskId = if (isSwiped) id else null
+                                    }
+                                )
                             }
                         }
                     }
-
-                    // ✅ 3. Ganti TaskCard menjadi SwipeableTaskCard
-                    if(activeTasks.isNotEmpty()) {
-                        items(activeTasks, key = { "active_${it.id}" }) { task ->
-                            SwipeableTaskCard(
-                                modifier = Modifier.animateItemPlacement(),
-                                task = task,
-                                onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                                onSwipeToDelete = { taskToDelete = it },
-                                onCheckboxClick = { isChecked -> taskToConfirm = Pair(task, isChecked) }
-                            )
-                        }
-                    }
-
-                    if (completedTasks.isNotEmpty()) {
-                        item {
-                            Text(
-                                "Completed (${completedTasks.size})",
-                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Gray
-                            )
-                        }
-                        items(completedTasks, key = { "completed_${it.id}" }) { task ->
-                            TaskCard(
-                                modifier = Modifier.animateItemPlacement(),
-                                task = task,
-                                onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                                onCheckboxClick = { viewModel.updateTaskStatus(task.id, it) }
-                            )
-                        }
-                    }
                 }
             }
+        }
+
+        // ---------- SNACKBAR: UNDO COMPLETE ----------
+        AnimatedVisibility(
+            visible = showUndoSnackbar,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp, start = 16.dp, end = 16.dp)
+        ) {
+            SnackbarCardSimple(
+                icon = { Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF4CAF50)) },
+                text = "Task completed",
+                actionText = "UNDO",
+                onAction = { undoCompletion() }
+            )
+        }
+
+        // ---------- SNACKBAR: UNDO DELETE ----------
+        AnimatedVisibility(
+            visible = showDeleteSnackbar,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp, start = 16.dp, end = 16.dp)
+        ) {
+            SnackbarCardSimple(
+                icon = { Icon(Icons.Filled.Delete, null, tint = Color(0xFFF44336)) },
+                text = "Task deleted",
+                actionText = "UNDO",
+                onAction = { undoDelete() }
+            )
+        }
+
+        // ---------- DIALOG RESTORE ----------
+        if (showRestoreDialog) {
+            AlertDialog(
+                onDismissRequest = { showRestoreDialog = false; taskToRestore = null },
+                title = { Text("Restore Task?") },
+                text = { Text("Do you want to move this task back to active tasks?") },
+                confirmButton = { TextButton(onClick = { restoreTask() }) { Text("Yes") } },
+                dismissButton = {
+                    TextButton(onClick = { showRestoreDialog = false; taskToRestore = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // ---------- DIALOG DELETE CONFIRM ----------
+        if (showDeleteConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = false; deletingTask = null },
+                title = { Text("Hapus tugas?") },
+                text = { Text("Apakah kamu yakin ingin menghapus tugas ini?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        deletingTask?.let { deleteTaskConfirmed(it) }
+                        showDeleteConfirmDialog = false
+                        deletingTask = null
+                    }) { Text("Hapus", color = Color(0xFFF44336)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmDialog = false; deletingTask = null }) {
+                        Text("Batal")
+                    }
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun DayChip(day: CalendarDay, onDateSelected: (Date) -> Unit) {
-    Column(
-        modifier = Modifier
+private fun WeekDayCard(
+    day: WeekDayItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .width(52.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(if (day.isSelected) Color(0xFF6A70D7) else Color(0xFFF0F0F0))
-            .clickable { onDateSelected(day.date) }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .clickable(onClick = onClick),
+        color = if (day.isSelected) Color(0xFF6A70D7) else Color(0xFFF5F7FA),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Text(
-            text = day.dayName,
-            color = if (day.isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray,
-            fontSize = 12.sp
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = day.dayNumber,
-            color = if (day.isSelected) Color.White else Color.Black,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = day.dayName,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (day.isSelected) Color.White else Color(0xFF9E9E9E)
+            )
+            Text(
+                text = day.dayNumber,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (day.isSelected) Color.White else Color(0xFF2D2D2D)
+            )
+            Text(
+                text = "${day.taskCount} Task",
+                fontSize = 9.sp,
+                color = if (day.isSelected) Color.White.copy(alpha = 0.85f) else Color(0xFF9E9E9E)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SnackbarCardSimple(
+    icon: @Composable () -> Unit,
+    text: String,
+    actionText: String,
+    onAction: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                icon()
+                Spacer(Modifier.width(12.dp))
+                Text(text, color = Color.White, fontSize = 14.sp)
+            }
+            TextButton(
+                onClick = onAction,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    actionText,
+                    color = Color(0xFF6A70D7),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 

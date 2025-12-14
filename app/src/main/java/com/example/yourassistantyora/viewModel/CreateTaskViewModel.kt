@@ -2,135 +2,159 @@ package com.example.yourassistantyora.viewModel
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import java.util.Locale
 
 class CreateTaskViewModel : ViewModel() {
 
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
-
-    // --- UI State ---
+    // -------- UI state --------
     val title = mutableStateOf("")
     val description = mutableStateOf("")
-    val selectedDate = mutableStateOf<Date?>(null) // State untuk tanggal
-    val selectedTime = mutableStateOf<Calendar?>(null) // State untuk waktu
-    val selectedPriority = mutableStateOf("Medium")
-    val selectedCategory = mutableStateOf("Work")
-    val selectedReminder = mutableStateOf("Ingatkan 10 menit sebelumnya") // Dulu "Tidak ada peringat"
-    val selectedStatus = mutableStateOf("To do")
+    val location = mutableStateOf("")
 
-    // --- Interaction State ---
-    val loading = mutableStateOf(false)
-    val taskSaved = mutableStateOf(false)
+    val selectedPriority = mutableStateOf("Medium") // Low / Medium / High
+    val selectedStatus = mutableStateOf("To do")     // Waiting / To do / Done / Hold On / In Progress
+    val selectedReminder = mutableStateOf("Tidak ada pengingat")
+
+    // ✅ date & time (biar CreateTaskScreen kamu jalan)
+    val selectedDate = mutableStateOf<Date?>(null)
+    val selectedTime = mutableStateOf<Calendar?>(null)
+
+    // ✅ multi category (LIST STRING) — TANPA mutableStateListOf
+    val selectedCategories = mutableStateOf<List<String>>(emptyList())
+
+    // -------- system state --------
+    val isLoading = mutableStateOf(false)
     val errorMessage = mutableStateOf<String?>(null)
+    val created = mutableStateOf(false)
 
-    fun clearError() {
-        errorMessage.value = null
+    private val auth = FirebaseAuth.getInstance()
+    private val db = FirebaseFirestore.getInstance()
+
+    fun toggleCategory(cat: String) {
+        val cur = selectedCategories.value
+        selectedCategories.value =
+            if (cur.contains(cat)) cur - cat else cur + cat
+    }
+
+    fun resetCreated() {
+        created.value = false
     }
 
     fun createTask() {
-        // --- Validasi ---
-        if (title.value.isBlank()) {
+        errorMessage.value = null
+
+        val uid = auth.currentUser?.uid
+        if (uid.isNullOrBlank()) {
+            errorMessage.value = "User not logged in."
+            return
+        }
+
+        val t = title.value.trim()
+        if (t.isBlank()) {
             errorMessage.value = "Title cannot be empty."
             return
         }
-        if (selectedDate.value == null || selectedTime.value == null) {
-            errorMessage.value = "Please select a valid date and time."
-            return
+
+        // ✅ gabung date + time -> Timestamp (kalau belum pilih, boleh null)
+        val deadlineTs: Timestamp? = buildDeadlineTimestamp(
+            selectedDate.value,
+            selectedTime.value
+        )
+
+        val priorityInt = when (selectedPriority.value) {
+            "High" -> 2
+            "Medium" -> 1
+            else -> 0
         }
 
-        loading.value = true
-        errorMessage.value = null
+        val statusInt = when (selectedStatus.value) {
+            "Waiting" -> 0
+            "To do" -> 1
+            "Done" -> 2
+            "Hold On" -> 3
+            "In Progress" -> 4
+            else -> 1
+        }
 
-        viewModelScope.launch {
-            try {
-                val currentUser = auth.currentUser
-                if (currentUser == null) {
-                    throw IllegalStateException("User is not logged in.")
-                }
+        val reminderInt = reminderToInt(selectedReminder.value)
 
-                // --- Konversi & Penggabungan Data ---
-                val deadlineTimestamp = combineDateAndTime(selectedDate.value!!, selectedTime.value!!)
+        // legacy single category: isi dari pilihan pertama kalau dikenal, kalau custom -> -1
+        val firstCat = selectedCategories.value.firstOrNull()
+        val legacyCategoryInt = if (firstCat == null) 0 else categoryNameToIdOrMinus1(firstCat)
 
-                val taskData = hashMapOf(
-                    "Title" to title.value,
-                    "Description" to description.value,
-                    "Deadline" to deadlineTimestamp,
-                    "Priority" to getPriorityNumber(selectedPriority.value),
-                    "Category" to getCategoryNumber(selectedCategory.value),
-                    "Reminder" to getReminderNumber(selectedReminder.value),
-                    "Status" to getStatusNumber(selectedStatus.value),
-                    "UIDusers" to currentUser.uid
-                )
+        val data = hashMapOf(
+            "Title" to t,
+            "Description" to description.value.trim(),
+            "Deadline" to deadlineTs, // Timestamp? (Firestore bisa simpan null)
 
-                // --- Simpan ke Firestore ---
-                db.collection("tasks").add(taskData).await()
+            "Priority" to priorityInt,
 
-                taskSaved.value = true // Tandai bahwa penyimpanan berhasil
+            // legacy (optional)
+            "Category" to legacyCategoryInt,
 
-            } catch (e: Exception) {
-                errorMessage.value = e.message ?: "An unknown error occurred."
-            } finally {
-                loading.value = false
+            // ✅ ini yang dipakai untuk tampilkan semua category yang dipilih
+            "CategoryNames" to selectedCategories.value,
+
+            "Status" to statusInt,
+            "Reminder" to reminderInt,
+            "Location" to location.value.trim(),
+
+            "userId" to uid,
+            "createdAt" to Timestamp.now()
+        )
+
+        isLoading.value = true
+
+        // ✅ pakai .document() biar id bisa kita simpan juga
+        val docRef = db.collection("tasks").document()
+        data["id"] = docRef.id
+
+        docRef.set(data)
+            .addOnSuccessListener {
+                isLoading.value = false
+                created.value = true
             }
+            .addOnFailureListener { e ->
+                isLoading.value = false
+                errorMessage.value = e.message ?: "Failed to create task."
+            }
+    }
+
+    private fun buildDeadlineTimestamp(date: Date?, time: Calendar?): Timestamp? {
+        if (date == null || time == null) return null
+
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = date.time
+            set(Calendar.HOUR_OF_DAY, time.get(Calendar.HOUR_OF_DAY))
+            set(Calendar.MINUTE, time.get(Calendar.MINUTE))
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
         }
+        return Timestamp(cal.time)
     }
 
-    // --- Fungsi Konversi (Helper) ---
-
-    private fun combineDateAndTime(date: Date, time: Calendar): Timestamp {
-        val finalCalendar = Calendar.getInstance()
-        finalCalendar.time = date
-        finalCalendar.set(Calendar.HOUR_OF_DAY, time.get(Calendar.HOUR_OF_DAY))
-        finalCalendar.set(Calendar.MINUTE, time.get(Calendar.MINUTE))
-        finalCalendar.set(Calendar.SECOND, 0)
-        finalCalendar.set(Calendar.MILLISECOND, 0)
-        return Timestamp(finalCalendar.time)
-    }
-
-    private fun getPriorityNumber(priority: String): Int = when (priority) {
-        "High" -> 2
-        "Medium" -> 1
-        "Low" -> 0
-        else -> 1
-    }
-
-    private fun getCategoryNumber(category: String): Int = when (category) {
-        "Project" -> 4
-        "Meeting" -> 3
-        "Travel" -> 2
-        "Study" -> 1
-        "Work" -> 0
-        else -> 0
-    }
-
-    private fun getReminderNumber(reminder: String): Int = when (reminder) {
-        "Ingatkan 3 hari sebelumnya" -> 7
-        "Ingatkan 2 hari sebelumnya" -> 6
-        "Ingatkan 1 hari sebelumnya" -> 5
-        "Ingatkan 30 menit sebelumnya" -> 4
-        "Ingatkan 20 menit sebelumnya" -> 3
+    private fun reminderToInt(s: String): Int = when (s) {
+        "Ingatkan pada waktunya" -> 1
         "Ingatkan 10 menit sebelumnya" -> 2
-        "Ingatkan pada waktunya", "Ingat ketepat waktu" -> 1 // Handle typo
-        "Tidak ada pengingat", "Tidak ada peringat" -> 0 // Handle typo
-        else -> 2
+        "Ingatkan 20 menit sebelumnya" -> 3
+        "Ingatkan 30 menit sebelumnya" -> 4
+        "Ingatkan 1 hari sebelumnya" -> 5
+        "Ingatkan 2 hari sebelumnya" -> 6
+        "Ingatkan 3 hari sebelumnya" -> 7
+        else -> 0 // "Tidak ada pengingat"
     }
 
-    private fun getStatusNumber(status: String): Int = when (status) {
-        "On Progress", "In Progress" -> 4
-        "Hold On" -> 3
-        "Done" -> 2
-        "To do" -> 1
-        "Waiting" -> 0
-        else -> 1
+    private fun categoryNameToIdOrMinus1(name: String): Int = when (name) {
+        "Work" -> 0
+        "Study" -> 1
+        "Travel" -> 2
+        "Meeting" -> 3
+        "Project" -> 4
+        "Personal" -> 5
+        else -> -1 // custom category
     }
 }

@@ -1,197 +1,161 @@
 package com.example.yourassistantyora.screen
 
-import android.widget.Toast
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.material.icons.filled.Close
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.yourassistantyora.components.*
+import com.example.yourassistantyora.components.BottomNavigationBar
+import com.example.yourassistantyora.components.TaskCardDesignStyle
+import com.example.yourassistantyora.components.TaskFilterRow
+import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.models.TaskModel
+import com.example.yourassistantyora.models.categoryNamesSafe
 import com.example.yourassistantyora.navigateSingleTop
 import com.example.yourassistantyora.utils.NavigationConstants
 import com.example.yourassistantyora.viewModel.TaskViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.shape.RoundedCornerShape
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun TaskScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
     viewModel: TaskViewModel = viewModel()
 ) {
-    // --- State dari ViewModel (tetap sama) ---
     val tasks by viewModel.listTasks.collectAsState(initial = emptyList())
     val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
-    val selectedViewMode by viewModel.selectedViewMode.collectAsState()
     val selectedStatus by viewModel.selectedStatus.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    var isSearchActive by remember { mutableStateOf(false) }
 
-    // --- State Lokal untuk UI (tetap sama) ---
+    val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
-    val context = LocalContext.current
+    var swipedTaskId by remember { mutableStateOf<String?>(null) }
 
-    // ✅ State untuk mengelola dialog konfirmasi (sudah benar)
-    var taskToConfirm by remember { mutableStateOf<Pair<TaskModel, Boolean>?>(null) }
-    var taskToDelete by remember { mutableStateOf<TaskModel?>(null) }
+    var lastCompletedTask by remember { mutableStateOf<TaskModel?>(null) }
+    var showUndoSnackbar by remember { mutableStateOf(false) }
 
-    // --- Side Effects (sudah benar) ---
-    LaunchedEffect(error) {
-        error?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+    var lastDeletedTask by remember { mutableStateOf<TaskModel?>(null) }
+    var showDeleteSnackbar by remember { mutableStateOf(false) }
+
+    var showRestoreDialog by remember { mutableStateOf(false) }
+    var taskToRestore by remember { mutableStateOf<TaskModel?>(null) }
+
+    var deletingTask by remember { mutableStateOf<TaskModel?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    val activeTasks = tasks.filter { !it.isCompleted }
+    val completedTasks = tasks.filter { it.isCompleted }
+
+    val filteredActiveTasks = activeTasks.filter { task ->
+        val statusMatch = (selectedStatus == "All") || (task.statusText == selectedStatus)
+        val categoryMatch = (selectedCategory == "All") || task.categoryNamesSafe.contains(selectedCategory)
+        statusMatch && categoryMatch
+    }
+
+    fun completeTask(task: TaskModel) {
+        if (!task.isCompleted) {
+            viewModel.updateTaskStatus(task.id, true)
+            lastCompletedTask = task
+            showUndoSnackbar = true
+            showDeleteSnackbar = false
+            swipedTaskId = null
+
+            scope.launch {
+                delay(8000)
+                showUndoSnackbar = false
+                lastCompletedTask = null
+            }
         }
     }
 
-    // --- Logika Turunan (sudah benar) ---
-    val (completedTasks, activeTasks) = tasks.partition { it.isCompleted }
-
-    // ✅ --- Dialog Konfirmasi untuk Selesai/Restore Task (sudah benar) ---
-    taskToConfirm?.let { (task, isCompleting) ->
-        AlertDialog(
-            onDismissRequest = { taskToConfirm = null },
-            title = { Text(if (isCompleting) "Complete Task" else "Restore Task") },
-            text = { Text("Are you sure you want to ${if (isCompleting) "mark this task as completed" else "restore this task"}?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.updateTaskStatus(task.id, isCompleting)
-                        taskToConfirm = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7))
-                ) { Text("Confirm") }
-            },
-            dismissButton = {
-                TextButton(onClick = { taskToConfirm = null }) { Text("Cancel") }
-            }
-        )
+    fun undoCompletion() {
+        lastCompletedTask?.let { viewModel.updateTaskStatus(it.id, false) }
+        showUndoSnackbar = false
+        lastCompletedTask = null
     }
 
-    // ✅ --- Dialog Konfirmasi untuk Hapus Task (sudah benar) ---
-    taskToDelete?.let { task ->
-        AlertDialog(
-            onDismissRequest = { taskToDelete = null },
-            title = { Text("Delete Task") },
-            text = { Text("Are you sure you want to permanently delete '${task.Title}'?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteTask(task.id)
-                        taskToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                ) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { taskToDelete = null }) { Text("Cancel") }
-            }
-        )
+    fun deleteTaskConfirmed(task: TaskModel) {
+        lastDeletedTask = task
+        viewModel.deleteTask(task.id)
+
+        showDeleteSnackbar = true
+        showUndoSnackbar = false
+        swipedTaskId = null
+
+        scope.launch {
+            delay(8000)
+            showDeleteSnackbar = false
+            lastDeletedTask = null
+        }
+    }
+
+    fun undoDelete() {
+        showDeleteSnackbar = false
+        lastDeletedTask = null
+    }
+
+    fun showRestoreConfirmation(task: TaskModel) {
+        taskToRestore = task
+        showRestoreDialog = true
+        swipedTaskId = null
+    }
+
+    fun restoreTask() {
+        taskToRestore?.let { viewModel.updateTaskStatus(it.id, false) }
+        showRestoreDialog = false
+        taskToRestore = null
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color(0xFFF5F7FA),
             topBar = {
-                // ✅ TOP APP BAR DENGAN LOGIKA PENCARIAN
                 TopAppBar(
                     title = {
-                        // Tampilkan search bar jika isSearchActive true, jika tidak tampilkan judul
-                        AnimatedVisibility(
-                            visible = !isSearchActive,
-                            enter = fadeIn(),
-                            exit = fadeOut()
-                        ) {
-                            Text("My Tasks", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2D2D2D))
-                        }
-                        AnimatedVisibility(
-                            visible = isSearchActive,
-                            enter = fadeIn(),
-                            exit = fadeOut()
-                        ) {
-                            OutlinedTextField(
-                                value = searchQuery,
-                                onValueChange = { viewModel.setSearchQuery(it) },
-                                placeholder = { Text("Search by title...", fontSize = 12.sp) },
-                                textStyle = LocalTextStyle.current.copy(fontSize = 12.sp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-//                                    .height(50.dp)
-                                    .padding(end = 16.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent,
-                                    cursorColor = Color(0xFF6A70D7),
-                                    focusedContainerColor = Color(0xFFF0F0F0),
-                                    unfocusedContainerColor = Color(0xFFF0F0F0)
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                singleLine = true
-                            )
-                        }
+                        Text(
+                            "My Tasks",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2D2D2D)
+                        )
                     },
                     navigationIcon = {
-                        // Jika sedang mencari, ikon back akan menutup search bar, jika tidak akan kembali ke halaman sebelumnya
-                        IconButton(onClick = {
-                            if (isSearchActive) {
-                                isSearchActive = false
-                                viewModel.setSearchQuery("") // Reset query saat search ditutup
-                            } else {
-                                navController.popBackStack()
-                            }
-                        }) {
+                        IconButton(onClick = { navController.popBackStack() }) {
                             Icon(Icons.Filled.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
                         }
                     },
                     actions = {
-                        // Tombol untuk mengaktifkan/menonaktifkan mode pencarian
-                        IconButton(onClick = {
-                            if (isSearchActive) {
-                                viewModel.setSearchQuery("")
-                            }
-                            isSearchActive = !isSearchActive
-                        }) {
-                            Icon(
-                                imageVector = if (isSearchActive) Icons.Filled.Close else Icons.Outlined.Search,
-                                contentDescription = "Search",
-                                tint = Color(0xFF2D2D2D)
-                            )
+                        IconButton(onClick = { /* TODO Search */ }) {
+                            Icon(Icons.Outlined.Search, "Search", tint = Color(0xFF2D2D2D))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                 )
             },
-            bottomBar = { // ✅ TAMBAHKAN BOTTOM BAR
+            bottomBar = {
                 BottomNavigationBar(
                     selectedTab = selectedTab,
                     onTabSelected = { index ->
@@ -206,15 +170,12 @@ fun TaskScreen(
                 )
             },
             floatingActionButton = {
-                // FAB sudah benar
                 FloatingActionButton(
                     onClick = { navController.navigate("create_task") },
                     containerColor = Color(0xFF6A70D7),
                     contentColor = Color.White,
                     modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(Icons.Filled.Add, "Create Task", modifier = Modifier.size(28.dp))
-                }
+                ) { Icon(Icons.Filled.Add, "Create Task", modifier = Modifier.size(28.dp)) }
             }
         ) { paddingValues ->
             Column(
@@ -222,83 +183,83 @@ fun TaskScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // Filter UI sudah benar
                 TaskViewModeNavigation(
-                    selectedViewMode = selectedViewMode,
-                    onViewModeChange = { viewModel.setViewMode(it) },
-                    onNavigateToDaily = { navController.navigate("daily_tasks") },
-                    onNavigateToWeekly = { navController.navigate("weekly_tasks") },
-                    onNavigateToMonthly = { navController.navigate("monthly_tasks") }
+                    selectedViewMode = "List",
+                    onViewModeChange = { },
+                    onNavigateToDaily = { navController.navigateSingleTop("daily_tasks") },
+                    onNavigateToWeekly = { navController.navigateSingleTop("weekly_tasks") },
+                    onNavigateToMonthly = { navController.navigateSingleTop("monthly_tasks") }
                 )
+
                 TaskFilterRow(
                     selectedStatus = selectedStatus,
                     onStatusSelected = { viewModel.setStatusFilter(it) },
                     selectedCategory = selectedCategory,
                     onCategorySelected = { viewModel.setCategoryFilter(it) },
-                    categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel")
+                    categories = listOf("All", "Work", "Study", "Travel", "Meeting", "Project", "Personal")
                 )
+
                 Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
-                // ✅ 5. HAPUS BLOK `if (isLoading)` YANG DUPLIKAT
                 if (isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 } else {
-                    // ✅ 3. PERBAIKI STRUKTUR `LazyColumn`
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Render Task Aktif
-                        items(items = activeTasks, key = { it.id }) { task ->
-                            SwipeableTaskCard(
-                                task = task,
-                                onSwipeToDelete = { taskToDelete = it },
-                                onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                                onCheckboxClick = { isChecked ->
-                                    taskToConfirm = Pair(task, isChecked)
-                                }
-                            )
-                        }
-
-                        // Bagian Task Selesai
-                        if (completedTasks.isNotEmpty()) {
-                            item(key = "completed_header") {
-                                Text(
-                                    text = "Completed (${completedTasks.size})",
-                                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp,
-                                    color = Color.Gray
-                                )
-                            }
-                            items(items = completedTasks, key = { "completed_${it.id}" }) { task ->
-                                SwipeableTaskCard(
+                        items(filteredActiveTasks, key = { it.id }) { task ->
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                TaskCardDesignStyle(
                                     task = task,
-                                    onSwipeToDelete = { taskToDelete = it },
                                     onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                                    onCheckboxClick = { isChecked ->
-                                        taskToConfirm = Pair(task, isChecked)
-                                    }
+                                    onCheckboxClick = { checked -> if (checked) completeTask(task) },
+                                    onDeleteIconClick = {
+                                        deletingTask = task
+                                        showDeleteConfirmDialog = true
+                                    },
+                                    isCompleted = false,
+                                    swipedTaskId = swipedTaskId,
+                                    onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null }
                                 )
                             }
                         }
 
-                        // Pesan jika tidak ada task sama sekali
-                        if (tasks.isEmpty()) {
-                            item(key = "empty_state") {
-                                Box(
-                                    modifier = Modifier
-                                        .fillParentMaxSize()
-                                        .padding(bottom = 80.dp),
-                                    contentAlignment = Alignment.Center
+                        if (completedTasks.isNotEmpty()) {
+                            item {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Completed (${completedTasks.size})",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF9E9E9E)
+                                )
+                            }
+
+                            items(completedTasks, key = { it.id }) { task ->
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = fadeIn() + expandVertically(),
+                                    exit = fadeOut() + shrinkVertically()
                                 ) {
-                                    Text(
-                                        text = "No tasks found.\nTap the '+' button to add a new task.",
-                                        color = Color.Gray,
-                                        textAlign = TextAlign.Center
+                                    TaskCardDesignStyle(
+                                        task = task,
+                                        onTaskClick = { navController.navigate("task_detail/${task.id}") },
+                                        onCheckboxClick = { checked -> if (!checked) showRestoreConfirmation(task) },
+                                        onDeleteIconClick = {
+                                            deletingTask = task
+                                            showDeleteConfirmDialog = true
+                                        },
+                                        isCompleted = true,
+                                        swipedTaskId = swipedTaskId,
+                                        onSwipeChange = { id, isSwiped -> swipedTaskId = if (isSwiped) id else null }
                                     )
                                 }
                             }
@@ -307,70 +268,99 @@ fun TaskScreen(
                 }
             }
         }
+
+        // SNACKBAR complete
+        AnimatedVisibility(
+            visible = showUndoSnackbar,
+            enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
+        ) {
+            SnackbarCard(
+                icon = { Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp)) },
+                text = "Task completed",
+                actionText = "UNDO",
+                onAction = { undoCompletion() }
+            )
+        }
+
+        // SNACKBAR delete
+        AnimatedVisibility(
+            visible = showDeleteSnackbar,
+            enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
+        ) {
+            SnackbarCard(
+                icon = { Icon(Icons.Filled.Delete, null, tint = Color(0xFFF44336), modifier = Modifier.size(20.dp)) },
+                text = "Task deleted",
+                actionText = "UNDO",
+                onAction = { undoDelete() }
+            )
+        }
+
+        if (showRestoreDialog) {
+            AlertDialog(
+                onDismissRequest = { showRestoreDialog = false; taskToRestore = null },
+                title = { Text("Restore Task?") },
+                text = { Text("Do you want to move this task back to active tasks?") },
+                confirmButton = { TextButton(onClick = { restoreTask() }) { Text("Yes") } },
+                dismissButton = { TextButton(onClick = { showRestoreDialog = false; taskToRestore = null }) { Text("Cancel") } }
+            )
+        }
+
+        if (showDeleteConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = false; deletingTask = null },
+                title = { Text("Hapus tugas?") },
+                text = { Text("Apakah kamu yakin ingin menghapus tugas ini?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        deletingTask?.let { deleteTaskConfirmed(it) }
+                        showDeleteConfirmDialog = false
+                        deletingTask = null
+                    }) { Text("Hapus", color = Color(0xFFF44336)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmDialog = false; deletingTask = null }) { Text("Batal") }
+                }
+            )
+        }
     }
 }
 
-// ✅ 2. PINDAHKAN `SwipeableTaskCard` KE LUAR `TaskScreen`
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-public fun SwipeableTaskCard(
-    task: TaskModel,
-    onSwipeToDelete: (TaskModel) -> Unit,
-    onTaskClick: () -> Unit,
-    onCheckboxClick: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+private fun SnackbarCard(
+    icon: @Composable () -> Unit,
+    text: String,
+    actionText: String,
+    onAction: () -> Unit
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onSwipeToDelete(task)
-            }
-            false // ⬅️ jangan auto remove
-        }
-    )
-
-    SwipeToDismissBox(
-        state = dismissState,
-        modifier = modifier,
-        backgroundContent = {
-            val isSwiped = dismissState.targetValue == SwipeToDismissBoxValue.EndToStart
-
-            val bgColor by animateColorAsState(
-                targetValue = if (isSwiped)
-                    Color.Red.copy(alpha = 0.85f)
-                else
-                    Color.LightGray.copy(alpha = 0.4f),
-                label = "bg"
-            )
-
-            val scale by animateFloatAsState(
-                targetValue = if (isSwiped) 1.15f else 0.9f,
-                label = "scale"
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(bgColor, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = Color.White,
-                    modifier = Modifier.scale(scale)
-                )
-            }
-        }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        TaskCard(
-            task = task,
-            onTaskClick = onTaskClick,
-            onCheckboxClick = onCheckboxClick
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                icon()
+                Spacer(Modifier.width(12.dp))
+                Text(text, color = Color.White, fontSize = 14.sp)
+            }
+            TextButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+                Text(actionText, color = Color(0xFF6A70D7), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
-
-
-
