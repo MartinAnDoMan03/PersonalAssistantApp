@@ -1,5 +1,6 @@
 package com.example.yourassistantyora.screen
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,29 +50,31 @@ private data class MonthlyCalendarCell(
     val isToday: Boolean
 )
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalAnimationApi::class)
 @Composable
 fun MonthlyScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
     viewModel: TaskViewModel = viewModel()
 ) {
+    // VM States
     val tasksForSelectedDate: List<TaskModel> by viewModel.dateFilteredTasks
         .collectAsState(initial = emptyList())
-
     val isLoading: Boolean by viewModel.isLoading.collectAsState(initial = false)
-
     val selectedDate: Date by viewModel.selectedDate.collectAsState(initial = Date())
     val selectedStatus: String by viewModel.selectedStatus.collectAsState(initial = "All")
     val selectedCategory: String by viewModel.selectedCategory.collectAsState(initial = "All")
 
+    // Local UI States
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
-
     var taskToConfirm by remember { mutableStateOf<Pair<TaskModel, Boolean>?>(null) }
     var taskToDelete by remember { mutableStateOf<TaskModel?>(null) }
-
     var swipedTaskId by remember { mutableStateOf<String?>(null) }
     var currentMonthDate by remember { mutableStateOf(Date()) }
+
+    // ✅ BARU: State untuk Pencarian
+    var isSearching by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) { viewModel.setViewMode("Monthly") }
 
@@ -78,15 +82,34 @@ fun MonthlyScreen(
         generateMonthlyCalendarCells(currentMonthDate, selectedDate)
     }
 
-    // ✅ jangan bergantung ke utils isCompleted biar ga bingung:
+    // Task Filtering Logic
     fun isCompletedTask(t: TaskModel): Boolean = t.Status == 2
 
-    val (completedTasks, activeTasks) = remember(tasksForSelectedDate) {
-        tasksForSelectedDate.partition { isCompletedTask(it) }
+    // ✅ BARU: Filter tugas berdasarkan Search Query
+    val filteredTasksBySearch = remember(tasksForSelectedDate, searchQuery, selectedStatus, selectedCategory) {
+        tasksForSelectedDate.filter { task ->
+            // Filter Status dan Kategori (hanya tampilkan jika TIDAK dalam mode mencari)
+            val statusMatch = if (!isSearching) (selectedStatus == "All") || (task.statusText == selectedStatus) else true
+            val categoryMatch = if (!isSearching) (selectedCategory == "All") || task.categoryNamesSafe.contains(selectedCategory) else true
+
+            // Filter Search Query
+            val queryMatch = if (searchQuery.isBlank()) {
+                true
+            } else {
+                task.Title.contains(searchQuery, ignoreCase = true) ||
+                        task.Description.contains(searchQuery, ignoreCase = true)
+            }
+            statusMatch && categoryMatch && queryMatch
+        }
+    }
+
+    val (completedTasks, activeTasks) = remember(filteredTasksBySearch) {
+        filteredTasksBySearch.partition { isCompletedTask(it) }
     }
 
     // Dialog complete/restore
     taskToConfirm?.let { (task, isCompleting) ->
+        // ... (Dialog logic remains the same)
         AlertDialog(
             onDismissRequest = { taskToConfirm = null },
             title = { Text(if (isCompleting) "Complete Task" else "Restore Task") },
@@ -108,6 +131,7 @@ fun MonthlyScreen(
 
     // Dialog delete
     taskToDelete?.let { task ->
+        // ... (Dialog logic remains the same)
         AlertDialog(
             onDismissRequest = { taskToDelete = null },
             title = { Text("Delete Task") },
@@ -131,14 +155,71 @@ fun MonthlyScreen(
         containerColor = Color(0xFFF5F7FA),
         topBar = {
             TopAppBar(
-                title = { Text("My Tasks", fontSize = 20.sp, fontWeight = FontWeight.Bold) },
+                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars), // Tambahkan responsiveness
+                title = {
+                    // Tampilkan Title biasa
+                    AnimatedVisibility(
+                        visible = !isSearching,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Text(
+                            "My Tasks",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2D2D2D)
+                        )
+                    }
+
+                    // ✅ Tampilkan Search Bar saat isSearching true
+                    AnimatedVisibility(
+                        visible = isSearching,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search tasks...", fontSize = 14.sp) },
+                            textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(end = 8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                cursorColor = Color(0xFF6A70D7),
+                                focusedContainerColor = Color(0xFFF0F0F0),
+                                unfocusedContainerColor = Color(0xFFF0F0F0)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
+                        )
+                    }
+                },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                    // Navigation Icon hanya ditampilkan saat tidak mencari
+                    if (!isSearching) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.Default.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
+                        }
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO */ }) { Icon(Icons.Outlined.Search, "Search") }
+                    // ✅ Tombol Toggle Search/Close
+                    IconButton(onClick = {
+                        if (isSearching) {
+                            // Jika mode mencari aktif, matikan mode dan reset query
+                            searchQuery = ""
+                        }
+                        isSearching = !isSearching
+                    }) {
+                        Icon(
+                            imageVector = if (isSearching) Icons.Filled.Close else Icons.Outlined.Search,
+                            contentDescription = "Toggle Search",
+                            tint = Color(0xFF2D2D2D)
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
@@ -181,19 +262,23 @@ fun MonthlyScreen(
                 )
             }
 
-            item {
-                TaskFilterRow(
-                    selectedStatus = selectedStatus,
-                    onStatusSelected = { viewModel.setStatusFilter(it) },
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { viewModel.setCategoryFilter(it) },
-                    categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel")
-                )
+            // Filter Row hanya tampil jika TIDAK sedang mencari
+            if (!isSearching) {
+                item {
+                    TaskFilterRow(
+                        selectedStatus = selectedStatus,
+                        onStatusSelected = { viewModel.setStatusFilter(it) },
+                        selectedCategory = selectedCategory,
+                        onCategorySelected = { viewModel.setCategoryFilter(it) },
+                        categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel")
+                    )
+                }
             }
+
 
             item { Divider(color = Color(0xFFE0E0E0), thickness = 1.dp) }
 
-            // Calendar block
+            // Calendar block (selalu tampil)
             item {
                 Column(
                     modifier = Modifier
@@ -340,7 +425,12 @@ fun MonthlyScreen(
                                 .padding(vertical = 40.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("No tasks for this day.", fontSize = 14.sp, color = Color(0xFF9E9E9E))
+                            val message = if (searchQuery.isNotBlank()) {
+                                "Tidak ada tugas yang cocok dengan \"$searchQuery\" pada hari ini."
+                            } else {
+                                "No tasks for this day."
+                            }
+                            Text(message, fontSize = 14.sp, color = Color(0xFF9E9E9E))
                         }
                     }
                 }
@@ -419,7 +509,6 @@ private fun MonthHeaderMonthly(
     }
 }
 
-// ✅ Rename helper supaya ga bentrok sama fungsi isSameDay lain di project
 private fun isSameCalendarDayMonthly(d1: Date, d2: Date): Boolean {
     val c1 = Calendar.getInstance().apply { time = d1 }
     val c2 = Calendar.getInstance().apply { time = d2 }

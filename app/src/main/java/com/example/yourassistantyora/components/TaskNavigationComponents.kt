@@ -150,11 +150,12 @@ fun TaskFilterRow(
             modifier = Modifier.weight(1f)
         )
 
-        // Category chips: Weight 3f untuk fill sisa space seperti 3 tab
+        // Category chips: Weight 3f untuk fill sisa space.
+        // Hapus weight(1f) dari chip di dalam agar bisa scroll.
         Row(
             modifier = Modifier
-                .weight(3f)
-                .horizontalScroll(rememberScrollState()),
+                .weight(3f) // Memastikan Row ini mengambil 3/4 lebar
+                .horizontalScroll(rememberScrollState()), // Mengaktifkan scroll
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             categories.forEach { category ->
@@ -166,14 +167,16 @@ fun TaskFilterRow(
                             if (category == "All" || selectedCategory != category) category else "All"
                         )
                     },
-                    modifier = Modifier.weight(1f) // PERBAIKAN: Tambah weight(1f) agar setiap chip stretch dan fill space merata, sehingga batas kanan mencapai tepi sama seperti atas
+                    // ✅ PERBAIKAN: Hapus Modifier.weight(1f) di sini.
+                    // Ini memungkinkan chip untuk menentukan lebarnya berdasarkan teks, bukan dipaksa stretch.
+                    modifier = Modifier
                 )
             }
         }
     }
 }
 
-// ---------- STATUS DROPDOWN ----------
+// ---------- STATUS DROPDOWN (UKURAN MEDIUM) ----------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StatusDropdown(
@@ -213,7 +216,7 @@ private fun StatusDropdown(
     val iconTint = textColor // Icon arrow ikut warna teks
 
     Box(modifier = modifier) {
-        // Style seperti ViewModeTab - height 40.dp, shape 8.dp, padding 8.dp, tambah icon FilterList, font 11.sp
+        // Tombol Dropdown
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -255,17 +258,17 @@ private fun StatusDropdown(
             }
         }
 
-        // Dropdown Menu (tetap sama)
+        // Dropdown Menu: Lebar disesuaikan konten (tidak ada width(220.dp)), ukuran medium
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
+            // Menghapus .width(220.dp) agar lebar menyesuaikan konten
             modifier = Modifier
-                .width(220.dp)
                 .background(Color.White, RoundedCornerShape(12.dp))
         ) {
             Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.padding(12.dp), // Ukuran Medium
+                verticalArrangement = Arrangement.spacedBy(8.dp) // Ukuran Medium
             ) {
                 statusOptions.forEach { option ->
                     val isSelected = selectedStatus == option.name
@@ -284,13 +287,13 @@ private fun StatusDropdown(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 12.dp, vertical = 10.dp), // Ukuran Medium
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = option.name,
-                                fontSize = 13.sp,
+                                fontSize = 13.sp, // Ukuran Medium
                                 color = if (option.color != null) {
                                     when(option.name) {
                                         "Waiting" -> Color(0xFF7B1FA2)
@@ -334,6 +337,7 @@ private fun FilterChipCompact(
     modifier: Modifier = Modifier
 ) {
     Surface(
+        // Catatan: Modifier hanya berisi yang dilewatkan dari luar (tidak ada weight)
         modifier = modifier
             .height(40.dp)
             .clip(RoundedCornerShape(8.dp))
@@ -341,16 +345,21 @@ private fun FilterChipCompact(
         color = if (isSelected) Color(0xFF6A70D7) else Color(0xFFF5F7FA),
         shape = RoundedCornerShape(8.dp)
     ) {
-        // Padding horizontal 8.dp, font 11.sp, center align
-        Text(
-            text = text,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 8.dp),
-            color = if (isSelected) Color.White else Color(0xFF666666),
-            fontSize = 11.sp,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-            textAlign = TextAlign.Center
-        )
+                .padding(horizontal = 12.dp), // Padding horizontal sedikit ditambah agar chip tidak terlalu mepet
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = if (isSelected) Color.White else Color(0xFF666666),
+                fontSize = 11.sp,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                // Pastikan teks tidak dibungkus, ini akan memaksa chip melebar
+                maxLines = 1
+            )
+        }
     }
 }

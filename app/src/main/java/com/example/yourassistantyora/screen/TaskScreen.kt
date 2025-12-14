@@ -1,19 +1,16 @@
 package com.example.yourassistantyora.screen
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,7 +33,6 @@ import com.example.yourassistantyora.utils.NavigationConstants
 import com.example.yourassistantyora.viewModel.TaskViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.shape.RoundedCornerShape
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
@@ -50,31 +46,53 @@ fun TaskScreen(
     val selectedStatus by viewModel.selectedStatus.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
 
+    // State untuk Pencarian
+    var isSearching by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") } // <-- Kita tetap menggunakan ini
+
+    // ... (Logika filtering, scope, dll. tetap sama)
+
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
     var swipedTaskId by remember { mutableStateOf<String?>(null) }
-
     var lastCompletedTask by remember { mutableStateOf<TaskModel?>(null) }
     var showUndoSnackbar by remember { mutableStateOf(false) }
-
     var lastDeletedTask by remember { mutableStateOf<TaskModel?>(null) }
     var showDeleteSnackbar by remember { mutableStateOf(false) }
-
     var showRestoreDialog by remember { mutableStateOf(false) }
     var taskToRestore by remember { mutableStateOf<TaskModel?>(null) }
-
     var deletingTask by remember { mutableStateOf<TaskModel?>(null) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
+    // --- LOGIKA FILTERING --- (Tetap sama)
     val activeTasks = tasks.filter { !it.isCompleted }
-    val completedTasks = tasks.filter { it.isCompleted }
+    val completedTasksList = tasks.filter { it.isCompleted }
 
-    val filteredActiveTasks = activeTasks.filter { task ->
-        val statusMatch = (selectedStatus == "All") || (task.statusText == selectedStatus)
-        val categoryMatch = (selectedCategory == "All") || task.categoryNamesSafe.contains(selectedCategory)
-        statusMatch && categoryMatch
-    }
+    val filteredActiveTasks = activeTasks
+        .filter { task ->
+            val statusMatch = (selectedStatus == "All") || (task.statusText == selectedStatus)
+            val categoryMatch = (selectedCategory == "All") || task.categoryNamesSafe.contains(selectedCategory)
+            val queryMatch = if (searchQuery.isBlank()) {
+                true
+            } else {
+                task.Title.contains(searchQuery, ignoreCase = true) ||
+                        task.Description.contains(searchQuery, ignoreCase = true)
+            }
+            statusMatch && categoryMatch && queryMatch
+        }
 
+    val filteredCompletedTasks = completedTasksList
+        .filter { task ->
+            val queryMatch = if (searchQuery.isBlank()) {
+                true
+            } else {
+                task.Title.contains(searchQuery, ignoreCase = true) ||
+                        task.Description.contains(searchQuery, ignoreCase = true)
+            }
+            queryMatch
+        }
+
+    // ... (Fungsi completeTask, undoCompletion, deleteTaskConfirmed, dll. tetap sama)
     fun completeTask(task: TaskModel) {
         if (!task.isCompleted) {
             viewModel.updateTaskStatus(task.id, true)
@@ -82,7 +100,6 @@ fun TaskScreen(
             showUndoSnackbar = true
             showDeleteSnackbar = false
             swipedTaskId = null
-
             scope.launch {
                 delay(8000)
                 showUndoSnackbar = false
@@ -100,11 +117,9 @@ fun TaskScreen(
     fun deleteTaskConfirmed(task: TaskModel) {
         lastDeletedTask = task
         viewModel.deleteTask(task.id)
-
         showDeleteSnackbar = true
         showUndoSnackbar = false
         swipedTaskId = null
-
         scope.launch {
             delay(8000)
             showDeleteSnackbar = false
@@ -129,32 +144,86 @@ fun TaskScreen(
         taskToRestore = null
     }
 
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color(0xFFF5F7FA),
+            // ✅ PERUBAHAN UTAMA DI SINI
             topBar = {
+                // Menggunakan TopAppBar tunggal untuk SearchBar dan Title
                 TopAppBar(
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars), // Pertahankan responsiveness
                     title = {
-                        Text(
-                            "My Tasks",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2D2D2D)
-                        )
+                        // Tampilkan Title biasa
+                        AnimatedVisibility(
+                            visible = !isSearching,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            Text(
+                                "My Tasks",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2D2D2D)
+                            )
+                        }
+
+                        // Tampilkan Search Bar saat isSearching true
+                        AnimatedVisibility(
+                            visible = isSearching,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Search tasks...", fontSize = 14.sp) },
+                                textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(end = 8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    cursorColor = Color(0xFF6A70D7),
+                                    focusedContainerColor = Color(0xFFF0F0F0),
+                                    unfocusedContainerColor = Color(0xFFF0F0F0)
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                singleLine = true
+                            )
+                        }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.Filled.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
+                        // Navigation Icon hanya ditampilkan saat tidak mencari
+                        if (!isSearching) {
+                            IconButton(onClick = { navController.popBackStack() }) {
+                                Icon(Icons.Filled.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
+                            }
+                        } else {
+                            // Saat mencari, ikon ArrowBack/Close sudah berada di actions
                         }
                     },
                     actions = {
-                        IconButton(onClick = { /* TODO Search */ }) {
-                            Icon(Icons.Outlined.Search, "Search", tint = Color(0xFF2D2D2D))
+                        // Tombol Toggle Search/Close
+                        IconButton(onClick = {
+                            if (isSearching) {
+                                // Jika mode mencari aktif, matikan mode dan reset query
+                                searchQuery = ""
+                            }
+                            isSearching = !isSearching
+                        }) {
+                            Icon(
+                                imageVector = if (isSearching) Icons.Filled.Close else Icons.Outlined.Search,
+                                contentDescription = "Toggle Search",
+                                tint = Color(0xFF2D2D2D)
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                 )
             },
+            // ... (BottomBar dan FAB tetap sama)
             bottomBar = {
                 BottomNavigationBar(
                     selectedTab = selectedTab,
@@ -191,13 +260,16 @@ fun TaskScreen(
                     onNavigateToMonthly = { navController.navigateSingleTop("monthly_tasks") }
                 )
 
-                TaskFilterRow(
-                    selectedStatus = selectedStatus,
-                    onStatusSelected = { viewModel.setStatusFilter(it) },
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { viewModel.setCategoryFilter(it) },
-                    categories = listOf("All", "Work", "Study", "Travel", "Meeting", "Project", "Personal")
-                )
+                // Filter Row hanya tampil jika TIDAK sedang mencari
+                if (!isSearching) {
+                    TaskFilterRow(
+                        selectedStatus = selectedStatus,
+                        onStatusSelected = { viewModel.setStatusFilter(it) },
+                        selectedCategory = selectedCategory,
+                        onCategorySelected = { viewModel.setCategoryFilter(it) },
+                        categories = listOf("All", "Work", "Study", "Travel", "Meeting", "Project", "Personal")
+                    )
+                }
 
                 Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
@@ -205,7 +277,18 @@ fun TaskScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
-                } else {
+                }
+                // Tampilkan pesan jika tidak ada hasil saat pencarian
+                else if (filteredActiveTasks.isEmpty() && filteredCompletedTasks.isEmpty() && searchQuery.isNotBlank()) {
+                    Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Tidak ada tugas yang cocok dengan \"$searchQuery\"",
+                            color = Color(0xFF757575),
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+                else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
@@ -232,18 +315,18 @@ fun TaskScreen(
                             }
                         }
 
-                        if (completedTasks.isNotEmpty()) {
+                        if (filteredCompletedTasks.isNotEmpty()) {
                             item {
                                 Spacer(Modifier.height(8.dp))
                                 Text(
-                                    "Completed (${completedTasks.size})",
+                                    "Completed (${filteredCompletedTasks.size})",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF9E9E9E)
                                 )
                             }
 
-                            items(completedTasks, key = { it.id }) { task ->
+                            items(filteredCompletedTasks, key = { it.id }) { task ->
                                 AnimatedVisibility(
                                     visible = true,
                                     enter = fadeIn() + expandVertically(),
@@ -269,7 +352,7 @@ fun TaskScreen(
             }
         }
 
-        // SNACKBAR complete
+        // SNACKBAR dan DIALOGS (tetap sama)
         AnimatedVisibility(
             visible = showUndoSnackbar,
             enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -286,7 +369,6 @@ fun TaskScreen(
             )
         }
 
-        // SNACKBAR delete
         AnimatedVisibility(
             visible = showDeleteSnackbar,
             enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),

@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,13 @@ import java.util.Date
 import java.util.Locale
 
 data class StatusItem(val name: String, val color: Color)
+
+// Warna Aksen Utama (digunakan untuk border, ikon, dan teks Add New)
+private val AccentColor = Color(0xFF6A70D7)
+
+// Warna untuk Gradien Tombol "Create Task"
+private val GradientStartColor = Color(0xFF6A70D7)
+private val GradientEndColor = Color(0xFF7353AD)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,10 +99,13 @@ fun CreateTaskScreen(
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(onClick = {
-                    state.selectedDateMillis?.let { viewModel.selectedDate.value = Date(it) }
-                    showDatePicker = false
-                }) { Text("OK") }
+                TextButton(
+                    onClick = {
+                        state.selectedDateMillis?.let { viewModel.selectedDate.value = Date(it) }
+                        showDatePicker = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = AccentColor)
+                ) { Text("OK") }
             },
             dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
         ) { DatePicker(state = state) }
@@ -147,7 +158,7 @@ fun CreateTaskScreen(
                 },
                 actions = {
                     IconButton(onClick = { if (!isLoading) viewModel.createTask() }) {
-                        Icon(Icons.Filled.Check, contentDescription = "Save", tint = Color(0xFF6C63FF))
+                        Icon(Icons.Filled.Check, contentDescription = "Save", tint = AccentColor)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
@@ -199,7 +210,7 @@ fun CreateTaskScreen(
                     Icon(
                         Icons.Outlined.CalendarToday,
                         null,
-                        tint = Color(0xFF6C63FF),
+                        tint = AccentColor,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -324,12 +335,21 @@ fun CreateTaskScreen(
                 )
             }
 
+            // MODIFIKASI: Tombol Utama "Create Task" menggunakan Linear Gradient
             Button(
                 onClick = { if (!isLoading) viewModel.createTask() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C63FF)),
+                    .height(50.dp)
+                    // Menerapkan gradien linier
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(GradientStartColor, GradientEndColor)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ),
+                // containerColor harus transparan agar background gradien terlihat
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                 shape = RoundedCornerShape(12.dp),
                 enabled = !isLoading
             ) {
@@ -421,7 +441,10 @@ private fun TimePickerDialog(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismissRequest) { Text("Cancel") }
                     Spacer(Modifier.width(8.dp))
-                    TextButton(onClick = onConfirm) { Text("OK") }
+                    TextButton(
+                        onClick = onConfirm,
+                        colors = ButtonDefaults.textButtonColors(contentColor = AccentColor)
+                    ) { Text("OK") }
                 }
             }
         }
@@ -453,11 +476,6 @@ private fun ScheduleChip(
     }
 }
 
-/**
- * ✅ PENTING:
- * Jangan pakai Modifier.weight() di sini.
- * Weight dipasang dari luar (Row) lewat parameter modifier.
- */
 @Composable
 private fun PriorityOption2(
     label: String,
@@ -492,7 +510,7 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) Color(0xFF6C63FF) else Color(0xFFF5F5F5))
+            .background(if (selected) AccentColor else Color(0xFFF5F5F5))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
@@ -528,7 +546,7 @@ private fun ChunkedChipsMulti(
                             .clickable(onClick = onAdd)
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text(addLabel, fontSize = 12.sp, color = Color(0xFF6C63FF), fontWeight = FontWeight.Medium)
+                        Text(addLabel, fontSize = 12.sp, color = AccentColor, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -576,7 +594,7 @@ private fun ChunkedStatus(
                             .clickable(onClick = onAdd)
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text("+ Add New", fontSize = 12.sp, color = Color(0xFF6C63FF), fontWeight = FontWeight.Medium)
+                        Text("+ Add New", fontSize = 12.sp, color = AccentColor, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -605,7 +623,7 @@ fun NewStatusDialog(onDismiss: () -> Unit, onConfirm: (String, Color) -> Unit) {
                                 .size(36.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(c)
-                                .border(if (selectedColor == c) 3.dp else 0.dp, Color(0xFF6C63FF), RoundedCornerShape(8.dp))
+                                .border(if (selectedColor == c) 3.dp else 0.dp, AccentColor, RoundedCornerShape(8.dp))
                                 .clickable { selectedColor = c }
                         )
                     }
@@ -615,7 +633,7 @@ fun NewStatusDialog(onDismiss: () -> Unit, onConfirm: (String, Color) -> Unit) {
                     Button(
                         onClick = { if (statusName.isNotBlank()) onConfirm(statusName, selectedColor) },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C63FF))
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
                     ) { Text("Create", color = Color.White) }
                 }
             }
@@ -636,7 +654,7 @@ fun NewCategoryDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
                     Button(
                         onClick = { if (categoryName.isNotBlank()) onConfirm(categoryName) },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C63FF))
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
                     ) { Text("Create", color = Color.White) }
                 }
             }
@@ -646,7 +664,7 @@ fun NewCategoryDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
 
 @Composable
 private fun outlinedColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = Color(0xFF6C63FF),
+    focusedBorderColor = AccentColor,
     unfocusedBorderColor = Color(0xFFE0E0E0),
     focusedContainerColor = Color.White,
     unfocusedContainerColor = Color(0xFFFAFAFA)

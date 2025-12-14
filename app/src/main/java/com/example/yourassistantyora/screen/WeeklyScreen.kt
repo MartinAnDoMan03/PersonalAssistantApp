@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -67,11 +68,16 @@ fun WeeklyScreen(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
 
     val allTasks by viewModel.listTasks.collectAsState(initial = emptyList())
+    // tasksForSelectedDate hanya berisi task dari tanggal yang dipilih,
+    // tapi kita perlu memfilter lagi berdasarkan search query
     val tasksForSelectedDate by viewModel.dateFilteredTasks.collectAsState(initial = emptyList())
 
-    // --------- LOCAL UI STATE ----------
+    // --------- LOCAL UI STATE (PENAMBAHAN SEARCH) ----------
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
     val scope = rememberCoroutineScope()
+
+    var isSearching by remember { mutableStateOf(false) } // ✅ BARU: State untuk mengaktifkan Search Bar
+    var searchQuery by remember { mutableStateOf("") } // ✅ BARU: Query pencarian
 
     // biar cuma 1 card swipe kebuka
     var swipedTaskId by remember { mutableStateOf<String?>(null) }
@@ -96,9 +102,26 @@ fun WeeklyScreen(
     // --------- HELPERS (FIX isCompleted ISSUE) ----------
     fun isCompletedTask(t: TaskModel): Boolean = (t.Status == 2) // Done
 
-    // split active vs completed (✅ FIXED)
-    val (completedTasks, activeTasks) = remember(tasksForSelectedDate) {
-        tasksForSelectedDate.partition { isCompletedTask(it) }
+    // Filter Task Berdasarkan Query, Status, dan Kategori
+    val filteredTasksBySearch = remember(tasksForSelectedDate, searchQuery, selectedStatus, selectedCategory) {
+        tasksForSelectedDate.filter { task ->
+            val statusMatch = (selectedStatus == "All") || (task.statusText == selectedStatus)
+            val categoryMatch = (selectedCategory == "All") || task.categoryNamesSafe.contains(selectedCategory)
+
+            val queryMatch = if (searchQuery.isBlank()) {
+                true
+            } else {
+                task.Title.contains(searchQuery, ignoreCase = true) ||
+                        task.Description.contains(searchQuery, ignoreCase = true)
+            }
+            // Karena tasksForSelectedDate sudah memfilter tanggal, kita hanya perlu memfilter status, kategori, dan query
+            statusMatch && categoryMatch && queryMatch
+        }
+    }
+
+    // split active vs completed (✅ Menggunakan filteredTasksBySearch)
+    val (completedTasks, activeTasks) = remember(filteredTasksBySearch) {
+        filteredTasksBySearch.partition { isCompletedTask(it) }
     }
 
     // generate week strip (start Sunday)
@@ -126,7 +149,7 @@ fun WeeklyScreen(
         }
     }
 
-    // --------- ACTIONS ----------
+    // --------- ACTIONS (tetap sama) ----------
     fun onComplete(task: TaskModel) {
         if (!isCompletedTask(task)) {
             viewModel.updateTaskStatus(task.id, true)
@@ -188,22 +211,70 @@ fun WeeklyScreen(
             containerColor = Color(0xFFF5F7FA),
             topBar = {
                 TopAppBar(
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                     title = {
-                        Text(
-                            "My Tasks",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2D2D2D)
-                        )
+                        // Tampilkan Title biasa
+                        AnimatedVisibility(
+                            visible = !isSearching,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            Text(
+                                "My Tasks",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2D2D2D)
+                            )
+                        }
+
+                        // ✅ Tampilkan Search Bar saat isSearching true
+                        AnimatedVisibility(
+                            visible = isSearching,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Search tasks...", fontSize = 14.sp) },
+                                textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(end = 8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    cursorColor = Color(0xFF6A70D7),
+                                    focusedContainerColor = Color(0xFFF0F0F0),
+                                    unfocusedContainerColor = Color(0xFFF0F0F0)
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                singleLine = true
+                            )
+                        }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.Filled.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
+                        // Navigation Icon hanya ditampilkan saat tidak mencari
+                        if (!isSearching) {
+                            IconButton(onClick = { navController.popBackStack() }) {
+                                Icon(Icons.Filled.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
+                            }
                         }
                     },
                     actions = {
-                        IconButton(onClick = { /* optional: search */ }) {
-                            Icon(Icons.Outlined.Search, "Search", tint = Color(0xFF2D2D2D))
+                        // ✅ Tombol Toggle Search/Close
+                        IconButton(onClick = {
+                            if (isSearching) {
+                                // Jika mode mencari aktif, matikan mode dan reset query
+                                searchQuery = ""
+                            }
+                            isSearching = !isSearching
+                        }) {
+                            Icon(
+                                imageVector = if (isSearching) Icons.Filled.Close else Icons.Outlined.Search,
+                                contentDescription = "Toggle Search",
+                                tint = Color(0xFF2D2D2D)
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
@@ -248,17 +319,20 @@ fun WeeklyScreen(
                     onNavigateToMonthly = { navController.navigateSingleTop("monthly_tasks") }
                 )
 
-                TaskFilterRow(
-                    selectedStatus = selectedStatus,
-                    onStatusSelected = { viewModel.setStatusFilter(it) },
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { viewModel.setCategoryFilter(it) },
-                    categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel", "Personal")
-                )
+                // Filter Row hanya tampil jika TIDAK sedang mencari
+                if (!isSearching) {
+                    TaskFilterRow(
+                        selectedStatus = selectedStatus,
+                        onStatusSelected = { viewModel.setStatusFilter(it) },
+                        selectedCategory = selectedCategory,
+                        onCategorySelected = { viewModel.setCategoryFilter(it) },
+                        categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel", "Personal")
+                    )
+                }
 
                 Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
-                // Calendar strip
+                // Calendar strip (selalu tampil)
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -281,7 +355,18 @@ fun WeeklyScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
-                } else {
+                }
+                // ✅ Tambahkan pesan jika tidak ada hasil saat pencarian
+                else if (activeTasks.isEmpty() && completedTasks.isEmpty() && searchQuery.isNotBlank()) {
+                    Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Tidak ada tugas yang cocok dengan \"$searchQuery\" pada hari ini.",
+                            color = Color(0xFF757575),
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+                else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
