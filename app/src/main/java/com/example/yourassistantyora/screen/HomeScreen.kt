@@ -90,7 +90,7 @@ import kotlin.math.roundToInt
 
 // ---------- DATA ----------
 data class Task(
-    val id: Int,
+    val id: String,
     val title: String,
     val time: String,
     val priority: String,
@@ -149,16 +149,72 @@ fun HomeScreen(
     var tasks by remember {
         mutableStateOf(
             listOf(
-                Task(1, "Morning workout routine", "06:00 AM", "High", "Personal", "Meeting"),
-                Task(2, "Review design mockups", "10:00 AM", "High", "Team", "Waiting", "Mobile Dev Team", 3),
-                Task(3, "Prepare presentation slides", "02:00 PM", "Medium", "Personal"),
-                Task(4, "Team sync meeting", "04:00 PM", "High", "Team", "Meeting", "Mobile Dev Team", 3)
+                Task("1", "Morning workout routine", "06:00 AM", "High", "Personal", "Meeting"),
+                Task("2", "Review design mockups", "10:00 AM", "High", "Team", "Waiting", "Mobile Dev Team", 3),
+                Task("3", "Prepare presentation slides", "02:00 PM", "Medium", "Personal"),
+                Task("4", "Team sync meeting", "04:00 PM", "High", "Team", "Meeting", "Mobile Dev Team", 3)
             )
         )
     }
 
+    LaunchedEffect(Unit) {
+        val auth = FirebaseAuth.getInstance()
+        val db = FirebaseFirestore.getInstance()
+        val currentUser = auth.currentUser
+
+        if (currentUser != null) {
+            val personalTasks = mutableListOf<Task>()
+            val teamTasks = mutableListOf<Task>()
+            val teamDetailsMap = mutableMapOf<String, Pair<String, Int>>()
+
+            db.collection("teams")
+                .whereArrayContains("members", currentUser.uid)
+                .addSnapshotListener { snapshot, _ ->
+                    snapshot?.documents?.forEach { doc ->
+                        val name = doc.getString("name") ?: "Unknown Team"
+                        val members = doc.get("members") as? List<*>
+                        val count = members?.size ?: 0
+                        teamDetailsMap[doc.id] = Pair(name, count)
+                    }
+
+                    if (tasks.isNotEmpty()) {
+                        tasks = (personalTasks + teamTasks).sortedBy { it.time }
+                    }
+                }
+
+            db.collection("tasks")
+                .whereEqualTo("userId", currentUser.uid)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) return@addSnapshotListener
+
+                    val mapped = snapshot?.documents?.mapNotNull {
+                        // Personal tasks don't need team map
+                        mapDocumentToTask(it, isTeamTask = false, teamMap = emptyMap())
+                    } ?: emptyList()
+
+                    personalTasks.clear()
+                    personalTasks.addAll(mapped)
+                    tasks = (personalTasks + teamTasks).sortedBy { it.time }
+                }
+
+            db.collection("team_tasks")
+                .whereArrayContains("uid", currentUser.uid)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) return@addSnapshotListener
+
+                    val mapped = snapshot?.documents?.mapNotNull {
+                        mapDocumentToTask(it, isTeamTask = true, teamMap = teamDetailsMap)
+                    } ?: emptyList()
+
+                    teamTasks.clear()
+                    teamTasks.addAll(mapped)
+                    tasks = (personalTasks + teamTasks).sortedBy { it.time }
+                }
+        }
+    }
+
     // STATE BARU: Melacak Task ID yang sedang di-slide (untuk Single Slide)
-    var swipedTaskId by remember { mutableStateOf<Int?>(null) }
+    var swipedTaskId by remember { mutableStateOf<String?>(null) }
 
     // State untuk undo completion
     var lastCompletedTask by remember { mutableStateOf<Task?>(null) }
@@ -1009,8 +1065,8 @@ fun TaskCardWithTrailingDelete(
     modifier: Modifier = Modifier,
     isCompleted: Boolean = false,
     // PARAMETER BARU: State dari luar dan callback
-    swipedTaskId: Int? = null,
-    onSwipeChange: (Int, Boolean) -> Unit = { _, _ -> }
+    swipedTaskId: String? = null,
+    onSwipeChange: (String, Boolean) -> Unit = { _, _ -> }
 ) {
     // Lebar "Hapus" icon
     val deleteWidth = 80.dp
@@ -1141,6 +1197,68 @@ fun TaskCardWithTrailingDelete(
     }
 }
 
+fun mapDocumentToTask(
+    doc: com.google.firebase.firestore.DocumentSnapshot,
+    isTeamTask: Boolean,
+    teamMap: Map<String, Pair<String, Int>> // New Parameter
+): Task? {
+    try {
+        val cats = doc.get("CategoryNames") as? List<String>
+        val displayCategory = cats?.firstOrNull()
+            ?: doc.getString("category")
+            ?: "Personal"
+
+        val deadlineTimestamp = doc.getTimestamp("Deadline") ?: doc.getTimestamp("deadline")
+        val timeString = deadlineTimestamp?.toDate()?.let { date ->
+            java.text.SimpleDateFormat("hh:mm a", java.util.Locale.ENGLISH).format(date)
+        } ?: "--:--"
+
+        val priorityRaw = doc.get("Priority") ?: doc.get("priority")
+        val priorityString = if(priorityRaw is Number) {
+            when (priorityRaw.toInt()) {
+                2 -> "High"
+                0 -> "Low"
+                else -> "Medium"
+            }
+        } else {
+            priorityRaw?.toString() ?: "Medium"
+        }
+
+        val rawStatus = doc.get("Status") ?: doc.get("status")
+        val statusString = if (rawStatus is Number){
+            when (rawStatus.toInt()){
+                2 -> "Done"
+                0 -> "Waiting"
+                else -> "To Do"
+            }
+        } else {
+            rawStatus?.toString() ?: "To Do"
+        }
+
+        val isDone = statusString.equals("Done", ignoreCase = true) || statusString.equals("Completed", ignoreCase = true)
+
+        val teamId = doc.getString("teamId") ?: doc.getString("team_id")
+        val teamInfo = if (isTeamTask && teamId != null) teamMap[teamId] else null
+
+        val teamNameDisplay = teamInfo?.first
+        val teamMemberCount = teamInfo?.second ?: 0
+        val finalCategory = if (isTeamTask) "Team" else displayCategory
+
+        return Task(
+            id = doc.id,
+            title = doc.getString("Title") ?: doc.getString("title") ?: "Untitled",
+            time = timeString,
+            priority = priorityString,
+            category = finalCategory,
+            status = statusString,
+            teamName = teamNameDisplay,
+            teamMembers = teamMemberCount,
+            isCompleted = isDone
+        )
+    } catch(e: Exception) {
+        return null
+    }
+}
 
 // ---------- PREVIEW ----------
 @Preview(showBackground = true)
