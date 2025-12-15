@@ -1,6 +1,6 @@
 package com.example.yourassistantyora.screen
 
-import android.Manifest // ✅ IMPORT BARU
+import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.net.Uri
@@ -52,7 +52,7 @@ fun CreateTeamTaskScreen(
     val title by createTaskViewModel.title
     val description by createTaskViewModel.description
     val selectedPriority by createTaskViewModel.selectedPriority
-    val assignedMemberIds by createTaskViewModel.assignedMemberIds.collectAsState()
+//    val assignedMemberId by createTaskViewModel.assignedMemberId.collectAsState()
     val attachments by createTaskViewModel.attachments.collectAsState()
     val selectedDate by createTaskViewModel.selectedDate
     val selectedTime by createTaskViewModel.selectedTime
@@ -213,7 +213,7 @@ fun CreateTeamTaskScreen(
                         OutlinedTextField(
                             value = title,
                             onValueChange = { createTaskViewModel.title.value = it },
-                            placeholder = { Text("Task Tes") },
+                            placeholder = { Text("Task Title") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
@@ -226,7 +226,7 @@ fun CreateTeamTaskScreen(
                         OutlinedTextField(
                             value = description,
                             onValueChange = { createTaskViewModel.description.value = it },
-                            placeholder = { Text("Kerjain") },
+                            placeholder = { Text("Task Description") },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 100.dp),
@@ -251,16 +251,25 @@ fun CreateTeamTaskScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("Tasks per Member", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Assign to Member",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ) // Judul diperbarui
                         if (teamMembers.isEmpty() && isLoading) {
                             Text("Loading team members...", color = Color.Gray)
                         } else {
-                            teamMembers.forEach { member ->
-                                MemberSelectionCard(
-                                    member = member,
-                                    isSelected = assignedMemberIds.contains(member.id),
-                                    onClick = { createTaskViewModel.onMemberSelected(member.id) }
-                                )
+                            // ✅ PERBAIKAN: Gunakan state 'assignedMemberId' dan RadioButton
+                            val assignedMemberId by createTaskViewModel.assignedMemberId.collectAsState()
+
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                teamMembers.forEach { member ->
+                                    MemberSelectionCard(
+                                        member = member,
+                                        isSelected = assignedMemberId == member.id, // Logika untuk single-pilihan
+                                        onClick = { createTaskViewModel.onMemberSelected(member.id) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -454,7 +463,8 @@ private fun MemberSelectionCard(member: TeamMember, isSelected: Boolean, onClick
             Icon(
                 imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
                 contentDescription = "Select member",
-                tint = if (isSelected) teamColor else Color.Gray
+                tint = if (isSelected) teamColor else Color.Gray.copy(alpha = 0.5f),
+                modifier = Modifier.size(24.dp)
             )
         }
     }

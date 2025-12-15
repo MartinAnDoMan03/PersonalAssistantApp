@@ -23,6 +23,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import com.example.yourassistantyora.models.TeamTaskDb
 
 class CreateTeamTaskViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
@@ -34,7 +35,7 @@ class CreateTeamTaskViewModel : ViewModel() {
     val selectedPriority = mutableIntStateOf(1) // Default: Medium (ordinal 1)
     val selectedDate = mutableStateOf<Date?>(null)
     val selectedTime = mutableStateOf<Calendar?>(null)
-    val assignedMemberIds = MutableStateFlow<Set<String>>(emptySet())
+    val assignedMemberId = MutableStateFlow<String?>(null)
     val attachments = MutableStateFlow<List<Uri>>(emptyList())
 
     // --- Data State ---
@@ -55,46 +56,69 @@ class CreateTeamTaskViewModel : ViewModel() {
     // ✅ FUNGSI BARU: Untuk mengambil data anggota tim
     fun loadTeamMembers(teamId: String) {
         viewModelScope.launch {
+            _isLoading.value = true // Mulai loading
             try {
+                // 1. Ambil semua tugas untuk tim ini terlebih dahulu (hanya sekali)
+                val allTeamTasks = db.collection("team_tasks")
+                    .whereEqualTo("team_id", teamId)
+                    .get()
+                    .await()
+                    .toObjects(TeamTaskDb::class.java)
+
+                // 2. Ambil data dasar tim
                 val teamDoc = db.collection("teams").document(teamId).get().await()
                 val teamData = teamDoc.toObject(Team::class.java)
 
                 if (teamData == null) {
                     _error.value = "Team not found."
+                    _isLoading.value = false
                     return@launch
                 }
 
-                // Ambil profil setiap anggota
+                // 3. Ambil profil setiap anggota dan hitung tugas mereka
                 val memberProfiles = teamData.members.map { memberId ->
                     val userDoc = db.collection("users").document(memberId).get().await()
                     val role = if (teamData.createdBy == memberId) "Admin" else "Member"
+
+                    // ✅ LOGIKA PERHITUNGAN DARI TeamDetailViewModel DITERAPKAN DI SINI
+                    val completedCount = allTeamTasks.count { task ->
+                        task.status == 2 && task.uid.contains(memberId) // status 2 = Done
+                    }
+                    // (Opsional) Anda juga bisa menghitung tugas aktif jika diperlukan di masa depan
+                    val activeCount = allTeamTasks.count { task ->
+                        task.status != 2 && task.uid.contains(memberId)
+                    }
+
                     TeamMember(
                         id = memberId,
                         name = userDoc.getString("username") ?: "Unknown",
                         role = role,
-                        // tasksCompleted bisa dihitung nanti jika perlu
-                        tasksCompleted = 0
+                        activeTasks = activeCount,        // <-- Nilai sekarang dari hasil hitungan
+                        tasksCompleted = completedCount // <-- Nilai sekarang dari hasil hitungan
                     )
                 }
                 _teamMembers.value = memberProfiles
 
             } catch (e: Exception) {
                 _error.value = "Failed to load team members: ${e.message}"
+            } finally {
+                _isLoading.value = false // Selesaikan loading
             }
         }
     }
 
     fun onMemberSelected(uid: String) {
-        val current = assignedMemberIds.value.toMutableSet()
-        if (current.contains(uid)) {
-            current.remove(uid)
+        if (assignedMemberId.value == uid) {
+            // Jika ID yang sama diklik, batalkan pilihan (set ke null)
+            assignedMemberId.value = null
         } else {
-            current.add(uid)
+            // Jika ID berbeda, ganti dengan yang baru
+            assignedMemberId.value = uid
         }
-        assignedMemberIds.value = current
     }
 
-    fun addAttachment(uri: Uri, context: Context) {
+
+        fun addAttachment(uri: Uri, context: Context) {
         // Validasi tipe dan ukuran file
         try {
             val contentResolver = context.contentResolver
@@ -158,7 +182,7 @@ class CreateTeamTaskViewModel : ViewModel() {
                     "desc" to description.value.trim(),
                     "priority" to selectedPriority.value,
                     "status" to 0, // Default: Not Started
-                    "uid" to assignedMemberIds.value.toList(),
+                    "uid" to (assignedMemberId.value?.let { listOf(it) } ?: emptyList()),
                     "docs" to attachmentUrls
                 )
 
@@ -219,7 +243,7 @@ class CreateTeamTaskViewModel : ViewModel() {
     }
 
 
-    fun isFormValid(): Boolean = title.value.isNotBlank() && selectedDate.value != null && assignedMemberIds.value.isNotEmpty()
+    fun isFormValid(): Boolean = title.value.isNotBlank() && selectedDate.value != null && assignedMemberId.value != null
 
     fun clearError() { _error.value = null }
 }

@@ -35,6 +35,8 @@ import com.example.yourassistantyora.screen.Task
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import com.example.yourassistantyora.screen.CreateTeamTaskScreen
+import com.example.yourassistantyora.screen.TeamProgressScreen
+import com.example.yourassistantyora.screen.TeamTaskDetailScreen
 import com.example.yourassistantyora.viewModel.CreateTaskViewModel // Import ViewModel
 
 // ... and so on for all screens
@@ -366,6 +368,20 @@ fun AppNavigation(
             )
         }
 
+        // ✅✅✅ TAMBAHKAN ROUTE BARU INI ✅✅✅
+        /**
+         * Team Progress Screen
+         */
+        composable(
+            route = "team_progress/{teamId}",
+            arguments = listOf(navArgument("teamId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val teamId = backStackEntry.arguments?.getString("teamId") ?: ""
+            TeamProgressScreen(
+                teamId = teamId,
+                navController = navController
+            )
+        }
 
         /**
          * Join Team Screen - Join team dengan kode
@@ -411,11 +427,31 @@ fun AppNavigation(
          * navController.navigate("team_detail/${team.id}")
          */
 
-        composable("team_detail/{teamId}") { backStackEntry ->
-        val teamId = backStackEntry.arguments?.getString("teamId") ?: ""
-        TeamDetailScreen(
-            navController = navController,
-            teamId = teamId
+        composable(
+            route = "team_detail/{teamId}",
+            arguments = listOf(navArgument("teamId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val teamId = backStackEntry.arguments?.getString("teamId") ?: ""
+            // ✅ Panggil TeamDetailScreen yang sudah diperbarui
+            TeamDetailScreen(
+                teamId = teamId,
+                navController = navController
+            )
+        }
+
+        composable(
+            route = "team_task_detail/{teamId}/{taskId}",
+            arguments = listOf(
+                navArgument("teamId") { type = NavType.StringType },
+                navArgument("taskId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val teamId = backStackEntry.arguments?.getString("teamId") ?: ""
+            val taskId = backStackEntry.arguments?.getString("taskId") ?: ""
+            TeamTaskDetailScreen(
+                teamId = teamId,
+                taskId = taskId,
+                navController = navController
             )
         }
 
@@ -431,6 +467,8 @@ fun AppNavigation(
         }
     }
 }
+
+
 
 
 // ============================================

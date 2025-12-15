@@ -1,6 +1,7 @@
 package com.example.yourassistantyora.models
 
 import androidx.compose.ui.graphics.Color
+import com.google.firebase.Timestamp
 
 // Team Color Scheme
 enum class TeamColorScheme(val gradient: List<Color>) {
@@ -14,14 +15,24 @@ enum class TeamColorScheme(val gradient: List<Color>) {
 enum class TaskStatus(val displayName: String, val color: Color, val bgColor: Color) {
     NOT_STARTED("Not Started", Color(0xFFEF5350), Color(0xFFFFEBEE)),
     IN_PROGRESS("In Progress", Color(0xFFFF9800), Color(0xFFFFF3E0)),
-    DONE("Done", Color(0xFF4CAF50), Color(0xFFE8F5E9))
+    DONE("Done", Color(0xFF4CAF50), Color(0xFFE8F5E9)); // Gunakan titik koma
+
+    // ✅ TAMBAHKAN COMPANION OBJECT INI
+    companion object {
+        fun fromInt(value: Int) = entries.find { it.ordinal == value } ?: NOT_STARTED
+    }
 }
 
 // Task Priority
 enum class TaskPriority(val displayName: String, val color: Color, val bgColor: Color) {
     LOW("Low", Color(0xFF2196F3), Color(0xFFE3F2FD)),
     MEDIUM("Medium", Color(0xFFFFB300), Color(0xFFFFF8E1)),
-    HIGH("High", Color(0xFFEF5350), Color(0xFFFFEBEE))
+    HIGH("High", Color(0xFFEF5350), Color(0xFFFFEBEE)); // Gunakan titik koma
+
+    // ✅ TAMBAHKAN COMPANION OBJECT INI
+    companion object {
+        fun fromInt(value: Int) = entries.find { it.ordinal == value } ?: MEDIUM
+    }
 }
 
 // ✅✅✅ TAMBAHKAN DATA CLASS INI ✅✅✅
@@ -57,6 +68,7 @@ data class TeamMember(
     val name: String,
     val role: String, // "Admin" or "Member"
     val avatar: String = "",
+    val activeTasks: Int = 0,
     val tasksCompleted: Int = 0
 )
 
@@ -84,12 +96,12 @@ data class TaskAttachment(
 
 // Task Comment
 data class TaskComment(
-    val id: String,
-    val userId: String,
-    val userName: String,
+    val id: String = "",
+    val userId: String = "",
+    val userName: String = "",
     val userAvatar: String = "",
-    val comment: String,
-    val timestamp: String,
+    val comment: String = "",
+    val timestamp: String = "",
     val isCurrentUser: Boolean = false
 )
 
@@ -105,4 +117,22 @@ data class TeamDetail(
     val currentUserRole: String, // "Admin" or "Member"
     val currentUserId: String,
     val inviteCode: String
+)
+
+/**
+ * Representasi data mentah sebuah tugas dari koleksi 'team_tasks' di Firestore.
+ * Nama field harus sama persis dengan yang ada di Firestore.
+ */
+data class TeamTaskDb(
+    val ttask_id: String = "",
+    val team_id: String = "",
+    val title: String = "",
+    val desc: String = "",
+    val createdBy: String = "",
+    val createdOn: Timestamp = Timestamp.now(),
+    val deadline: Timestamp = Timestamp.now(),
+    val priority: Int = 1, // 0=Low, 1=Medium, 2=High
+    val status: Int = 0,   // 0=Not Started, 1=In Progress, 2=Done
+    val uid: List<String> = emptyList(), // List of member UIDs
+    val docs: List<Any> = emptyList() // List of attachment URLs
 )

@@ -132,7 +132,12 @@ fun TaskScreen(
                             enter = fadeIn(),
                             exit = fadeOut()
                         ) {
-                            Text("My Tasks", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2D2D2D))
+                            Text(
+                                "My Tasks",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2D2D2D)
+                            )
                         }
                         AnimatedVisibility(
                             visible = isSearchActive,
@@ -310,10 +315,9 @@ fun TaskScreen(
     }
 }
 
-// ✅ 2. PINDAHKAN `SwipeableTaskCard` KE LUAR `TaskScreen`
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-public fun SwipeableTaskCard(
+fun SwipeableTaskCard(
     task: TaskModel,
     onSwipeToDelete: (TaskModel) -> Unit,
     onTaskClick: () -> Unit,
@@ -371,6 +375,3 @@ public fun SwipeableTaskCard(
         )
     }
 }
-
-
-
