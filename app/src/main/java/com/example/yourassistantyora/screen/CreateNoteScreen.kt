@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
@@ -57,13 +58,14 @@ fun CreateNoteScreen(
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous_user" }
     // --- END TAMBAHAN ---
 
-    // Predefined categories dengan warna
+    // Predefined categories dengan warna yang SAMA dengan NoteScreen
     val predefinedCategories = listOf(
         "Work" to Color(0xFF667EEA),
         "Study" to Color(0xFF64B5F6),
+        "Project" to Color(0xFFEF5350),
+        "Idea" to Color(0xFFFFB74D),
         "Travel" to Color(0xFF4DB6AC),
-        "Meeting" to Color(0xFF9575CD),
-        "Project" to Color(0xFFEF5350)
+        "Meeting" to Color(0xFF9575CD)
     )
 
     // Custom categories yang ditambahkan user
@@ -264,7 +266,7 @@ fun CreateNoteScreen(
                     }
                 }
 
-                // Save Button (Fixed at bottom)
+                // Save Button dengan Gradient (Fixed at bottom) - SELALU TERLIHAT
                 Button(
                     onClick = {
                         if (title.isNotEmpty() && content.isNotEmpty() && selectedCategories.isNotEmpty()) {
@@ -273,21 +275,17 @@ fun CreateNoteScreen(
                             val noteData = hashMapOf(
                                 "title" to title,
                                 "note" to content,
-                                "categories" to selectedCategories, // Disimpan sebagai Array
+                                "categories" to selectedCategories,
                                 "user_id" to userId,
-                                "created_at" to FieldValue.serverTimestamp() // Waktu pembuatan (penting!)
+                                "created_at" to FieldValue.serverTimestamp()
                             )
 
-                            // Simpan ke koleksi "notes" (sesuai gambar Anda)
                             firestore.collection("notes")
                                 .add(noteData)
                                 .addOnSuccessListener {
-                                    // Panggil onSaveClick (asumsi ini akan memicu navigasi kembali)
                                     onSaveClick(title, content, selectedCategories)
-                                    // TODO: Tampilkan Toast/Snackbar "Note berhasil disimpan"
                                 }
                                 .addOnFailureListener { e ->
-                                    // TODO: Tampilkan Toast/Snackbar "Gagal menyimpan: $e"
                                     e.printStackTrace()
                                 }
                             // --- END TAMBAHAN ---
@@ -296,13 +294,20 @@ fun CreateNoteScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp)
-                        .height(48.dp),
+                        .height(48.dp)
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(Color(0xFF6A70D7), Color(0xFF7353AD))
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
                     enabled = title.isNotEmpty() && content.isNotEmpty() && selectedCategories.isNotEmpty(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6A70D7),
-                        disabledContainerColor = Color(0xFFE0E0E0)
+                        containerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
                     Text(
                         "Save",
@@ -444,7 +449,7 @@ fun CreateNoteScreen(
                                     )
                                 }
 
-                                // Create Button
+                                // Create Button dengan Gradient - SELALU TERLIHAT
                                 Button(
                                     onClick = {
                                         if (newCategoryName.isNotEmpty()) {
@@ -467,13 +472,20 @@ fun CreateNoteScreen(
                                     },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(44.dp),
+                                        .height(44.dp)
+                                        .background(
+                                            brush = Brush.linearGradient(
+                                                colors = listOf(Color(0xFF6A70D7), Color(0xFF7353AD))
+                                            ),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ),
                                     enabled = newCategoryName.isNotEmpty(),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF6A70D7),
-                                        disabledContainerColor = Color(0xFFE0E0E0)
+                                        containerColor = Color.Transparent,
+                                        disabledContainerColor = Color.Transparent
                                     ),
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(0.dp)
                                 ) {
                                     Text(
                                         "Create",
@@ -493,7 +505,6 @@ fun CreateNoteScreen(
 
 @Composable
 fun CreateCategoryChip(
-// ... (Kode CreateCategoryChip tidak berubah)
     text: String,
     isSelected: Boolean,
     color: Color,

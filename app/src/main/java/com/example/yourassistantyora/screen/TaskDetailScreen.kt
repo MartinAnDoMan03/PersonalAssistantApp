@@ -26,7 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.CircleShape // ✅1. TAMBAHKAN IMPORT INI
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -34,6 +34,8 @@ import com.example.yourassistantyora.models.TaskModel
 import com.example.yourassistantyora.viewModel.EditTaskViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.yourassistantyora.models.*
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,6 +86,7 @@ fun TaskDetailScreen(
                 actions = {
                     if (!isInEditMode && task != null) {
                         IconButton(onClick = { isInEditMode = true }) {
+                            // ✅ PERUBAHAN: Icon Edit akan menggunakan warna tint dari TopAppBarDefaults
                             Icon(Icons.Default.Edit, contentDescription = "Edit")
                         }
                     }
@@ -91,7 +94,9 @@ fun TaskDetailScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = if(isInEditMode) Color.White else Color(0xFF6A70D7),
                     titleContentColor = if(isInEditMode) Color(0xFF1F1F1F) else Color.White,
-                    navigationIconContentColor = if(isInEditMode) Color(0xFF757575) else Color.White
+                    navigationIconContentColor = if(isInEditMode) Color(0xFF757575) else Color.White,
+                    // ✅ TAMBAH: Aksi content color (termasuk icon Edit) diatur menjadi putih saat mode detail
+                    actionIconContentColor = if(isInEditMode) Color(0xFF757575) else Color.White
                 )
             )
         },
@@ -105,7 +110,7 @@ fun TaskDetailScreen(
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // ✅ Tombol Delete dibuat Outlined
+                        // Tombol Delete dibuat Outlined
                         OutlinedButton(
                             onClick = { viewModel.deleteTask() },
                             modifier = Modifier
@@ -117,7 +122,7 @@ fun TaskDetailScreen(
                         ) {
                             Text("Delete")
                         }
-                        // ✅ Tombol Save disamakan
+                        // Tombol Save disamakan
                         Button(
                             onClick = { viewModel.updateTask() },
                             modifier = Modifier
@@ -165,6 +170,8 @@ fun TaskDetailScreen(
 @Composable
 fun ViewTaskDetail(task: TaskModel) {
     val priorityColor = when (task.Priority) { 2->Color(0xFFEF5350); 1->Color(0xFFFFB74D); else->Color(0xFF64B5F6) }
+    // Mengambil semua kategori dari TaskModel
+    val categories = task.categoryNamesSafe
 
     Column {
         // Header Section
@@ -176,9 +183,23 @@ fun ViewTaskDetail(task: TaskModel) {
         ) {
             Text(task.Title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(shape = RoundedCornerShape(16.dp), color = priorityColor) { Text(task.priorityText, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White) }
-                Surface(shape = RoundedCornerShape(16.dp), color = Color.White.copy(alpha = 0.2f)) { Text(task.categoryText, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White) }
+
+            // Row untuk menampung chip Priority dan semua Category
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()), // Memungkinkan scroll horizontal jika chip terlalu banyak
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // 1. Chip Prioritas
+                Surface(shape = RoundedCornerShape(16.dp), color = priorityColor) {
+                    Text(task.priorityText, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                }
+
+                // 2. Chip Kategori (Looping untuk setiap nama kategori di categoryNamesSafe)
+                categories.forEach { category ->
+                    Surface(shape = RoundedCornerShape(16.dp), color = Color.White.copy(alpha = 0.2f)) {
+                        Text(category, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    }
+                }
             }
         }
 
@@ -233,7 +254,7 @@ fun EditTaskForm(viewModel: EditTaskViewModel) {
     )
 
     if (showTimePicker) {
-        // ✅ 3. PERBAIKI PEMANGGILAN TimePickerDialog
+        // PERBAIKI PEMANGGILAN TimePickerDialog
         TimePickerDialog(
             state = timePickerState,
             onDismissRequest = { showTimePicker = false },
@@ -390,12 +411,11 @@ private fun PriorityOption(
     }
 }
 
-// ✅ Composable khusus untuk TimePickerDialog (karena M3 belum punya yang simpel)
+// Composable khusus untuk TimePickerDialog (karena M3 belum punya yang simpel)
 @ExperimentalMaterial3Api
 @Composable
-// ✅ PERBAIKAN: Ganti Composable TimePickerDialog yang lama@OptIn(ExperimentalMaterial3Api::class) // Tambahkan ini jika perlu
 private fun TimePickerDialog(
-    state: TimePickerState, // ✅ 1. Terima TimePickerState
+    state: TimePickerState, // Terima TimePickerState
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -418,10 +438,10 @@ private fun TimePickerDialog(
                 .padding(top = 28.dp, start = 20.dp, end = 20.dp, bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ✅ 2. Tampilkan komponen TimePicker
+            // Tampilkan komponen TimePicker
             TimePicker(state = state)
             Spacer(modifier = Modifier.height(12.dp))
-            // ✅ 3. Tombol Aksi (Confirm & Cancel)
+            // Tombol Aksi (Confirm & Cancel)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
@@ -484,135 +504,3 @@ private fun DropdownInputChip(
     }
 }
 // --- HELPER COMPOSABLES (TIDAK ADA PERUBAHAN) unused---
-
-//@Composable
-//private fun PrioritySelector(selectedPriority: String, onPrioritySelected: (String) -> Unit) {
-//    val priorities = listOf("Low", "Medium", "High")
-//    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-//        Text("Priority", fontWeight = FontWeight.SemiBold)
-//        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-//            priorities.forEach { priority ->
-//                FilterChip(
-//                    selected = selectedPriority == priority,
-//                    onClick = { onPrioritySelected(priority) },
-//                    label = { Text(priority) }
-//                )
-//            }
-//        }
-//    }
-//}
-//
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//private fun CategorySelector(selectedCategory: String, onCategorySelected: (String) -> Unit) {
-//    val categories = listOf("Work", "Study", "Project", "Meeting", "Travel")
-//    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-//        Text("Category", fontWeight = FontWeight.SemiBold)
-//        Row(
-//            modifier = Modifier.horizontalScroll(rememberScrollState()),
-//            horizontalArrangement = Arrangement.spacedBy(10.dp)
-//        ) {
-//            categories.forEach { category ->
-//                FilterChip(
-//                    selected = selectedCategory == category,
-//                    onClick = { onCategorySelected(category) },
-//                    label = { Text(category) }
-//                )
-//            }
-//        }
-//    }
-//}
-//
-//
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//private fun StatusSelector(selectedStatus: String, onStatusSelected: (String) -> Unit) {
-//    val statuses = listOf("To do", "On Progress", "Hold On", "Done", "Waiting")
-//    var expanded by remember { mutableStateOf(false) }
-//
-//    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-//        Text("Status", fontWeight = FontWeight.SemiBold)
-//        ExposedDropdownMenuBox(
-//            expanded = expanded,
-//            onExpandedChange = { expanded = !expanded }
-//        ) {
-//            OutlinedTextField(
-//                value = selectedStatus,
-//                onValueChange = {},
-//                readOnly = true,
-//                trailingIcon = {
-//                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-//                },
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .menuAnchor()
-//            )
-//            ExposedDropdownMenu(
-//                expanded = expanded,
-//                onDismissRequest = { expanded = false }
-//            ) {
-//                statuses.forEach { status ->
-//                    DropdownMenuItem(
-//                        text = { Text(status) },
-//                        onClick = {
-//                            onStatusSelected(status)
-//                            expanded = false
-//                        }
-//                    )
-//                }
-//            }
-//        }
-//    }
-//}
-
-
-//// ✅ TAMBAHKAN COMPOSABLE BARU INI DI BAWAH STATUSSELECTOR
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//private fun ReminderSelector(selectedReminder: String, onReminderSelected: (String) -> Unit) {
-//    val reminderOptions = listOf(
-//        "Tidak ada pengingat",
-//        "Ingatkan pada waktunya",
-//        "Ingatkan 10 menit sebelumnya",
-//        "Ingatkan 20 menit sebelumnya",
-//        "Ingatkan 30 menit sebelumnya",
-//        "Ingatkan 1 hari sebelumnya",
-//        "Ingatkan 2 hari sebelumnya",
-//        "Ingatkan 3 hari sebelumnya"
-//    )
-//    var expanded by remember { mutableStateOf(false) }
-//
-//    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-//        Text("Reminder", fontWeight = FontWeight.SemiBold)
-//        ExposedDropdownMenuBox(
-//            expanded = expanded,
-//            onExpandedChange = { expanded = !expanded }
-//        ) {
-//            OutlinedTextField(
-//                value = selectedReminder,
-//                onValueChange = {},
-//                readOnly = true,
-//                trailingIcon = {
-//                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-//                },
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .menuAnchor()
-//            )
-//            ExposedDropdownMenu(
-//                expanded = expanded,
-//                onDismissRequest = { expanded = false }
-//            ) {
-//                reminderOptions.forEach { reminder ->
-//                    DropdownMenuItem(
-//                        text = { Text(reminder) },
-//                        onClick = {
-//                            onReminderSelected(reminder)
-//                            expanded = false
-//                        }
-//                    )
-//                }
-//            }
-//        }
-//    }
-//}
