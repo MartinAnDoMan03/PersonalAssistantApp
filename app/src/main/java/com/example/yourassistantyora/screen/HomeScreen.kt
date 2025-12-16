@@ -53,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,7 +62,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -76,13 +76,16 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.yourassistantyora.R
 import com.example.yourassistantyora.components.BottomNavigationBar
+import com.example.yourassistantyora.models.TaskModel
 import com.example.yourassistantyora.navigateSingleTop
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import com.example.yourassistantyora.utils.NavigationConstants
+import com.example.yourassistantyora.viewModel.TaskViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
@@ -101,7 +104,7 @@ data class Task(
     val teamMembers: Int = 0,
     var isCompleted: Boolean = false,
     val teamId: String? = null,
-    val teamMemberNames: List<String> = emptyList() // Tambah list nama member
+    val teamMemberNames: List<String> = emptyList()
 )
 
 // ---------- SCREEN ----------
@@ -109,12 +112,17 @@ data class Task(
 @Composable
 fun HomeScreen(
     navController: NavController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: TaskViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_HOME) }
     val scope = rememberCoroutineScope()
-    var userName by remember {mutableStateOf("User")}
-    var userPhotoUrl by remember {mutableStateOf<String?>(null)}
+    var userName by remember { mutableStateOf("User") }
+    var userPhotoUrl by remember { mutableStateOf<String?>(null) }
+
+    // Ambil data dari ViewModel
+    val tasksForToday by viewModel.tasksForToday.collectAsState(emptyList())
+    val isLoading by viewModel.isLoading.collectAsState(false)
 
     LaunchedEffect(Unit) {
         val auth = FirebaseAuth.getInstance()
@@ -125,7 +133,6 @@ fun HomeScreen(
             android.util.Log.d("HomeScreenDebug", "Current User UID: ${currentUser.uid}")
             val docRef = db.collection("users").document(currentUser.uid)
 
-            // Use SnapshotListener for real-time updates
             docRef.addSnapshotListener { snapshot, e ->
                 if (e != null) {
                     android.util.Log.e("HomeScreenDebug", "Listen failed.", e)
@@ -133,188 +140,48 @@ fun HomeScreen(
                 }
 
                 if (snapshot != null && snapshot.exists()) {
-                    android.util.Log.d("HomeScreenDebug", "FULL DATA: ${snapshot.data}")
                     val fetchedName = snapshot.getString("username")
                     val fetchedPhoto = snapshot.getString("photoUrl")
-                    android.util.Log.d("HomeScreenDebug", "Fetched 'username': '$fetchedName'")
-                    android.util.Log.d("HomeScreenDebug", "Fetched 'photoUrl' length: ${fetchedPhoto?.length ?: 0}")
 
-                    // Update state - ini akan trigger recomposition
                     userName = fetchedName ?: "User"
                     userPhotoUrl = fetchedPhoto
 
-                    android.util.Log.d("HomeScreenDebug", "Profile updated - Name: $userName, Photo exists: ${fetchedPhoto != null}")
+                    android.util.Log.d("HomeScreenDebug", "Profile updated - Name: $userName")
                 } else {
                     android.util.Log.d("HomeScreenDebug", "Snapshot is null or doesn't exist")
                 }
             }
-        } else {
-            android.util.Log.d("HomeScreenDebug", "Current User is NULL")
         }
     }
 
-
-    // State untuk tasks yang bisa diubah
-    var tasks by remember {
-        mutableStateOf(
-            listOf(
-                Task("1", "Morning workout routine", "06:00 AM", "High", "Personal", "Meeting"),
-                Task("2", "Review design mockups", "10:00 AM", "High", "Team", "Waiting", "Mobile Dev Team", 3, false, null, listOf("Marvitha", "John", "Sarah")),
-                Task("3", "Prepare presentation slides", "02:00 PM", "Medium", "Personal"),
-                Task("4", "Team sync meeting", "04:00 PM", "High", "Team", "Meeting", "Mobile Dev Team", 3, false, null, listOf("Marvitha", "John", "Sarah"))
-            )
-        )
-    }
-
-    LaunchedEffect(Unit) {
-        val auth = FirebaseAuth.getInstance()
-        val db = FirebaseFirestore.getInstance()
-        val currentUser = auth.currentUser
-
-        if (currentUser != null) {
-            val personalTasks = mutableListOf<Task>()
-            val teamTasks = mutableListOf<Task>()
-            val teamDetailsMap = mutableMapOf<String, Triple<String, Int, List<String>>>()
-
-            // Fetch team details dengan member names
-            db.collection("teams")
-                .whereArrayContains("members", currentUser.uid)
-                .addSnapshotListener { snapshot, _ ->
-                    snapshot?.documents?.forEach { doc ->
-                        val teamId = doc.id
-                        val teamName = doc.getString("name") ?: "Unknown Team"
-                        val memberUids = doc.get("members") as? List<*>
-                        val memberCount = memberUids?.size ?: 0
-
-                        // Inisialisasi list untuk menyimpan nama member
-                        val memberNames = mutableListOf<String>()
-                        var fetchedCount = 0
-
-                        // Fetch nama setiap member
-                        if (memberUids != null && memberUids.isNotEmpty()) {
-                            memberUids.forEach { uid ->
-                                if (uid is String) {
-                                    db.collection("users").document(uid).get()
-                                        .addOnSuccessListener { userDoc ->
-                                            val userName = userDoc.getString("username") ?: "User"
-                                            memberNames.add(userName)
-                                            fetchedCount++
-
-                                            android.util.Log.d("TeamMemberFetch", "Fetched: $userName for team: $teamName")
-
-                                            // Ketika semua nama sudah di-fetch, update map
-                                            if (fetchedCount == memberUids.size) {
-                                                teamDetailsMap[teamId] = Triple(teamName, memberCount, memberNames)
-                                                android.util.Log.d("TeamMemberFetch", "All members fetched for $teamName: $memberNames")
-
-                                                // Trigger update tasks
-                                                tasks = (personalTasks + teamTasks).sortedBy { it.time }
-                                            }
-                                        }
-                                        .addOnFailureListener { e ->
-                                            android.util.Log.e("TeamMemberFetch", "Failed to fetch user: $uid", e)
-                                            fetchedCount++
-                                            memberNames.add("User") // Fallback
-
-                                            if (fetchedCount == memberUids.size) {
-                                                teamDetailsMap[teamId] = Triple(teamName, memberCount, memberNames)
-                                                tasks = (personalTasks + teamTasks).sortedBy { it.time }
-                                            }
-                                        }
-                                }
-                            }
-                        } else {
-                            // Jika tidak ada member, tetap simpan data team
-                            teamDetailsMap[teamId] = Triple(teamName, 0, emptyList())
-                        }
-                    }
-                }
-
-            // Fetch personal tasks
-            db.collection("tasks")
-                .whereEqualTo("userId", currentUser.uid)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) return@addSnapshotListener
-
-                    val mapped = snapshot?.documents?.mapNotNull {
-                        mapDocumentToTask(it, isTeamTask = false, teamMap = emptyMap())
-                    } ?: emptyList()
-
-                    personalTasks.clear()
-                    personalTasks.addAll(mapped)
-                    tasks = (personalTasks + teamTasks).sortedBy { it.time }
-                }
-
-            // Fetch team tasks
-            db.collection("team_tasks")
-                .whereArrayContains("uid", currentUser.uid)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        android.util.Log.e("TeamTaskFetch", "Error fetching team tasks", e)
-                        return@addSnapshotListener
-                    }
-
-                    val mapped = snapshot?.documents?.mapNotNull { doc ->
-                        android.util.Log.d("TeamTaskFetch", "Processing team task: ${doc.id}")
-                        mapDocumentToTask(doc, isTeamTask = true, teamMap = teamDetailsMap)
-                    } ?: emptyList()
-
-                    teamTasks.clear()
-                    teamTasks.addAll(mapped)
-                    tasks = (personalTasks + teamTasks).sortedBy { it.time }
-
-                    android.util.Log.d("TeamTaskFetch", "Total team tasks: ${teamTasks.size}")
-                }
-        }
-    }
-
-    // STATE BARU: Melacak Task ID yang sedang di-slide (untuk Single Slide)
+    // STATE untuk UI interactions
     var swipedTaskId by remember { mutableStateOf<String?>(null) }
-
-    // State untuk undo completion
-    var lastCompletedTask by remember { mutableStateOf<Task?>(null) }
+    var lastCompletedTask by remember { mutableStateOf<TaskModel?>(null) }
     var showUndoSnackbar by remember { mutableStateOf(false) }
-
-    // State untuk undo deletion
-    var lastDeletedTask by remember { mutableStateOf<Task?>(null) }
-    var showDeleteSnackbar by remember { mutableStateOf(false) }
-
-    // State untuk dialog restore (memindahkan completed ke active)
     var showRestoreDialog by remember { mutableStateOf(false) }
-    var taskToRestore by remember { mutableStateOf<Task?>(null) }
-
-    // State untuk delete confirmation
-    var deletingTask by remember { mutableStateOf<Task?>(null) }
+    var taskToRestore by remember { mutableStateOf<TaskModel?>(null) }
+    var deletingTask by remember { mutableStateOf<TaskModel?>(null) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-    // Pisahkan task yang aktif dan selesai
-    val activeTasks = tasks.filter { !it.isCompleted }
-    val completedTasks = tasks.filter { it.isCompleted }
+    // Helper function untuk check completion
+    fun isCompleted(task: TaskModel) = task.Status == 2
+
+    // Pisahkan task yang aktif dan selesai dari ViewModel
+    val activeTasks = tasksForToday.filter { !isCompleted(it) }
+    val completedTasks = tasksForToday.filter { isCompleted(it) }
 
     // Hitung progress
-    val totalTasks = tasks.size
+    val totalTasks = tasksForToday.size
     val progressPercentage = if (totalTasks > 0) (completedTasks.size * 100) / totalTasks else 0
 
     // Function untuk handle checkbox click (complete task)
-    fun onCheckboxClick(task: Task) {
-        if (!task.isCompleted) {
-            tasks = tasks.map {
-                if (it.id == task.id) {
-                    it.copy(isCompleted = true)
-                } else {
-                    it
-                }
-            }
-
-            // Simpan untuk undo
+    fun onCheckboxClick(task: TaskModel) {
+        if (!isCompleted(task)) {
+            viewModel.updateTaskStatus(task.id, true) // Update ke Firestore via ViewModel
             lastCompletedTask = task
             showUndoSnackbar = true
-            showDeleteSnackbar = false
-
-            // Tutup slide jika ada
             swipedTaskId = null
 
-            // Auto hide setelah 8 detik
             scope.launch {
                 delay(8000)
                 showUndoSnackbar = false
@@ -325,51 +192,30 @@ fun HomeScreen(
 
     // Function untuk undo completion
     fun undoCompletion() {
-        lastCompletedTask?.let { t ->
-            tasks = tasks.map { if (it.id == t.id) it.copy(isCompleted = false) else it }
+        lastCompletedTask?.let {
+            viewModel.updateTaskStatus(it.id, false)
         }
         showUndoSnackbar = false
         lastCompletedTask = null
     }
 
-    // Function untuk delete task (dipanggil setelah konfirmasi)
-    fun deleteTaskConfirmed(task: Task) {
-        lastDeletedTask = task
-        tasks = tasks.filter { it.id != task.id }
-        showDeleteSnackbar = true
-        showUndoSnackbar = false
-
-        // Tutup slide jika ada
+    // Function untuk delete task
+    fun deleteTaskConfirmed(task: TaskModel) {
+        viewModel.deleteTask(task.id)
         swipedTaskId = null
-
-        scope.launch {
-            delay(8000)
-            showDeleteSnackbar = false
-            lastDeletedTask = null
-        }
-    }
-
-    // Function untuk undo deletion
-    fun undoDelete() {
-        lastDeletedTask?.let { t ->
-            // masukkan kembali ke list (sederhana: append lalu sort berdasarkan id supaya deterministik)
-            tasks = (tasks + t).sortedBy { it.id }
-        }
-        showDeleteSnackbar = false
-        lastDeletedTask = null
     }
 
     // show restore dialog
-    fun showRestoreConfirmation(task: Task) {
+    fun showRestoreConfirmation(task: TaskModel) {
         taskToRestore = task
         showRestoreDialog = true
-        swipedTaskId = null // Tutup slide sebelum menampilkan dialog
+        swipedTaskId = null
     }
 
     // restore task (pindahkan completed -> active)
     fun restoreTask() {
-        taskToRestore?.let { t ->
-            tasks = tasks.map { if (it.id == t.id) it.copy(isCompleted = false) else it }
+        taskToRestore?.let {
+            viewModel.updateTaskStatus(it.id, false)
         }
         showRestoreDialog = false
         taskToRestore = null
@@ -385,7 +231,6 @@ fun HomeScreen(
                         when (index) {
                             NavigationConstants.TAB_HOME -> {
                                 selectedTab = index
-                                // tetap di home
                             }
                             NavigationConstants.TAB_TASK -> {
                                 selectedTab = index
@@ -420,7 +265,6 @@ fun HomeScreen(
                         )
                         .padding(horizontal = 20.dp, vertical = 16.dp)
                 ) {
-                    // Get current time greeting
                     val currentHour = remember {
                         java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
                     }
@@ -433,13 +277,12 @@ fun HomeScreen(
                         }
                     }
 
-                    val inspection = LocalInspectionMode.current
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Top
                     ) {
-                        Column (modifier = Modifier.weight(1f)) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "$greetingText ",
@@ -464,7 +307,10 @@ fun HomeScreen(
                             )
                             Spacer(Modifier.height(4.dp))
                             val currentDate = remember {
-                                val dateFormat = java.text.SimpleDateFormat("EEEE, MMMM dd, yyyy", java.util.Locale.ENGLISH)
+                                val dateFormat = java.text.SimpleDateFormat(
+                                    "EEEE, MMMM dd, yyyy",
+                                    java.util.Locale.ENGLISH
+                                )
                                 dateFormat.format(java.util.Date())
                             }
                             Text(
@@ -480,10 +326,7 @@ fun HomeScreen(
                         ) {
                             Box {
                                 IconButton(
-                                    onClick = {
-                                        // TODO: nanti bikin route "notifications"
-                                        // navController.navigateSingleTop("notifications")
-                                    },
+                                    onClick = { },
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
@@ -514,18 +357,18 @@ fun HomeScreen(
                                 ) {
                                     val currentPhotoUrl = userPhotoUrl
                                     val bitmap = remember(currentPhotoUrl) {
-                                        if (!currentPhotoUrl.isNullOrEmpty()){
+                                        if (!currentPhotoUrl.isNullOrEmpty()) {
                                             try {
-                                                val pureBase64 = if(currentPhotoUrl.contains(",")) {
+                                                val pureBase64 = if (currentPhotoUrl.contains(",")) {
                                                     currentPhotoUrl.substringAfter(",")
                                                 } else {
                                                     currentPhotoUrl
                                                 }
 
                                                 val cleanBase64 = pureBase64.trim()
-                                                    .replace("\n","")
-                                                    .replace("\r","")
-                                                    .replace(" ","")
+                                                    .replace("\n", "")
+                                                    .replace("\r", "")
+                                                    .replace(" ", "")
 
                                                 val decodedBytes = android.util.Base64.decode(
                                                     cleanBase64,
@@ -536,15 +379,19 @@ fun HomeScreen(
                                                     0,
                                                     decodedBytes.size
                                                 )
-                                            }catch (e: Exception){
-                                                android.util.Log.e("HomeScreen", "Image decode failed", e)
+                                            } catch (e: Exception) {
+                                                android.util.Log.e(
+                                                    "HomeScreen",
+                                                    "Image decode failed",
+                                                    e
+                                                )
                                                 null
                                             }
-                                        }else{
+                                        } else {
                                             null
                                         }
                                     }
-                                    if (bitmap != null){
+                                    if (bitmap != null) {
                                         Image(
                                             bitmap = bitmap.asImageBitmap(),
                                             contentDescription = "Profile Picture",
@@ -553,14 +400,14 @@ fun HomeScreen(
                                         )
                                     } else {
                                         Text(
-                                            text = if (userName.isNotEmpty()) userName.take(1).uppercase() else "U",
+                                            text = if (userName.isNotEmpty()) userName.take(1)
+                                                .uppercase() else "U",
                                             color = Color.White,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
                             }
-
                         }
                     }
                 }
@@ -641,7 +488,10 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF2D2D2D)
                             )
-                            TextButton(onClick = { }, contentPadding = PaddingValues(0.dp)) {
+                            TextButton(
+                                onClick = { navController.navigateSingleTop("task_list") },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
                                 Text(
                                     "See All",
                                     color = Color(0xFF6A70D7),
@@ -659,14 +509,10 @@ fun HomeScreen(
                             enter = fadeIn() + expandVertically(),
                             exit = fadeOut() + shrinkVertically()
                         ) {
-                            TaskCardWithTrailingDelete(
+                            TaskCardFromModel(
                                 task = task,
                                 onTaskClick = {
-                                    if (task.category == "Team") {
-                                        navController.navigate("team_task_detail/${task.teamId}/${task.id}")
-                                    } else {
-                                        navController.navigate("task_detail/${task.id}")
-                                    }
+                                    navController.navigate("task_detail/${task.id}")
                                 },
                                 onCheckboxClick = { onCheckboxClick(task) },
                                 onDeleteIconClick = {
@@ -704,16 +550,12 @@ fun HomeScreen(
                                 enter = fadeIn() + expandVertically(),
                                 exit = fadeOut() + shrinkVertically()
                             ) {
-                                TaskCardWithTrailingDelete(
+                                TaskCardFromModel(
                                     task = task,
                                     onTaskClick = {
-                                        if (task.category == "Team") {
-                                            navController.navigate("team_task_detail/${task.teamId}/${task.id}")
-                                        } else {
-                                            navController.navigate("task_detail/${task.id}")
-                                        }
+                                        navController.navigate("task_detail/${task.id}")
                                     },
-                                    onCheckboxClick = { showRestoreConfirmation(task) }, // akan memunculkan dialog restore
+                                    onCheckboxClick = { showRestoreConfirmation(task) },
                                     onDeleteIconClick = {
                                         deletingTask = task
                                         showDeleteConfirmDialog = true
@@ -730,7 +572,6 @@ fun HomeScreen(
                                 )
                             }
                         }
-
                     }
                 }
             }
@@ -790,61 +631,7 @@ fun HomeScreen(
             }
         }
 
-        // Undo Delete Snackbar
-        AnimatedVisibility(
-            visible = showDeleteSnackbar,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Delete,
-                            contentDescription = null,
-                            tint = Color(0xFFF44336),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            "Task deleted",
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                    }
-                    TextButton(
-                        onClick = { undoDelete() },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            "UNDO",
-                            color = Color(0xFF6A70D7),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-
-        // Restore Confirmation Dialog (AlertDialog)
+        // Restore Confirmation Dialog
         if (showRestoreDialog) {
             AlertDialog(
                 onDismissRequest = { showRestoreDialog = false; taskToRestore = null },
@@ -854,7 +641,9 @@ fun HomeScreen(
                     TextButton(onClick = { restoreTask() }) { Text("Yes") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showRestoreDialog = false; taskToRestore = null }) { Text("Cancel") }
+                    TextButton(onClick = {
+                        showRestoreDialog = false; taskToRestore = null
+                    }) { Text("Cancel") }
                 }
             )
         }
@@ -875,7 +664,9 @@ fun HomeScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteConfirmDialog = false; deletingTask = null }) { Text("Batal") }
+                    TextButton(onClick = {
+                        showDeleteConfirmDialog = false; deletingTask = null
+                    }) { Text("Batal") }
                 }
             )
         }
@@ -905,244 +696,10 @@ private fun Chip(
     }
 }
 
-// ---------- TASK CARD (Dasar) ----------
-// Diubah untuk match dengan styling TaskCardDesignStyle
+// ---------- TASK CARD FROM TASKMODEL ----------
 @Composable
-fun TaskCard(
-    task: Task,
-    onTaskClick: () -> Unit,
-    onCheckboxClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isCompleted: Boolean = false
-) {
-    // Priority-based strip color (TIDAK berubah menjadi gray untuk completed)
-    val baseStripColor = when (task.priority) {
-        "High" -> Color(0xFFD32F2F)
-        "Medium" -> Color(0xFFEF6C00)
-        else -> Color(0xFF1976D2)
-    }
-
-    // Background selalu putih
-    val backgroundColor = Color.White
-
-    // Strip kiri tetap menggunakan warna priority (tidak abu-abu untuk completed)
-    val stripColor = baseStripColor
-
-    // Opacity untuk konten completed
-    val contentAlpha = if (isCompleted) 0.5f else 1f
-    val titleColor = Color(0xFF2D2D2D).copy(alpha = contentAlpha)
-    val secondaryTextColor = Color(0xFF9E9E9E).copy(alpha = contentAlpha)
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        onClick = onTaskClick,
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .padding(end = 12.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            // Strip Kiri (4dp width seperti TaskCardDesignStyle)
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(stripColor)
-            )
-
-            Spacer(Modifier.width(12.dp))
-
-            // Konten
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(vertical = 14.dp)
-            ) {
-                Text(
-                    text = task.title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = titleColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(Modifier.height(6.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Time
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Outlined.AccessTime,
-                            contentDescription = null,
-                            tint = secondaryTextColor,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(Modifier.width(3.dp))
-                        Text(task.time, fontSize = 11.sp, color = secondaryTextColor)
-                    }
-
-                    // Priority
-                    Chip(
-                        text = task.priority,
-                        bg = when (task.priority) {
-                            "High" -> Color(0xFFFFEBEE)
-                            "Medium" -> Color(0xFFFFF3E0)
-                            else -> Color(0xFFE3F2FD)
-                        }.copy(alpha = if (isCompleted) 0.3f else 1f),
-                        fg = when (task.priority) {
-                            "High" -> Color(0xFFD32F2F)
-                            "Medium" -> Color(0xFFEF6C00)
-                            else -> Color(0xFF1976D2)
-                        }.copy(alpha = if (isCompleted) 0.6f else 1f)
-                    )
-
-                    // Category
-                    if (task.category == "Team") {
-                        Chip(
-                            text = "Team",
-                            bg = Color(0xFFFFF0F5).copy(alpha = if (isCompleted) 0.3f else 1f),
-                            fg = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.6f else 1f),
-                            leading = {
-                                Icon(
-                                    imageVector = Icons.Outlined.People,
-                                    contentDescription = null,
-                                    tint = Color(0xFFE91E63).copy(alpha = if (isCompleted) 0.6f else 1f),
-                                    modifier = Modifier.size(12.dp)
-                                )
-                            }
-                        )
-                    } else {
-                        Chip(
-                            text = "Personal",
-                            bg = Color(0xFFE8EAF6).copy(alpha = if (isCompleted) 0.3f else 1f),
-                            fg = Color(0xFF3949AB).copy(alpha = if (isCompleted) 0.6f else 1f)
-                        )
-                    }
-
-                    // Status
-                    task.status?.let {
-                        Chip(
-                            text = it,
-                            bg = Color(0xFFF3E5F5).copy(alpha = if (isCompleted) 0.3f else 1f),
-                            fg = Color(0xFF9C27B0).copy(alpha = if (isCompleted) 0.6f else 1f)
-                        )
-                    }
-                }
-
-                // Team info
-                task.teamName?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "Team: ",
-                                fontSize = 11.sp,
-                                color = secondaryTextColor
-                            )
-                            Text(
-                                it,
-                                fontSize = 11.sp,
-                                color = if (isCompleted) secondaryTextColor else Color(0xFF6A70D7),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        if (task.teamMembers > 0) {
-                            Row(horizontalArrangement = Arrangement.spacedBy((-6).dp)) {
-                                // Tampilkan maksimal 3 member
-                                val maxDisplay = minOf(task.teamMembers, 3)
-                                repeat(maxDisplay) { idx ->
-                                    // Ambil nama member jika ada, atau gunakan placeholder
-                                    val memberName = task.teamMemberNames.getOrNull(idx)
-                                    val initial = memberName?.firstOrNull()?.uppercaseChar()?.toString()
-                                        ?: ('A' + idx).toString() // Fallback ke A, B, C jika belum load
-
-                                    Box(
-                                        modifier = Modifier
-                                            .size(20.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                when (idx) {
-                                                    0 -> Color(0xFFE91E63)
-                                                    1 -> Color(0xFF9C27B0)
-                                                    else -> Color(0xFF673AB7)
-                                                }.copy(alpha = if (isCompleted) 0.5f else 1f)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            initial,
-                                            color = Color.White,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                                // Tampilkan +N jika ada lebih dari 3 member
-                                if (task.teamMembers > 3) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(20.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF9E9E9E).copy(alpha = if (isCompleted) 0.5f else 1f))
-                                            .border(1.dp, Color.White, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            "+${task.teamMembers - 3}",
-                                            color = Color.White,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.width(8.dp))
-
-            // Checkbox
-            Column(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .padding(top = 12.dp, bottom = 14.dp, end = 4.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                Checkbox(
-                    checked = isCompleted,
-                    onCheckedChange = { onCheckboxClick() },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Color(0xFF6A70D7),
-                        uncheckedColor = Color(0xFFB0B0B0),
-                        checkmarkColor = Color.White
-                    ),
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-    }
-}
-
-// ---------- TASK CARD WITH SWIPE ----------
-@Composable
-fun TaskCardWithTrailingDelete(
-    task: Task,
+fun TaskCardFromModel(
+    task: TaskModel,
     onTaskClick: () -> Unit,
     onCheckboxClick: () -> Unit,
     onDeleteIconClick: () -> Unit,
@@ -1156,11 +713,11 @@ fun TaskCardWithTrailingDelete(
     val scope = rememberCoroutineScope()
     val deleteOffset = remember { Animatable(0f) }
 
-    // Strip color berdasarkan priority (untuk background delete)
-    val stripColor = when (task.priority) {
-        "High" -> Color(0xFFD32F2F)
-        "Medium" -> Color(0xFFEF6C00)
-        else -> Color(0xFF1976D2)
+    // Priority-based strip color
+    val stripColor = when (task.Priority) {
+        2 -> Color(0xFFD32F2F) // High
+        0 -> Color(0xFF1976D2) // Low
+        else -> Color(0xFFEF6C00) // Medium
     }
 
     LaunchedEffect(swipedTaskId) {
@@ -1257,7 +814,7 @@ fun TaskCardWithTrailingDelete(
         }
 
         // Card Task di atas
-        TaskCard(
+        TaskCardModel(
             task = task,
             onTaskClick = onTaskClick,
             onCheckboxClick = onCheckboxClick,
@@ -1269,73 +826,164 @@ fun TaskCardWithTrailingDelete(
     }
 }
 
-fun mapDocumentToTask(
-    doc: com.google.firebase.firestore.DocumentSnapshot,
-    isTeamTask: Boolean,
-    teamMap: Map<String, Triple<String, Int, List<String>>> // Changed from Pair to Triple
-): Task? {
-    try {
-        val cats = doc.get("CategoryNames") as? List<String>
-        val displayCategory = cats?.firstOrNull()
-            ?: doc.getString("category")
-            ?: "Personal"
+// ---------- TASK CARD MODEL ----------
+@Composable
+fun TaskCardModel(
+    task: TaskModel,
+    onTaskClick: () -> Unit,
+    onCheckboxClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isCompleted: Boolean = false
+) {
+    // Priority-based strip color
+    val baseStripColor = when (task.Priority) {
+        2 -> Color(0xFFD32F2F) // High
+        0 -> Color(0xFF1976D2) // Low
+        else -> Color(0xFFEF6C00) // Medium
+    }
 
-        val deadlineTimestamp = doc.getTimestamp("Deadline") ?: doc.getTimestamp("deadline")
-        val timeString = deadlineTimestamp?.toDate()?.let { date ->
-            java.text.SimpleDateFormat("hh:mm a", java.util.Locale.ENGLISH).format(date)
-        } ?: "--:--"
+    val backgroundColor = Color.White
+    val stripColor = baseStripColor
 
-        val priorityRaw = doc.get("Priority") ?: doc.get("priority")
-        val priorityString = if(priorityRaw is Number) {
-            when (priorityRaw.toInt()) {
-                2 -> "High"
-                0 -> "Low"
-                else -> "Medium"
+    // Opacity untuk konten completed
+    val contentAlpha = if (isCompleted) 0.5f else 1f
+    val titleColor = Color(0xFF2D2D2D).copy(alpha = contentAlpha)
+    val secondaryTextColor = Color(0xFF9E9E9E).copy(alpha = contentAlpha)
+
+    // Format time
+    val timeString = task.Deadline?.toDate()?.let { date ->
+        java.text.SimpleDateFormat("hh:mm a", java.util.Locale.ENGLISH).format(date)
+    } ?: "--:--"
+
+    // Priority text
+    val priorityText = when (task.Priority) {
+        2 -> "High"
+        0 -> "Low"
+        else -> "Medium"
+    }
+
+    // Status text
+    val statusText = when (task.Status) {
+        0 -> "Waiting"
+        1 -> "To do"
+        2 -> "Done"
+        3 -> "Hold On"
+        4 -> "In Progress"
+        else -> null
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        onClick = onTaskClick,
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .padding(end = 12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            // Strip Kiri
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(stripColor)
+            )
+
+            Spacer(Modifier.width(12.dp))
+
+            // Konten
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 14.dp)
+            ) {
+                Text(
+                    text = task.Title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Time
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.AccessTime,
+                            contentDescription = null,
+                            tint = secondaryTextColor,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Text(timeString, fontSize = 11.sp, color = secondaryTextColor)
+                    }
+
+                    // Priority
+                    Chip(
+                        text = priorityText,
+                        bg = when (task.Priority) {
+                            2 -> Color(0xFFFFEBEE)
+                            0 -> Color(0xFFE3F2FD)
+                            else -> Color(0xFFFFF3E0)
+                        }.copy(alpha = if (isCompleted) 0.3f else 1f),
+                        fg = when (task.Priority) {
+                            2 -> Color(0xFFD32F2F)
+                            0 -> Color(0xFF1976D2)
+                            else -> Color(0xFFEF6C00)
+                        }.copy(alpha = if (isCompleted) 0.6f else 1f)
+                    )
+
+                    // Category
+                    val categoryName = task.categoryNamesSafe.firstOrNull() ?: "Personal"
+                    Chip(
+                        text = categoryName,
+                        bg = Color(0xFFE8EAF6).copy(alpha = if (isCompleted) 0.3f else 1f),
+                        fg = Color(0xFF3949AB).copy(alpha = if (isCompleted) 0.6f else 1f)
+                    )
+
+                    // Status
+                    statusText?.let {
+                        Chip(
+                            text = it,
+                            bg = Color(0xFFF3E5F5).copy(alpha = if (isCompleted) 0.3f else 1f),
+                            fg = Color(0xFF9C27B0).copy(alpha = if (isCompleted) 0.6f else 1f)
+                        )
+                    }
+                }
             }
-        } else {
-            priorityRaw?.toString() ?: "Medium"
-        }
 
-        val rawStatus = doc.get("Status") ?: doc.get("status")
-        val statusString = if (rawStatus is Number){
-            when (rawStatus.toInt()){
-                2 -> "Done"
-                0 -> "Waiting"
-                else -> "To Do"
+            Spacer(Modifier.width(8.dp))
+
+            // Checkbox
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(top = 12.dp, bottom = 14.dp, end = 4.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Checkbox(
+                    checked = isCompleted,
+                    onCheckedChange = { onCheckboxClick() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = Color(0xFF6A70D7),
+                        uncheckedColor = Color(0xFFB0B0B0),
+                        checkmarkColor = Color.White
+                    ),
+                    modifier = Modifier.size(24.dp)
+                )
             }
-        } else {
-            rawStatus?.toString() ?: "To Do"
         }
-
-        val isDone = statusString.equals("Done", ignoreCase = true) || statusString.equals("Completed", ignoreCase = true)
-
-        val teamId = doc.getString("teamId") ?: doc.getString("team_id")
-        val teamInfo = if (isTeamTask && teamId != null) teamMap[teamId] else null
-
-        val teamNameDisplay = teamInfo?.first
-        val teamMemberCount = teamInfo?.second ?: 0
-        val teamMemberNames = teamInfo?.third ?: emptyList()
-        val finalCategory = if (isTeamTask) "Team" else displayCategory
-
-        android.util.Log.d("MapTask", "Task: ${doc.id}, TeamId: $teamId, TeamInfo: $teamInfo")
-        android.util.Log.d("MapTask", "MemberNames: $teamMemberNames, Count: $teamMemberCount")
-
-        return Task(
-            id = doc.id,
-            title = doc.getString("Title") ?: doc.getString("title") ?: "Untitled",
-            time = timeString,
-            priority = priorityString,
-            category = finalCategory,
-            status = statusString,
-            teamName = teamNameDisplay,
-            teamMembers = teamMemberCount,
-            isCompleted = isDone,
-            teamId = teamId,
-            teamMemberNames = teamMemberNames
-        )
-    } catch(e: Exception) {
-        android.util.Log.e("MapTask", "Error mapping task: ${doc.id}", e)
-        return null
     }
 }
 
