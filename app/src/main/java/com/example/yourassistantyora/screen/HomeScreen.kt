@@ -98,7 +98,8 @@ data class Task(
     val status: String? = null,
     val teamName: String? = null,
     val teamMembers: Int = 0,
-    var isCompleted: Boolean = false
+    var isCompleted: Boolean = false,
+    val teamId: String? = null
 )
 
 // ---------- SCREEN ----------
@@ -590,7 +591,11 @@ fun HomeScreen(
                             TaskCardWithTrailingDelete(
                                 task = task,
                                 onTaskClick = {
-                                    navController.navigate("task_detail/${task.id}")
+                                    if (task.category == "Team") {
+                                        navController.navigate("team_task_detail/${task.teamId}/${task.id}")
+                                    } else {
+                                        navController.navigate("task_detail/${task.id}")
+                                    }
                                 },
                                 onCheckboxClick = { onCheckboxClick(task) },
                                 onDeleteIconClick = {
@@ -631,7 +636,11 @@ fun HomeScreen(
                                 TaskCardWithTrailingDelete(
                                     task = task,
                                     onTaskClick = {
-                                        navController.navigate("task_detail/${task.id}")
+                                        if (task.category == "Team") {
+                                            navController.navigate("team_task_detail/${task.teamId}/${task.id}")
+                                        } else {
+                                            navController.navigate("task_detail/${task.id}")
+                                        }
                                     },
                                     onCheckboxClick = { showRestoreConfirmation(task) }, // akan memunculkan dialog restore
                                     onDeleteIconClick = {
@@ -1253,7 +1262,8 @@ fun mapDocumentToTask(
             status = statusString,
             teamName = teamNameDisplay,
             teamMembers = teamMemberCount,
-            isCompleted = isDone
+            isCompleted = isDone,
+            teamId = teamId
         )
     } catch(e: Exception) {
         return null

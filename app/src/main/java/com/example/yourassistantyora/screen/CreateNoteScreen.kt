@@ -34,6 +34,20 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.delay
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import com.example.yourassistantyora.service.AiNoteService
+import com.example.yourassistantyora.service.AiGeneratedNote
 
 enum class VoiceInputState {
     IDLE, READY_TO_RECORD, LISTENING, PROCESSING, TRANSCRIBED
@@ -55,14 +69,94 @@ fun CreateNoteScreen(
     onSaveClick: (String, String, List<String>) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     var selectedCategories by remember { mutableStateOf(listOf<String>()) }
+
+    // AI Voice Feature
+    var voiceInputState by remember { mutableStateOf(VoiceInputState.IDLE) }
+    var transcribedText by remember { mutableStateOf("") }
+    var aiGeneratedNote by remember { mutableStateOf<AiGeneratedNote?>(null) }
+
+    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
+    val speechIntent = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if(isGranted) {
+            voiceInputState = VoiceInputState.LISTENING
+            speechRecognizer.startListening(speechIntent)
+        } else {
+            Toast.makeText(context, "Microphone Permission Needed", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            speechRecognizer.destroy()
+        }
+    }
+
+    DisposableEffect(speechRecognizer) {
+        val listener = object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {
+                // Wait for onResults to fire
+            }
+
+            override fun onError(error: Int) {
+                if (error == SpeechRecognizer.ERROR_NO_MATCH) return
+
+                voiceInputState = VoiceInputState.IDLE
+                val msg = when(error) {
+                    SpeechRecognizer.ERROR_NO_MATCH -> "No speech matched"
+                    SpeechRecognizer.ERROR_NETWORK -> "Networkk error"
+                    else -> "Error occured: $error"
+                }
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onResults(results: Bundle?) {
+                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!matches.isNullOrEmpty()) {
+                    transcribedText = matches[0]
+                    voiceInputState = VoiceInputState.PROCESSING
+
+                    scope.launch {
+                        try {
+                            val result = AiNoteService.generateNoteFromText(transcribedText)
+                            aiGeneratedNote = result
+                            voiceInputState = VoiceInputState.TRANSCRIBED
+                        } catch (e: Exception) {
+                            voiceInputState = VoiceInputState.IDLE
+                            Toast.makeText(context, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        }
+        speechRecognizer.setRecognitionListener(listener)
+        onDispose { }
+    }
+
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
 
-    var voiceInputState by remember { mutableStateOf(VoiceInputState.IDLE) }
-    var transcribedText by remember { mutableStateOf("") }
 
     val firestore = remember { FirebaseFirestore.getInstance() }
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous_user" }
@@ -123,8 +217,7 @@ fun CreateNoteScreen(
                         .padding(horizontal = 20.dp, vertical = 16.dp)
                         .clickable {
                             if (voiceInputState == VoiceInputState.IDLE) {
-                                voiceInputState = VoiceInputState.READY_TO_RECORD
-                                transcribedText = ""
+                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             }
                         },
                     shape = RoundedCornerShape(12.dp),
@@ -167,8 +260,7 @@ fun CreateNoteScreen(
                         Button(
                             onClick = {
                                 if (voiceInputState == VoiceInputState.IDLE) {
-                                    voiceInputState = VoiceInputState.READY_TO_RECORD
-                                    transcribedText = ""
+                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 }
                             },
                             modifier = Modifier.height(36.dp),
@@ -422,22 +514,32 @@ fun CreateNoteScreen(
         VoiceInputOverlay(
             voiceInputState = voiceInputState,
             transcribedText = transcribedText,
-            onClose = { voiceInputState = VoiceInputState.IDLE },
+            aiResult = aiGeneratedNote,
+            onClose = {
+                speechRecognizer.stopListening()
+                voiceInputState = VoiceInputState.IDLE
+                      },
             onStartRecording = {
-                voiceInputState = VoiceInputState.LISTENING
-                transcribedText = ""
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             },
-            onStopRecording = { voiceInputState = VoiceInputState.PROCESSING },
-            onRecordingDone = {
-                voiceInputState = VoiceInputState.TRANSCRIBED
-                transcribedText = "Review design mockups for the new login screen by tomorrow"
+            onStopRecording = {
+                speechRecognizer.stopListening()
             },
+            onRecordingDone = {},
             onUseThis = {
-                content = if (content.isEmpty()) transcribedText else content + "\n" + transcribedText
+                aiGeneratedNote?.let { note ->
+                title = note.title
+                content = if (content.isBlank()) note.content else content + "\n\n" + note.content
+                    val newCats = note.categories.filter { !selectedCategories.contains(it) }
+                    selectedCategories = selectedCategories + newCats
+                } ?: run {
+                    content = if(content.isBlank()) transcribedText else content + "\n" + transcribedText
+                }
                 voiceInputState = VoiceInputState.IDLE
             },
             onRerecord = {
-                voiceInputState = VoiceInputState.READY_TO_RECORD
+                speechRecognizer.startListening(speechIntent)
+                voiceInputState = VoiceInputState.LISTENING
                 transcribedText = ""
             }
         )
@@ -448,6 +550,7 @@ fun CreateNoteScreen(
 fun BoxScope.VoiceInputOverlay(
     voiceInputState: VoiceInputState,
     transcribedText: String,
+    aiResult: AiGeneratedNote?,
     onClose: () -> Unit,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
@@ -662,7 +765,10 @@ fun BoxScope.VoiceInputOverlay(
 
                     VoiceInputState.TRANSCRIBED -> {
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 300.dp)
+                                .verticalScroll(rememberScrollState()),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = Color(0xFFF0FDF4)
@@ -678,25 +784,50 @@ fun BoxScope.VoiceInputOverlay(
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        "Transcribed",
+                                        "AI Suggestion",
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFF22C55E),
                                         fontSize = 14.sp
                                     )
                                 }
                                 Spacer(Modifier.height(8.dp))
-                                Text(
-                                    transcribedText,
-                                    color = Color(0xFF374151),
-                                    fontSize = 14.sp,
-                                    lineHeight = 20.sp
-                                )
+
+                                if (aiResult != null) {
+                                    Text("Title: ${aiResult.title}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(aiResult.content, fontSize = 13.sp)
+                                    Spacer(Modifier.height(8.dp))
+
+                                    // Categories Row
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        aiResult.categories.forEach { cat ->
+                                            Surface(
+                                                color = PrimaryPurple.copy(alpha=0.1f),
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    cat,
+                                                    modifier = Modifier.padding(4.dp),
+                                                    fontSize = 10.sp,
+                                                    color = PrimaryPurple
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        transcribedText,
+                                        color = Color(0xFF374151),
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp
+                                    )
+                                }
                             }
                         }
 
                         Spacer(Modifier.height(16.dp))
                         TipBox(
-                            "Tip: Speak clearly and mention priority, deadline, or assignees for better AI suggestions",
+                            "Tip: If the result is wrong, you can re-record.",
                             Color(0xFFEEF2FF),
                             Color(0xFF6366F1)
                         )
@@ -741,7 +872,7 @@ fun BoxScope.VoiceInputOverlay(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "Use This",
+                                        "Apply to Note",
                                         color = Color.White,
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 14.sp
@@ -750,6 +881,7 @@ fun BoxScope.VoiceInputOverlay(
                             }
                         }
                     }
+
 
                     else -> {}
                 }
