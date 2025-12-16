@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -59,6 +60,7 @@ fun TeamTaskDetailScreen(
     val comments by taskViewModel.comments.collectAsState()
     val isLoading by taskViewModel.isLoading.collectAsState()
     val error by taskViewModel.error.collectAsState()
+    var attachmentToDelete by remember { mutableStateOf<TaskAttachment?>(null) }
 
     // Ambil detail tim (untuk warna) dan detail task
     LaunchedEffect(key1 = teamId, key2 = taskId) {
@@ -120,6 +122,31 @@ fun TeamTaskDetailScreen(
         else if (readyTaskDetail.assignedTo.isNotEmpty()) "${readyTaskDetail.assignedTo.first().name.split(" ").first()}'s Task"
         else "Task Details"
 
+        if (attachmentToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { attachmentToDelete = null }, // Tutup dialog jika klik di luar
+                title = { Text("Delete Attachment") },
+                text = { Text("Are you sure you want to delete '${attachmentToDelete!!.fileName}'? This action cannot be undone.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            // Panggil fungsi ViewModel untuk menghapus
+                            taskViewModel.deleteAttachment(taskId, attachmentToDelete!!)
+                            attachmentToDelete = null // Tutup dialog setelah konfirmasi
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                    ) {
+                        Text("Delete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { attachmentToDelete = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
         Scaffold(containerColor = Color(0xFFF8F9FA)) { paddingValues ->
             Column(
                 modifier = modifier
@@ -152,7 +179,6 @@ fun TeamTaskDetailScreen(
                                 showStatusDropdown = false
                             },
                             currentUserId = readyTeamDetail.currentUserId,
-                            // ✅ TERUSKAN LOGIKA LAUNCHER KE DALAM onClick
                             onAddAttachmentClick = {
                                 val allPermissionsGranted = permissionsToRequest.all {
                                     ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
@@ -162,6 +188,10 @@ fun TeamTaskDetailScreen(
                                 } else {
                                     permissionLauncher.launch(permissionsToRequest)
                                 }
+                            },
+                            // ✅ TAMBAHKAN PARAMETER INI
+                            onDeleteAttachmentClick = { attachment ->
+                                attachmentToDelete = attachment // Buka dialog dengan attachment yang dipilih
                             }
                         )
                     }
@@ -197,7 +227,8 @@ private fun HeaderSection(
 ) {
     Box(
         modifier = Modifier
-            .fillMaxWidth()            .background(
+            .fillMaxWidth()
+            .background(
                 brush = Brush.horizontalGradient(teamGradient) // ✅ PERBAIKAN: Gunakan list-nya secara langsung
             )
             .padding(20.dp)
@@ -230,7 +261,8 @@ private fun MainTaskCard(
     onShowStatusDropdownChange: (Boolean) -> Unit,
     onStatusChange: (TaskStatus) -> Unit,
     currentUserId: String,
-    onAddAttachmentClick: () -> Unit
+    onAddAttachmentClick: () -> Unit,
+    onDeleteAttachmentClick: (TaskAttachment) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -327,10 +359,17 @@ private fun MainTaskCard(
                     }
                     // List attachment di bawahnya
                     task.attachments.forEach { attachment ->
-                        AttachmentChip(attachment) {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(attachment.fileUrl))
-                            context.startActivity(intent)
-                        }
+                        AttachmentChip(
+                            attachment = attachment,
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(attachment.fileUrl))
+                                context.startActivity(intent)
+                            },
+                            // Teruskan aksi hapus ke parent
+                            onDeleteClick = { onDeleteAttachmentClick(attachment) },
+                            // Izinkan hapus jika user bisa update status
+                            canDelete = canUpdateStatus
+                        )
                     }
 
                     // ✅ TAMBAHKAN TOMBOL "ADD ATTACHMENT" DI SINI
@@ -528,18 +567,50 @@ private fun AssigneeChip(member: TeamMember, isCurrentUser: Boolean) {
 }
 
 @Composable
-private fun AttachmentChip(attachment: TaskAttachment, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+private fun AttachmentChip(
+    attachment: TaskAttachment,
+    onClick: () -> Unit,
+    // ✅ TAMBAHKAN PARAMETER UNTUK AKSI HAPUS DAN APAKAH BISA HAPUS
+    onDeleteClick: () -> Unit,
+    canDelete: Boolean
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(Color(0xFFF8F9FA)),
-        border = BorderStroke(1.dp, Color(0xFFE8E8E8))
+        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+        color = Color.White
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Default.Attachment, null, tint = Color.Gray, modifier = Modifier.size(18.dp))
-            Text(attachment.fileName, fontSize = 13.sp, color = Color(0xFF616161))
+        Row(
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Filled.Description, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                Text(
+                    attachment.fileName,
+                    fontSize = 13.sp,
+                    color = Color(0xFF2D2D2D),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // ✅ TAMPILKAN TOMBOL HAPUS JIKA DIIZINKAN
+            if (canDelete) {
+                IconButton(
+                    onClick = onDeleteClick,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(Icons.Filled.Close, "Delete attachment", tint = Color.Gray)
+                }
+            }
         }
     }
 }

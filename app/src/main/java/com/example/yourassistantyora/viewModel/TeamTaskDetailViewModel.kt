@@ -163,6 +163,27 @@ class TeamTaskDetailViewModel : ViewModel() {
         clearListeners()
     }
 
+    fun deleteAttachment(taskId: String, attachmentToDelete: TaskAttachment) {
+        val taskRef = db.collection("team_tasks").document(taskId)
+
+        // Buat map yang sama persis dengan yang ada di Firestore untuk dihapus
+        val attachmentMap = mapOf(
+            "fileName" to attachmentToDelete.fileName,
+            "fileUrl" to attachmentToDelete.fileUrl
+        )
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // Gunakan FieldValue.arrayRemove untuk menghapus elemen dari array 'docs'
+                taskRef.update("docs", FieldValue.arrayRemove(attachmentMap)).await()
+            } catch (e: Exception) {
+                _error.value = "Failed to delete attachment: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 
     fun addAttachment(taskId: String, uri: Uri, context: Context) {
         val currentUserId = auth.currentUser?.uid ?: run {
