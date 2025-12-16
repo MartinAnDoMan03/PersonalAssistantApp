@@ -88,6 +88,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 // ---------- DATA ----------
 data class Task(
@@ -137,7 +139,7 @@ fun HomeScreen(
                     val fetchedName = snapshot.getString("username")
                     val fetchedPhoto = snapshot.getString("photoUrl")
                     android.util.Log.d("HomeScreenDebug", "Fetched 'username': '$fetchedName'")
-                    android.util.Log.d("HomeScreenDebug", "Fetched 'photoUrl' length: ${fetchedPhoto?.length ?: 0}")
+                    android.util.Log.d("HomeScreenDebug", "Fetched URL: $fetchedPhoto")
 
                     // Update state - ini akan trigger recomposition
                     userName = fetchedName ?: "User"
@@ -512,44 +514,12 @@ fun HomeScreen(
                                         .background(Color(0xFFFFB74D)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    val currentPhotoUrl = userPhotoUrl
-                                    val bitmap = remember(currentPhotoUrl) {
-                                        if (!currentPhotoUrl.isNullOrEmpty()){
-                                            try {
-                                                val pureBase64 = if(currentPhotoUrl.contains(",")) {
-                                                    currentPhotoUrl.substringAfter(",")
-                                                } else {
-                                                    currentPhotoUrl
-                                                }
-
-                                                val cleanBase64 = pureBase64.trim()
-                                                    .replace("\n","")
-                                                    .replace("\r","")
-                                                    .replace(" ","")
-
-                                                val decodedBytes = android.util.Base64.decode(
-                                                    cleanBase64,
-                                                    android.util.Base64.DEFAULT
-                                                )
-                                                android.graphics.BitmapFactory.decodeByteArray(
-                                                    decodedBytes,
-                                                    0,
-                                                    decodedBytes.size
-                                                )
-                                            }catch (e: Exception){
-                                                android.util.Log.e("HomeScreen", "Image decode failed", e)
-                                                null
-                                            }
-                                        }else{
-                                            null
-                                        }
-                                    }
-                                    if (bitmap != null){
-                                        Image(
-                                            bitmap = bitmap.asImageBitmap(),
+                                    if (!userPhotoUrl.isNullOrEmpty()) {
+                                        AsyncImage(
+                                            model = userPhotoUrl,
                                             contentDescription = "Profile Picture",
-                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
                                         )
                                     } else {
                                         Text(

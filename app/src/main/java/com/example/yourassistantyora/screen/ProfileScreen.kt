@@ -28,6 +28,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.yourassistantyora.navigateSingleTop
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import androidx.compose.foundation.Image
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,33 +89,14 @@ fun ProfileScreen(
                         .background(Color(0xFFFFB74D)),
                     contentAlignment = Alignment.Center
                 ) {
-                    val bitmap = remember(userPhotoUrl){
-                        if (!userPhotoUrl.isNullOrEmpty()){
-                            try {
-                                val pureBase64 = userPhotoUrl.substringAfter(",")
-                                val decodedBytes = android.util.Base64.decode(
-                                    pureBase64,
-                                    android.util.Base64.DEFAULT
-                                )
-                                android.graphics.BitmapFactory.decodeByteArray(
-                                    decodedBytes,
-                                    0,
-                                    decodedBytes.size
-                                )
-                            } catch (e: Exception){
-                                null
-                            }
-                        } else{
-                            null
-                        }
-                    }
-                    if (bitmap != null){
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
+                    if (!userPhotoUrl.isNullOrEmpty()) {
+                        AsyncImage(
+                            model = userPhotoUrl,
                             contentDescription = "Profile Picture",
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
                         )
+
                     } else{
                         Text(
                             text = if (userName.isNotEmpty()) userName.take(1).uppercase() else "U",
