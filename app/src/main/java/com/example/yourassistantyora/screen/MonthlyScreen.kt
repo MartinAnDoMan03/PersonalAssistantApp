@@ -13,11 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,10 +33,403 @@ import com.example.yourassistantyora.components.TaskFilterRow
 import com.example.yourassistantyora.components.TaskViewModeNavigation
 import com.example.yourassistantyora.models.TaskModel
 import com.example.yourassistantyora.navigateSingleTop
+import com.example.yourassistantyora.utils.isSameDay
 import com.example.yourassistantyora.utils.NavigationConstants
 import com.example.yourassistantyora.viewModel.TaskViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalFoundationApi::class,
+    ExperimentalAnimationApi::class
+)
+@Composable
+fun MonthlyScreen(
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    viewModel: TaskViewModel = viewModel()
+) {
+    // ===== STATE =====
+    val tasksForSelectedDate by viewModel.dateFilteredTasks.collectAsState(emptyList())
+    val isLoading by viewModel.isLoading.collectAsState(false)
+    val selectedDate by viewModel.selectedDate.collectAsState(Date())
+    val selectedStatus by viewModel.selectedStatus.collectAsState("All")
+    val selectedCategory by viewModel.selectedCategory.collectAsState("All")
+
+    var currentMonthDate by remember { mutableStateOf(Date()) }
+    var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
+    var swipedTaskId by remember { mutableStateOf<String?>(null) }
+
+    var isSearching by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    // snackbar undo
+    var lastCompletedTask by remember { mutableStateOf<TaskModel?>(null) }
+    var showUndoSnackbar by remember { mutableStateOf(false) }
+
+    // dialogs
+    var showRestoreDialog by remember { mutableStateOf(false) }
+    var taskToRestore by remember { mutableStateOf<TaskModel?>(null) }
+    var taskToDelete by remember { mutableStateOf<TaskModel?>(null) }
+
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) { viewModel.setViewMode("Monthly") }
+
+    fun isCompleted(task: TaskModel) = task.Status == 2
+
+    // ===== COMPLETE / UNDO =====
+    fun completeTask(task: TaskModel) {
+        if (!isCompleted(task)) {
+            viewModel.updateTaskStatus(task.id, true)
+            lastCompletedTask = task
+            showUndoSnackbar = true
+            swipedTaskId = null
+
+            scope.launch {
+                delay(8000)
+                showUndoSnackbar = false
+                lastCompletedTask = null
+            }
+        }
+    }
+
+    fun undoCompletion() {
+        lastCompletedTask?.let {
+            viewModel.updateTaskStatus(it.id, false)
+        }
+        showUndoSnackbar = false
+        lastCompletedTask = null
+    }
+
+    // ===== RESTORE =====
+    fun showRestoreConfirmation(task: TaskModel) {
+        taskToRestore = task
+        showRestoreDialog = true
+        swipedTaskId = null
+    }
+
+    fun restoreTask() {
+        taskToRestore?.let {
+            viewModel.updateTaskStatus(it.id, false)
+        }
+        showRestoreDialog = false
+        taskToRestore = null
+    }
+
+    // ===== FILTER =====
+    val filteredTasks = remember(
+        tasksForSelectedDate,
+        searchQuery,
+        selectedStatus,
+        selectedCategory
+    ) {
+        tasksForSelectedDate.filter { task ->
+            val statusMatch =
+                if (!isSearching) selectedStatus == "All" || task.statusText == selectedStatus else true
+            val categoryMatch =
+                if (!isSearching) selectedCategory == "All" || task.categoryNamesSafe.contains(selectedCategory) else true
+            val queryMatch =
+                searchQuery.isBlank() ||
+                        task.Title.contains(searchQuery, true) ||
+                        task.Description.contains(searchQuery, true)
+
+            statusMatch && categoryMatch && queryMatch
+        }
+    }
+
+    val completedTasks = filteredTasks.filter(::isCompleted)
+    val activeTasks = filteredTasks.filterNot(::isCompleted)
+
+    val calendarCells = remember(currentMonthDate, selectedDate) {
+        generateMonthlyCalendarCells(currentMonthDate, selectedDate)
+    }
+
+    // ================= UI =================
+    Box(Modifier.fillMaxSize()) {
+
+        Scaffold(
+            containerColor = Color(0xFFF5F7FA),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        AnimatedVisibility(!isSearching) {
+                            Text("My Tasks", fontWeight = FontWeight.Bold)
+                        }
+                        AnimatedVisibility(isSearching) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Search tasks...") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    focusedContainerColor = Color(0xFFF0F0F0),
+                                    unfocusedContainerColor = Color(0xFFF0F0F0)
+                                )
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        if (!isSearching) {
+                            IconButton(onClick = { navController.popBackStack() }) {
+                                Icon(Icons.Default.ArrowBack, null)
+                            }
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            if (isSearching) searchQuery = ""
+                            isSearching = !isSearching
+                        }) {
+                            Icon(
+                                if (isSearching) Icons.Default.Close else Icons.Outlined.Search,
+                                null
+                            )
+                        }
+                    }
+                )
+            },
+            bottomBar = {
+                BottomNavigationBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = {
+                        selectedTab = it
+                        when (it) {
+                            NavigationConstants.TAB_HOME -> navController.navigateSingleTop("home")
+                            NavigationConstants.TAB_TASK -> navController.navigateSingleTop("task_list")
+                            NavigationConstants.TAB_NOTE -> navController.navigateSingleTop("notes")
+                            NavigationConstants.TAB_TEAM -> navController.navigateSingleTop("team")
+                        }
+                    }
+                )
+            }
+        ) { padding ->
+
+            LazyColumn(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+
+                item {
+                    TaskViewModeNavigation(
+                        selectedViewMode = "Monthly",
+                        onViewModeChange = {
+                            when (it) {
+                                "List" -> navController.navigateSingleTop("task_list")
+                                "Daily" -> navController.navigateSingleTop("daily_tasks")
+                                "Weekly" -> navController.navigateSingleTop("weekly_tasks")
+                                "Monthly" -> {}
+                            }
+                        }
+                    )
+                }
+
+                if (!isSearching) {
+                    item {
+                        Column(Modifier.background(Color.White)) {
+                            TaskFilterRow(
+                                selectedStatus = selectedStatus,
+                                onStatusSelected = { viewModel.setStatusFilter(it) },
+                                selectedCategory = selectedCategory,
+                                onCategorySelected = { viewModel.setCategoryFilter(it) },
+                                categories = listOf(
+                                    "All", "Work", "Study", "Project",
+                                    "Meeting", "Travel", "Personal"
+                                )
+                            )
+                            Divider()
+                        }
+                    }
+                }
+
+                // ===== CALENDAR =====
+                item {
+                    MonthlyCalendar(
+                        currentMonthDate = currentMonthDate,
+                        selectedDate = selectedDate,
+                        cells = calendarCells,
+                        onPrevMonth = {
+                            currentMonthDate =
+                                Calendar.getInstance().apply {
+                                    time = currentMonthDate
+                                    add(Calendar.MONTH, -1)
+                                }.time
+                        },
+                        onNextMonth = {
+                            currentMonthDate =
+                                Calendar.getInstance().apply {
+                                    time = currentMonthDate
+                                    add(Calendar.MONTH, 1)
+                                }.time
+                        },
+                        onDateSelected = { viewModel.setSelectedDate(it) }
+                    )
+                }
+
+                // ===== ACTIVE TASKS =====
+                items(activeTasks, key = { it.id }) { task ->
+                    TaskCardDesignStyle(
+                        task = task,
+                        isCompleted = false,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        onTaskClick = { navController.navigate("task_detail/${task.id}") },
+                        onCheckboxClick = { checked ->
+                            if (checked) completeTask(task)
+                        },
+                        onDeleteIconClick = { taskToDelete = task },
+                        swipedTaskId = swipedTaskId,
+                        onSwipeChange = { id, swiped ->
+                            swipedTaskId = if (swiped) id else null
+                        }
+                    )
+                }
+
+                // ===== COMPLETED TASKS =====
+                if (completedTasks.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Completed (${completedTasks.size})",
+                            modifier = Modifier.padding(16.dp),
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Gray
+                        )
+                    }
+                    items(completedTasks, key = { "c_${it.id}" }) { task ->
+                        TaskCardDesignStyle(
+                            task = task,
+                            isCompleted = true,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            onTaskClick = { navController.navigate("task_detail/${task.id}") },
+                            onCheckboxClick = { checked ->
+                                if (!checked) showRestoreConfirmation(task)
+                            },
+                            onDeleteIconClick = { taskToDelete = task },
+                            swipedTaskId = swipedTaskId,
+                            onSwipeChange = { id, swiped ->
+                                swipedTaskId = if (swiped) id else null
+                            }
+                        )
+                    }
+                }
+
+                item { Spacer(Modifier.height(80.dp)) }
+            }
+        }
+
+        // ===== SNACKBAR UNDO =====
+        AnimatedVisibility(
+            visible = showUndoSnackbar,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
+        ) {
+            SnackbarCardSimple(
+                icon = {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                text = "Task completed",
+                actionText = "UNDO",
+                onAction = { undoCompletion() }
+            )
+        }
+
+        // ===== RESTORE DIALOG =====
+        if (showRestoreDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showRestoreDialog = false
+                    taskToRestore = null
+                },
+                title = { Text("Restore Task?") },
+                text = { Text("Do you want to move this task back to active tasks?") },
+                confirmButton = {
+                    TextButton(onClick = { restoreTask() }) { Text("Yes") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showRestoreDialog = false
+                        taskToRestore = null
+                    }) { Text("Cancel") }
+                }
+            )
+        }
+
+        // ===== DELETE DIALOG =====
+        taskToDelete?.let { task ->
+            AlertDialog(
+                onDismissRequest = { taskToDelete = null },
+                title = { Text("Hapus tugas?") },
+                text = { Text("Apakah kamu yakin ingin menghapus tugas ini?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.deleteTask(task.id)
+                        taskToDelete = null
+                    }) { Text("Hapus", color = Color(0xFFF44336)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { taskToDelete = null }) { Text("Batal") }
+                }
+            )
+        }
+    }
+}
+
+/* ================= HELPER ================= */
+
+@Composable
+private fun SnackbarCardSimple(
+    icon: @Composable () -> Unit,
+    text: String,
+    actionText: String,
+    onAction: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                icon()
+                Spacer(Modifier.width(12.dp))
+                Text(text, color = Color.White, fontSize = 14.sp)
+            }
+            TextButton(onClick = onAction) {
+                Text(
+                    actionText,
+                    color = Color(0xFF6A70D7),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+        }
+    }
+}/* ================= CALENDAR HELPERS ================= */
 
 private data class MonthlyCalendarCell(
     val date: Date,
@@ -50,497 +439,114 @@ private data class MonthlyCalendarCell(
     val isToday: Boolean
 )
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalAnimationApi::class)
 @Composable
-fun MonthlyScreen(
-    navController: NavController,
-    modifier: Modifier = Modifier,
-    viewModel: TaskViewModel = viewModel()
+private fun MonthlyCalendar(
+    currentMonthDate: Date,
+    selectedDate: Date,
+    cells: List<MonthlyCalendarCell>,
+    onPrevMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onDateSelected: (Date) -> Unit
 ) {
-    // VM States
-    val tasksForSelectedDate: List<TaskModel> by viewModel.dateFilteredTasks
-        .collectAsState(initial = emptyList())
-    val isLoading: Boolean by viewModel.isLoading.collectAsState(initial = false)
-    val selectedDate: Date by viewModel.selectedDate.collectAsState(initial = Date())
-    val selectedStatus: String by viewModel.selectedStatus.collectAsState(initial = "All")
-    val selectedCategory: String by viewModel.selectedCategory.collectAsState(initial = "All")
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(16.dp)
+    ) {
+        val monthLabel =
+            SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(currentMonthDate)
 
-    // Local UI States
-    var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
-    var taskToConfirm by remember { mutableStateOf<Pair<TaskModel, Boolean>?>(null) }
-    var taskToDelete by remember { mutableStateOf<TaskModel?>(null) }
-    var swipedTaskId by remember { mutableStateOf<String?>(null) }
-    var currentMonthDate by remember { mutableStateOf(Date()) }
-
-    // ✅ BARU: State untuk Pencarian
-    var isSearching by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-
-    LaunchedEffect(Unit) { viewModel.setViewMode("Monthly") }
-
-    val calendarCells: List<MonthlyCalendarCell> = remember(currentMonthDate, selectedDate) {
-        generateMonthlyCalendarCells(currentMonthDate, selectedDate)
-    }
-
-    // Task Filtering Logic
-    fun isCompletedTask(t: TaskModel): Boolean = t.Status == 2
-
-    // ✅ BARU: Filter tugas berdasarkan Search Query
-    val filteredTasksBySearch = remember(tasksForSelectedDate, searchQuery, selectedStatus, selectedCategory) {
-        tasksForSelectedDate.filter { task ->
-            // Filter Status dan Kategori (hanya tampilkan jika TIDAK dalam mode mencari)
-            val statusMatch = if (!isSearching) (selectedStatus == "All") || (task.statusText == selectedStatus) else true
-            val categoryMatch = if (!isSearching) (selectedCategory == "All") || task.categoryNamesSafe.contains(selectedCategory) else true
-
-            // Filter Search Query
-            val queryMatch = if (searchQuery.isBlank()) {
-                true
-            } else {
-                task.Title.contains(searchQuery, ignoreCase = true) ||
-                        task.Description.contains(searchQuery, ignoreCase = true)
-            }
-            statusMatch && categoryMatch && queryMatch
-        }
-    }
-
-    val (completedTasks, activeTasks) = remember(filteredTasksBySearch) {
-        filteredTasksBySearch.partition { isCompletedTask(it) }
-    }
-
-    // Dialog complete/restore
-    taskToConfirm?.let { (task, isCompleting) ->
-        // ... (Dialog logic remains the same)
-        AlertDialog(
-            onDismissRequest = { taskToConfirm = null },
-            title = { Text(if (isCompleting) "Complete Task" else "Restore Task") },
-            text = { Text("Are you sure?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.updateTaskStatus(task.id, isCompleting)
-                        taskToConfirm = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7))
-                ) { Text("Confirm") }
-            },
-            dismissButton = {
-                TextButton(onClick = { taskToConfirm = null }) { Text("Cancel") }
-            }
-        )
-    }
-
-    // Dialog delete
-    taskToDelete?.let { task ->
-        // ... (Dialog logic remains the same)
-        AlertDialog(
-            onDismissRequest = { taskToDelete = null },
-            title = { Text("Delete Task") },
-            text = { Text("Are you sure you want to permanently delete '${task.Title}'?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteTask(task.id)
-                        taskToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                ) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { taskToDelete = null }) { Text("Cancel") }
-            }
-        )
-    }
-
-    Scaffold(
-        containerColor = Color(0xFFF5F7FA),
-        topBar = {
-            TopAppBar(
-                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars), // Tambahkan responsiveness
-                title = {
-                    // Tampilkan Title biasa
-                    AnimatedVisibility(
-                        visible = !isSearching,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        Text(
-                            "My Tasks",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2D2D2D)
-                        )
-                    }
-
-                    // ✅ Tampilkan Search Bar saat isSearching true
-                    AnimatedVisibility(
-                        visible = isSearching,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search tasks...", fontSize = 14.sp) },
-                            textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(end = 8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent,
-                                cursorColor = Color(0xFF6A70D7),
-                                focusedContainerColor = Color(0xFFF0F0F0),
-                                unfocusedContainerColor = Color(0xFFF0F0F0)
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            singleLine = true
-                        )
-                    }
-                },
-                navigationIcon = {
-                    // Navigation Icon hanya ditampilkan saat tidak mencari
-                    if (!isSearching) {
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.Default.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
-                        }
-                    }
-                },
-                actions = {
-                    // ✅ Tombol Toggle Search/Close
-                    IconButton(onClick = {
-                        if (isSearching) {
-                            // Jika mode mencari aktif, matikan mode dan reset query
-                            searchQuery = ""
-                        }
-                        isSearching = !isSearching
-                    }) {
-                        Icon(
-                            imageVector = if (isSearching) Icons.Filled.Close else Icons.Outlined.Search,
-                            contentDescription = "Toggle Search",
-                            tint = Color(0xFF2D2D2D)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                selectedTab = selectedTab,
-                onTabSelected = { index ->
-                    selectedTab = index
-                    when (index) {
-                        NavigationConstants.TAB_HOME -> navController.navigateSingleTop("home")
-                        NavigationConstants.TAB_TASK -> navController.navigateSingleTop("task_list")
-                        NavigationConstants.TAB_NOTE -> navController.navigateSingleTop("notes")
-                        NavigationConstants.TAB_TEAM -> navController.navigateSingleTop("team")
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navController.navigate("create_task") },
-                containerColor = Color(0xFF6A70D7),
-                contentColor = Color.White
-            ) { Icon(Icons.Default.Add, "Create Task") }
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            item {
-                TaskViewModeNavigation(
-                    selectedViewMode = "Monthly",
-                    onViewModeChange = { viewModel.setViewMode(it) },
-                    onNavigateToList = { navController.navigateSingleTop("task_list") },
-                    onNavigateToDaily = { navController.navigateSingleTop("daily_tasks") },
-                    onNavigateToWeekly = { navController.navigateSingleTop("weekly_tasks") },
-                    onNavigateToMonthly = { /* already here */ }
-                )
-            }
-
-            // Filter Row hanya tampil jika TIDAK sedang mencari
-            if (!isSearching) {
-                item {
-                    TaskFilterRow(
-                        selectedStatus = selectedStatus,
-                        onStatusSelected = { viewModel.setStatusFilter(it) },
-                        selectedCategory = selectedCategory,
-                        onCategorySelected = { viewModel.setCategoryFilter(it) },
-                        categories = listOf("All", "Work", "Study", "Project", "Meeting", "Travel")
-                    )
+            Text(monthLabel, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Row {
+                IconButton(onClick = onPrevMonth) {
+                    Icon(Icons.Default.ChevronLeft, contentDescription = null)
+                }
+                IconButton(onClick = onNextMonth) {
+                    Icon(Icons.Default.ChevronRight, contentDescription = null)
                 }
             }
+        }
 
+        Spacer(Modifier.height(12.dp))
 
-            item { Divider(color = Color(0xFFE0E0E0), thickness = 1.dp) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            listOf("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa").forEach {
+                Text(it, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            }
+        }
 
-            // Calendar block (selalu tampil)
-            item {
-                Column(
+        Spacer(Modifier.height(8.dp))
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(7),
+            modifier = Modifier.height(280.dp),
+            userScrollEnabled = false
+        ) {
+            items(cells, key = { it.date.time }) { cell ->
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White)
-                        .padding(horizontal = 16.dp, vertical = 16.dp)
-                ) {
-                    MonthHeaderMonthly(
-                        date = currentMonthDate,
-                        onPrevMonth = {
-                            val cal = Calendar.getInstance().apply { time = currentMonthDate }
-                            cal.add(Calendar.MONTH, -1)
-                            currentMonthDate = cal.time
-                        },
-                        onNextMonth = {
-                            val cal = Calendar.getInstance().apply { time = currentMonthDate }
-                            cal.add(Calendar.MONTH, 1)
-                            currentMonthDate = cal.time
+                        .aspectRatio(1f)
+                        .clip(CircleShape)
+                        .clickable(enabled = cell.isCurrentMonth) {
+                            onDateSelected(cell.date)
                         }
-                    )
-
-                    Spacer(Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        listOf("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa").forEach { d ->
-                            Text(
-                                d,
-                                modifier = Modifier.weight(1f),
-                                textAlign = TextAlign.Center,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF757575)
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(7),
-                        modifier = Modifier.height(280.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        userScrollEnabled = false
-                    ) {
-                        items(
-                            items = calendarCells,
-                            key = { cell -> cell.date.time }
-                        ) { cell ->
-                            Box(
-                                modifier = Modifier
-                                    .aspectRatio(1f)
-                                    .clip(CircleShape)
-                                    .clickable(enabled = cell.isCurrentMonth) {
-                                        viewModel.setSelectedDate(cell.date)
-                                    }
-                                    .background(
-                                        when {
-                                            cell.isSelected -> Color(0xFF6A70D7)
-                                            cell.isToday -> Color(0xFFE8E7FF)
-                                            else -> Color.Transparent
-                                        }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = cell.dayOfMonth.toString(),
-                                    fontSize = 15.sp,
-                                    fontWeight = when {
-                                        cell.isSelected -> FontWeight.Bold
-                                        cell.isToday -> FontWeight.SemiBold
-                                        else -> FontWeight.Normal
-                                    },
-                                    color = when {
-                                        !cell.isCurrentMonth -> Color(0xFFCCCCCC)
-                                        cell.isSelected -> Color.White
-                                        cell.isToday -> Color(0xFF6A70D7)
-                                        else -> Color(0xFF1F1F1F)
-                                    },
-                                    textAlign = TextAlign.Center
-                                )
+                        .background(
+                            when {
+                                cell.isSelected -> Color(0xFF6A70D7)
+                                cell.isToday -> Color(0xFFE8E7FF)
+                                else -> Color.Transparent
                             }
-                        }
-                    }
-                }
-            }
-
-            // Selected date header
-            item {
-                val today = Date()
-                val isToday = isSameCalendarDayMonthly(selectedDate, today)
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White)
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = SimpleDateFormat("EEEE, MMM dd", Locale.getDefault()).format(selectedDate),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F1F1F)
-                    )
-                    if (isToday) {
-                        Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFF6A70D7)) {
-                            Text(
-                                "Today",
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                        }
-                    } else {
-                        TextButton(onClick = { viewModel.setSelectedDate(Date()) }) {
-                            Text("Go to Today", color = Color(0xFF6A70D7))
-                        }
-                    }
-                }
-            }
-
-            // Tasks section
-            if (isLoading) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 24.dp),
-                        contentAlignment = Alignment.Center
-                    ) { CircularProgressIndicator() }
-                }
-            } else {
-                if (activeTasks.isEmpty() && completedTasks.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 40.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val message = if (searchQuery.isNotBlank()) {
-                                "Tidak ada tugas yang cocok dengan \"$searchQuery\" pada hari ini."
-                            } else {
-                                "No tasks for this day."
-                            }
-                            Text(message, fontSize = 14.sp, color = Color(0xFF9E9E9E))
-                        }
-                    }
-                }
-
-                items(activeTasks, key = { "active_${it.id}" }) { task ->
-                    TaskCardDesignStyle(
-                        task = task,
-                        onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                        onCheckboxClick = { checked -> taskToConfirm = Pair(task, checked) },
-                        onDeleteIconClick = { taskToDelete = task },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                        isCompleted = false,
-                        swipedTaskId = swipedTaskId,
-                        onSwipeChange = { id, isSwiped ->
-                            swipedTaskId = if (isSwiped) id else null
-                        }
+                        text = cell.dayOfMonth.toString(),
+                        color = when {
+                            !cell.isCurrentMonth -> Color.LightGray
+                            cell.isSelected -> Color.White
+                            cell.isToday -> Color(0xFF6A70D7)
+                            else -> Color.Black
+                        },
+                        fontWeight = if (cell.isSelected) FontWeight.Bold else FontWeight.Normal
                     )
                 }
-
-                if (completedTasks.isNotEmpty()) {
-                    item {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Completed (${completedTasks.size})",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF9E9E9E),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                        )
-                    }
-                    items(completedTasks, key = { "completed_${it.id}" }) { task ->
-                        TaskCardDesignStyle(
-                            task = task,
-                            onTaskClick = { navController.navigate("task_detail/${task.id}") },
-                            onCheckboxClick = { checked -> taskToConfirm = Pair(task, checked) },
-                            onDeleteIconClick = { taskToDelete = task },
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                            isCompleted = true,
-                            swipedTaskId = swipedTaskId,
-                            onSwipeChange = { id, isSwiped ->
-                                swipedTaskId = if (isSwiped) id else null
-                            }
-                        )
-                    }
-                }
-
-                item { Spacer(Modifier.height(80.dp)) }
             }
         }
     }
 }
 
-@Composable
-private fun MonthHeaderMonthly(
-    date: Date,
-    onPrevMonth: () -> Unit,
-    onNextMonth: () -> Unit
-) {
-    val label = remember(date) {
-        SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(date)
+private fun generateMonthlyCalendarCells(
+    monthDate: Date,
+    selectedDate: Date
+): List<MonthlyCalendarCell> {
+    val cal = Calendar.getInstance().apply {
+        time = monthDate
+        set(Calendar.DAY_OF_MONTH, 1)
     }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1F1F1F))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            IconButton(onClick = onPrevMonth, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.ChevronLeft, "Previous Month", tint = Color(0xFF1F1F1F))
-            }
-            IconButton(onClick = onNextMonth, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.ChevronRight, "Next Month", tint = Color(0xFF1F1F1F))
-            }
-        }
-    }
-}
 
-private fun isSameCalendarDayMonthly(d1: Date, d2: Date): Boolean {
-    val c1 = Calendar.getInstance().apply { time = d1 }
-    val c2 = Calendar.getInstance().apply { time = d2 }
-    return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
-            c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
-}
-
-private fun generateMonthlyCalendarCells(monthDate: Date, selectedDate: Date): List<MonthlyCalendarCell> {
-    val cal = Calendar.getInstance().apply { time = monthDate }
-    cal.set(Calendar.DAY_OF_MONTH, 1)
-
-    val firstDayOffset = cal.get(Calendar.DAY_OF_WEEK) - 1 // Sun=0..Sat=6
+    val firstDayOffset = cal.get(Calendar.DAY_OF_WEEK) - 1
     cal.add(Calendar.DAY_OF_MONTH, -firstDayOffset)
 
-    val currentMonth = Calendar.getInstance().apply { time = monthDate }.get(Calendar.MONTH)
+    val currentMonth = Calendar.getInstance().apply { time = monthDate }
+        .get(Calendar.MONTH)
     val today = Date()
 
     return (0 until 42).map {
         val date = cal.time
-        val day = cal.get(Calendar.DAY_OF_MONTH)
-        val isCurrent = cal.get(Calendar.MONTH) == currentMonth
-        val isSel = isSameCalendarDayMonthly(date, selectedDate)
-        val isTod = isSameCalendarDayMonthly(date, today)
-
-        cal.add(Calendar.DAY_OF_MONTH, 1)
-
-        MonthlyCalendarCell(
+        val cell = MonthlyCalendarCell(
             date = date,
-            dayOfMonth = day,
-            isCurrentMonth = isCurrent,
-            isSelected = isSel,
-            isToday = isTod
+            dayOfMonth = cal.get(Calendar.DAY_OF_MONTH),
+            isCurrentMonth = cal.get(Calendar.MONTH) == currentMonth,
+            isSelected = isSameDay(date, selectedDate),
+            isToday = isSameDay(date, today)
         )
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+        cell
     }
 }

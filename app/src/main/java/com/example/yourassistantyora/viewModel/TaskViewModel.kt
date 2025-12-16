@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.yourassistantyora.models.TaskModel
 import com.example.yourassistantyora.repository.FirebaseTaskRepository
 import com.example.yourassistantyora.repository.TaskRepository
-import com.example.yourassistantyora.utils.DateUtils.isSameDay
+import com.example.yourassistantyora.utils.isSameDay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
