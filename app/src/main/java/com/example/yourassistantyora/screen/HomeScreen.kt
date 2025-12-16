@@ -425,11 +425,11 @@ fun HomeScreen(
                         java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
                     }
 
-                    val (greetingText, greetingIcon) = remember(currentHour) {
+                    val (greetingText, greetingIconRes) = remember(currentHour) {
                         when (currentHour) {
-                            in 0..11 -> Pair("Good Morning", "🌅")
-                            in 12..17 -> Pair("Good Afternoon", "☀️")
-                            else -> Pair("Good Night", "🌙")
+                            in 0..11 -> Pair("Good Morning", R.drawable.day_icon)
+                            in 12..17 -> Pair("Good Afternoon", R.drawable.afternoon)
+                            else -> Pair("Good Night", R.drawable.night)
                         }
                     }
 
@@ -447,9 +447,10 @@ fun HomeScreen(
                                     fontSize = 14.sp
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = greetingIcon,
-                                    fontSize = 16.sp
+                                Image(
+                                    painter = painterResource(id = greetingIconRes),
+                                    contentDescription = "Greeting Icon",
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                             Spacer(Modifier.height(4.dp))
