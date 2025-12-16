@@ -65,8 +65,12 @@ fun TaskScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     // --- LOGIKA FILTERING --- (Tetap sama)
-    val activeTasks = tasks.filter { !it.isCompleted }
-    val completedTasksList = tasks.filter { it.isCompleted }
+    // ⛔ BUANG TEAM TASK (TaskScreen = PERSONAL ONLY)
+    val personalTasks = tasks.filter { !it.id.startsWith("team_") }
+
+    val activeTasks = personalTasks.filter { !it.isCompleted }
+    val completedTasksList = personalTasks.filter { it.isCompleted }
+
 
     val filteredActiveTasks = activeTasks
         .filter { task ->

@@ -127,19 +127,26 @@ fun MonthlyScreen(
         selectedStatus,
         selectedCategory
     ) {
-        tasksForSelectedDate.filter { task ->
-            val statusMatch =
-                if (!isSearching) selectedStatus == "All" || task.statusText == selectedStatus else true
-            val categoryMatch =
-                if (!isSearching) selectedCategory == "All" || task.categoryNamesSafe.contains(selectedCategory) else true
-            val queryMatch =
-                searchQuery.isBlank() ||
-                        task.Title.contains(searchQuery, true) ||
-                        task.Description.contains(searchQuery, true)
+        tasksForSelectedDate
+            // ⛔ BUANG TEAM TASK (MONTHLY = PERSONAL ONLY)
+            .filter { task ->
+                !task.id.startsWith("team_")
+            }
+            .filter { task ->
+                val statusMatch =
+                    if (!isSearching) selectedStatus == "All" || task.statusText == selectedStatus else true
+                val categoryMatch =
+                    if (!isSearching) selectedCategory == "All" ||
+                            task.categoryNamesSafe.contains(selectedCategory) else true
+                val queryMatch =
+                    searchQuery.isBlank() ||
+                            task.Title.contains(searchQuery, true) ||
+                            task.Description.contains(searchQuery, true)
 
-            statusMatch && categoryMatch && queryMatch
-        }
+                statusMatch && categoryMatch && queryMatch
+            }
     }
+
 
     val completedTasks = filteredTasks.filter(::isCompleted)
     val activeTasks = filteredTasks.filterNot(::isCompleted)

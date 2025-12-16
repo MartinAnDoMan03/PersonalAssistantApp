@@ -91,9 +91,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
-
 
 // ---------- DATA ----------
 data class Task(
@@ -145,8 +142,6 @@ fun HomeScreen(
                 if (snapshot != null && snapshot.exists()) {
                     val fetchedName = snapshot.getString("username")
                     val fetchedPhoto = snapshot.getString("photoUrl")
-                    android.util.Log.d("HomeScreenDebug", "Fetched 'username': '$fetchedName'")
-                    android.util.Log.d("HomeScreenDebug", "Fetched 'photoUrl' length: ${fetchedPhoto?.length ?: 0}")
 
                     userName = fetchedName ?: "User"
                     userPhotoUrl = fetchedPhoto
@@ -181,28 +176,58 @@ fun HomeScreen(
 
     // Function untuk handle checkbox click (complete task)
     fun onCheckboxClick(task: TaskModel) {
-        if (!isCompleted(task)) {
-            viewModel.updateTaskStatus(task.id, true) // Update ke Firestore via ViewModel
+        if (isCompleted(task)) return
+
+        if (task.isTeamTask()) {
+            // ===== TEAM TASK =====
+            val parts = task.id.split("_")
+            val taskId = parts.getOrNull(2) ?: return
+
+            FirebaseFirestore.getInstance()
+                .collection("team_tasks")
+                .document(taskId)
+                .update("status", 2) // DONE
+                .addOnSuccessListener {
+                    lastCompletedTask = task
+                    showUndoSnackbar = true
+                }
+        } else {
+            // ===== PERSONAL TASK =====
+            viewModel.updateTaskStatus(task.id, true)
             lastCompletedTask = task
             showUndoSnackbar = true
-            swipedTaskId = null
+        }
 
-            scope.launch {
-                delay(8000)
-                showUndoSnackbar = false
-                lastCompletedTask = null
-            }
+        swipedTaskId = null
+
+        scope.launch {
+            delay(8000)
+            showUndoSnackbar = false
+            lastCompletedTask = null
         }
     }
+
 
     // Function untuk undo completion
     fun undoCompletion() {
-        lastCompletedTask?.let {
-            viewModel.updateTaskStatus(it.id, false)
+        lastCompletedTask?.let { task ->
+            if (task.isTeamTask()) {
+                val parts = task.id.split("_")
+                val taskId = parts.getOrNull(2) ?: return
+
+                FirebaseFirestore.getInstance()
+                    .collection("team_tasks")
+                    .document(taskId)
+                    .update("status", 1) // To Do
+            } else {
+                viewModel.updateTaskStatus(task.id, false)
+            }
         }
+
         showUndoSnackbar = false
         lastCompletedTask = null
     }
+
 
     // Function untuk delete task
     fun deleteTaskConfirmed(task: TaskModel) {
@@ -219,12 +244,26 @@ fun HomeScreen(
 
     // restore task (pindahkan completed -> active)
     fun restoreTask() {
-        taskToRestore?.let {
-            viewModel.updateTaskStatus(it.id, false)
+        taskToRestore?.let { task ->
+            if (task.isTeamTask()) {
+                // ===== TEAM TASK RESTORE =====
+                val parts = task.id.split("_")
+                val taskId = parts.getOrNull(2) ?: return
+
+                FirebaseFirestore.getInstance()
+                    .collection("team_tasks")
+                    .document(taskId)
+                    .update("status", 1) // To Do
+            } else {
+                // ===== PERSONAL TASK RESTORE =====
+                viewModel.updateTaskStatus(task.id, false)
+            }
         }
+
         showRestoreDialog = false
         taskToRestore = null
     }
+
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -360,12 +399,48 @@ fun HomeScreen(
                                         .background(Color(0xFFFFB74D)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (!userPhotoUrl.isNullOrEmpty()) {
-                                        AsyncImage(
-                                            model = userPhotoUrl,
+                                    val currentPhotoUrl = userPhotoUrl
+                                    val bitmap = remember(currentPhotoUrl) {
+                                        if (!currentPhotoUrl.isNullOrEmpty()) {
+                                            try {
+                                                val pureBase64 = if (currentPhotoUrl.contains(",")) {
+                                                    currentPhotoUrl.substringAfter(",")
+                                                } else {
+                                                    currentPhotoUrl
+                                                }
+
+                                                val cleanBase64 = pureBase64.trim()
+                                                    .replace("\n", "")
+                                                    .replace("\r", "")
+                                                    .replace(" ", "")
+
+                                                val decodedBytes = android.util.Base64.decode(
+                                                    cleanBase64,
+                                                    android.util.Base64.DEFAULT
+                                                )
+                                                android.graphics.BitmapFactory.decodeByteArray(
+                                                    decodedBytes,
+                                                    0,
+                                                    decodedBytes.size
+                                                )
+                                            } catch (e: Exception) {
+                                                android.util.Log.e(
+                                                    "HomeScreen",
+                                                    "Image decode failed",
+                                                    e
+                                                )
+                                                null
+                                            }
+                                        } else {
+                                            null
+                                        }
+                                    }
+                                    if (bitmap != null) {
+                                        Image(
+                                            bitmap = bitmap.asImageBitmap(),
                                             contentDescription = "Profile Picture",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
                                         )
                                     } else {
                                         Text(
@@ -481,22 +556,36 @@ fun HomeScreen(
                             TaskCardFromModel(
                                 task = task,
                                 onTaskClick = {
-                                    navController.navigate("task_detail/${task.id}")
+                                    if (task.id.startsWith("team_")) {
+
+                                        val parts = task.id.split("_")
+                                        // format: team_<teamId>_<taskId>
+                                        val teamId = parts.getOrNull(1) ?: return@TaskCardFromModel
+                                        val taskId = parts.getOrNull(2) ?: return@TaskCardFromModel
+
+                                        navController.navigate(
+                                            "team_task_detail/$teamId/$taskId"
+                                        )
+                                    } else {
+                                        navController.navigate("task_detail/${task.id}")
+                                    }
+                                }
+
+                                ,
+                                onCheckboxClick = {
+                                    onCheckboxClick(task)
                                 },
-                                onCheckboxClick = { onCheckboxClick(task) },
                                 onDeleteIconClick = {
                                     deletingTask = task
                                     showDeleteConfirmDialog = true
                                 },
                                 swipedTaskId = swipedTaskId,
                                 onSwipeChange = { id, isSwiped ->
-                                    if (isSwiped) {
-                                        swipedTaskId = id
-                                    } else if (swipedTaskId == id) {
-                                        swipedTaskId = null
-                                    }
+                                    swipedTaskId = if (isSwiped) id else null
                                 }
                             )
+
+
                         }
                     }
 
@@ -522,8 +611,22 @@ fun HomeScreen(
                                 TaskCardFromModel(
                                     task = task,
                                     onTaskClick = {
-                                        navController.navigate("task_detail/${task.id}")
-                                    },
+                                        if (task.id.startsWith("team_")) {
+
+                                            val parts = task.id.split("_")
+                                            // format: team_<teamId>_<taskId>
+                                            val teamId = parts.getOrNull(1) ?: return@TaskCardFromModel
+                                            val taskId = parts.getOrNull(2) ?: return@TaskCardFromModel
+
+                                            navController.navigate(
+                                                "team_task_detail/$teamId/$taskId"
+                                            )
+                                        } else {
+                                            navController.navigate("task_detail/${task.id}")
+                                        }
+                                    }
+
+                                    ,
                                     onCheckboxClick = { showRestoreConfirmation(task) },
                                     onDeleteIconClick = {
                                         deletingTask = task
@@ -683,11 +786,12 @@ fun TaskCardFromModel(
     val deleteOffset = remember { Animatable(0f) }
 
     // Priority-based strip color
-    val stripColor = when (task.Priority) {
-        2 -> Color(0xFFD32F2F) // High
-        0 -> Color(0xFF1976D2) // Low
-        else -> Color(0xFFEF6C00) // Medium
+    val stripColor = if (task.isTeamTask()) {
+        Color(0xFFF093FB) // PINK → TEAM
+    } else {
+        Color(0xFF667EEA) // UNGU → PERSONAL
     }
+
 
     LaunchedEffect(swipedTaskId) {
         val deleteWidthPx = with(density) { deleteWidth.toPx() }
@@ -812,7 +916,12 @@ fun TaskCardModel(
     }
 
     val backgroundColor = Color.White
-    val stripColor = baseStripColor
+    val stripColor = if (task.isTeamTask()) {
+        Color(0xFFF093FB) // PINK → TEAM
+    } else {
+        Color(0xFF667EEA) // UNGU → PERSONAL
+    }
+
 
     // Opacity untuk konten completed
     val contentAlpha = if (isCompleted) 0.5f else 1f
@@ -840,6 +949,12 @@ fun TaskCardModel(
         4 -> "In Progress"
         else -> null
     }
+
+    val isTeamTask =
+        task.id.startsWith("team_") ||
+                task.userId == "TEAM" ||
+                task.categoryNamesSafe.any { it.equals("Team", ignoreCase = true) }
+
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -914,6 +1029,7 @@ fun TaskCardModel(
                     )
 
                     // Category
+                    // Category / Team
                     val categoryName = task.categoryNamesSafe.firstOrNull() ?: "Personal"
                     Chip(
                         text = categoryName,
@@ -921,15 +1037,63 @@ fun TaskCardModel(
                         fg = Color(0xFF3949AB).copy(alpha = if (isCompleted) 0.6f else 1f)
                     )
 
-                    // Status
-                    statusText?.let {
+// Status → HANYA UNTUK TEAM TASK
+                    if (isTeamTask && statusText != null) {
                         Chip(
-                            text = it,
+                            text = statusText,
                             bg = Color(0xFFF3E5F5).copy(alpha = if (isCompleted) 0.3f else 1f),
                             fg = Color(0xFF9C27B0).copy(alpha = if (isCompleted) 0.6f else 1f)
                         )
                     }
+
                 }
+
+                // ===== TEAM INFO (LETANYA DI SINI) =====
+                if (isTeamTask) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.People,
+                                contentDescription = null,
+                                tint = Color(0xFF9C27B0),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Team: ${task.Location.ifBlank { "Team" }}",
+                                fontSize = 11.sp,
+                                color = Color(0xFF9C27B0),
+                                fontWeight = FontWeight.Medium
+                            )
+
+                        }
+
+//                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+//                            repeat(3) {
+//                                Box(
+//                                    modifier = Modifier
+//                                        .size(18.dp)
+//                                        .clip(CircleShape)
+//                                        .background(Color(0xFFD1C4E9)),
+//                                    contentAlignment = Alignment.Center
+//                                ) {
+//                                    Text(
+//                                        text = ('A' + it).toString(),
+//                                        fontSize = 9.sp,
+//                                        color = Color.White,
+//                                        fontWeight = FontWeight.Bold
+//                                    )
+//                                }
+//                            }
+//                        }
+                    }
+                }
+
             }
 
             Spacer(Modifier.width(8.dp))
@@ -967,3 +1131,11 @@ fun HomeScreenPreview() {
         )
     }
 }
+// ===== HELPER: DETECT TEAM TASK (UI ONLY) =====
+private fun TaskModel.isTeamTask(): Boolean {
+    return this.id.startsWith("team_") ||
+            this.userId == "TEAM" ||
+            this.categoryNamesSafe.any { it.equals("Team", ignoreCase = true) }
+}
+
+

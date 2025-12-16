@@ -34,6 +34,17 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+// === ANIMATION ===
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+
+// === DIALOG ===
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+
 
 data class StatusItem(val name: String, val color: Color)
 
@@ -642,25 +653,161 @@ fun NewStatusDialog(onDismiss: () -> Unit, onConfirm: (String, Color) -> Unit) {
 }
 
 @Composable
-fun NewCategoryDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+fun NewCategoryDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
     var categoryName by remember { mutableStateOf("") }
-    Dialog(onDismissRequest = onDismiss) {
-        Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("New Category", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                OutlinedTextField(value = categoryName, onValueChange = { categoryName = it }, modifier = Modifier.fillMaxWidth())
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                    Button(
-                        onClick = { if (categoryName.isNotBlank()) onConfirm(categoryName) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
-                    ) { Text("Create", color = Color.White) }
+
+    // ===== DIM BACKGROUND (SAMA DENGAN TEAM) =====
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(),
+        exit = fadeOut()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+                .clickable(enabled = false) {}
+        )
+    }
+
+    Dialog(
+        onDismissRequest = {
+            categoryName = ""
+            onDismiss()
+        },
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        AnimatedVisibility(
+            visible = true,
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut()
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+
+                    // ===== TITLE =====
+                    Text(
+                        text = "New Category",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF2D2D2D)
+                    )
+
+                    // ===== INPUT =====
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "Category Name",
+                            fontSize = 12.sp,
+                            color = Color(0xFF9E9E9E)
+                        )
+
+                        TextField(
+                            value = categoryName,
+                            onValueChange = { categoryName = it },
+                            placeholder = {
+                                Text(
+                                    "Marketing",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFFBDBDBD)
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                cursorColor = AccentColor
+                            ),
+                            textStyle = LocalTextStyle.current.copy(
+                                fontSize = 14.sp,
+                                color = Color(0xFF2D2D2D)
+                            )
+                        )
+
+                        HorizontalDivider(
+                            color = Color(0xFFE0E0E0),
+                            thickness = 0.5.dp
+                        )
+                    }
+
+                    // ===== ACTION BUTTONS =====
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+
+                        OutlinedButton(
+                            onClick = {
+                                categoryName = ""
+                                onDismiss()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp),
+                            border = BorderStroke(1.5.dp, Color(0xFFEF5350)),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFEF5350)
+                            )
+                        ) {
+                            Text(
+                                "Cancel",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                if (categoryName.isNotBlank()) {
+                                    onConfirm(categoryName)
+                                    categoryName = ""
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp),
+                            enabled = categoryName.isNotBlank(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentColor,
+                                disabledContainerColor = Color(0xFFE0E0E0)
+                            )
+                        ) {
+                            Text(
+                                "Create",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
 
 @Composable
 private fun outlinedColors() = OutlinedTextFieldDefaults.colors(

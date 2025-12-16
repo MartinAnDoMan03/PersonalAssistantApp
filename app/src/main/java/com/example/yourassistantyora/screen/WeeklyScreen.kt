@@ -104,21 +104,33 @@ fun WeeklyScreen(
     fun isCompletedTask(t: TaskModel): Boolean = (t.Status == 2) // Done
 
     // Filter Task Berdasarkan Query, Status, dan Kategori
-    val filteredTasksBySearch = remember(tasksForSelectedDate, searchQuery, selectedStatus, selectedCategory) {
-        tasksForSelectedDate.filter { task ->
-            val statusMatch = (selectedStatus == "All") || (task.statusText == selectedStatus)
-            val categoryMatch = (selectedCategory == "All") || task.categoryNamesSafe.contains(selectedCategory)
-
-            val queryMatch = if (searchQuery.isBlank()) {
-                true
-            } else {
-                task.Title.contains(searchQuery, ignoreCase = true) ||
-                        task.Description.contains(searchQuery, ignoreCase = true)
+    val filteredTasksBySearch = remember(
+        tasksForSelectedDate,
+        searchQuery,
+        selectedStatus,
+        selectedCategory
+    ) {
+        tasksForSelectedDate
+            // ⛔ BUANG TEAM TASK (WEEKLY = PERSONAL ONLY)
+            .filter { task ->
+                !task.id.startsWith("team_")
             }
-            // Karena tasksForSelectedDate sudah memfilter tanggal, kita hanya perlu memfilter status, kategori, dan query
-            statusMatch && categoryMatch && queryMatch
-        }
+            .filter { task ->
+                val statusMatch = (selectedStatus == "All") || (task.statusText == selectedStatus)
+                val categoryMatch =
+                    (selectedCategory == "All") || task.categoryNamesSafe.contains(selectedCategory)
+
+                val queryMatch = if (searchQuery.isBlank()) {
+                    true
+                } else {
+                    task.Title.contains(searchQuery, ignoreCase = true) ||
+                            task.Description.contains(searchQuery, ignoreCase = true)
+                }
+
+                statusMatch && categoryMatch && queryMatch
+            }
     }
+
 
     // split active vs completed (✅ Menggunakan filteredTasksBySearch)
     val (completedTasks, activeTasks) = remember(filteredTasksBySearch) {

@@ -109,17 +109,23 @@ fun DailyScreen(
 
     // ---------- FILTERING ----------
     val filteredTasks = remember(tasksForToday, searchQuery, selectedStatus, selectedCategory) {
-        tasksForToday.filter { task ->
-            val statusMatch = selectedStatus == "All" || task.statusText == selectedStatus
-            val categoryMatch = selectedCategory == "All" || task.categoryNamesSafe.contains(selectedCategory)
-            val queryMatch =
-                searchQuery.isBlank() ||
-                        task.Title.contains(searchQuery, true) ||
-                        task.Description.contains(searchQuery, true)
+        tasksForToday
+            .filter { task ->
+                // ⛔ BUANG TEAM TASK
+                !task.id.startsWith("team_")
+            }
+            .filter { task ->
+                val statusMatch = selectedStatus == "All" || task.statusText == selectedStatus
+                val categoryMatch = selectedCategory == "All" || task.categoryNamesSafe.contains(selectedCategory)
+                val queryMatch =
+                    searchQuery.isBlank() ||
+                            task.Title.contains(searchQuery, true) ||
+                            task.Description.contains(searchQuery, true)
 
-            statusMatch && categoryMatch && queryMatch
-        }
+                statusMatch && categoryMatch && queryMatch
+            }
     }
+
 
     val completedTasks = filteredTasks.filter(::isCompleted)
     val activeTasks = filteredTasks.filterNot(::isCompleted)
