@@ -60,7 +60,7 @@ fun TeamDetailScreen(
 
     var selectedFilter by remember { mutableStateOf<TaskStatus?>(null) }
     var showInviteDialog by remember { mutableStateOf(false) }
-    var showAccessDeniedDialog by remember { mutableStateOf(false) }
+//    var showAccessDeniedDialog by remember { mutableStateOf(false) }
 
     // Tampilkan UI berdasarkan state
     if (isLoading && teamDetail == null) {
@@ -294,17 +294,7 @@ fun TeamDetailScreen(
                         teamColor = detail.colorScheme.gradient.last(),
                         currentUserId = detail.currentUserId,
                         onClick = {
-                            // ✅ LOGIKA KONTROL AKSES
-                            val isAdmin = detail.currentUserRole == "Admin"
-                            val isAssignedToUser = task.assignedTo.any { it.id == detail.currentUserId }
-
-                            if (isAdmin || isAssignedToUser) {
-                                // Jika admin atau tugas di-assign ke user, navigasi seperti biasa
-                                navController.navigate("team_task_detail/${detail.id}/${task.id}")
-                            } else {
-                                // Jika member biasa dan tugas bukan miliknya, tampilkan dialog
-                                showAccessDeniedDialog = true
-                            }
+                            navController.navigate("team_task_detail/${detail.id}/${task.id}")
                         },
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                     )
@@ -332,9 +322,9 @@ fun TeamDetailScreen(
                 item { Spacer(Modifier.height(80.dp)) }
             }
 
-            if (showAccessDeniedDialog) {
-                AccessDeniedDialog(onDismiss = { showAccessDeniedDialog = false })
-            }
+//            if (showAccessDeniedDialog) {
+//                AccessDeniedDialog(onDismiss = { showAccessDeniedDialog = false })
+//            }
 
             // Invite Dialog
             if (showInviteDialog) {

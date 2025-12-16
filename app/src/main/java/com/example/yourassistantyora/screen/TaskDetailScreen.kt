@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.ui.graphics.Brush
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.yourassistantyora.models.TaskModel
@@ -178,7 +179,11 @@ fun ViewTaskDetail(task: TaskModel) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF6A70D7))
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(Color(0xFF5B6FE8), Color(0xFF8E44AD))
+                    )
+                )
                 .padding(horizontal = 24.dp, vertical = 24.dp)
         ) {
             Text(task.Title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -297,7 +302,9 @@ fun EditTaskForm(viewModel: EditTaskViewModel) {
                     value = description,
                     onValueChange = { viewModel.description.value = it },
                     placeholder = { Text("Add more details...(optional)", fontSize = 14.sp, color = Color(0xFFBDBDBD)) },
-                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent),
                     shape = RoundedCornerShape(8.dp),
                     maxLines = 4

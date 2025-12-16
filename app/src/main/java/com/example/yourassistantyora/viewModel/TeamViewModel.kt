@@ -48,10 +48,11 @@ class TeamViewModel : ViewModel() {
         if (currentUser == null) return
 
         isLoading.value = true
+        errorMessage.value = null // Reset error setiap kali fetch
 
         viewModelScope.launch {
             try {
-                // 1. Get User Document
+                // 1. Ambil ID tim dari dokumen pengguna (Logika yang sudah ada)
                 val userDoc = db.collection("users").document(currentUser.uid).get().await()
                 val teamIds = userDoc.get("teams") as? List<String> ?: emptyList()
 
@@ -61,52 +62,65 @@ class TeamViewModel : ViewModel() {
                     return@launch
                 }
 
+                // 2. ✅ LOGIKA BARU: Ambil semua tugas yang relevan dalam satu query
+                // Kita query koleksi root 'team_tasks'
+                val allTasksSnapshot = db.collection("team_tasks")
+                    .whereIn("team_id", teamIds) // Filter tugas berdasarkan semua teamId
+                    .get()
+                    .await()
+
+                // Buat Map untuk mengelompokkan tugas berdasarkan team_id agar efisien
+                val tasksByTeamId = allTasksSnapshot.documents.groupBy { it.getString("team_id") ?: "" }
+
                 val fetchedTeams = mutableListOf<com.example.yourassistantyora.screen.Team>()
 
-
+                // 3. Loop melalui setiap ID tim untuk membangun objek UI
                 for (id in teamIds) {
                     val teamDoc = db.collection("teams").document(id).get().await()
 
                     if (teamDoc.exists()) {
-                        val colorName = teamDoc.getString("colorScheme") ?: "BLUE"
-                        val colorEnum = try {
-                            TeamColorScheme.valueOf(colorName)
-                        } catch (e: Exception) {
-                            TeamColorScheme.BLUE
-                        }
+                        // ✅ LOGIKA BARU: Lakukan perhitungan di sini
+                        val tasksForThisTeam = tasksByTeamId[id] ?: emptyList()
+                        val totalTasks = tasksForThisTeam.size
+                        // Status '2' dianggap "Done"
+                        val completedTasks = tasksForThisTeam.count { (it.get("status") as? Long ?: 0) == 2L }
+                        val activeTasks = totalTasks - completedTasks
+                        val progress = if (totalTasks > 0) completedTasks.toFloat() / totalTasks.toFloat() else 0f
 
+                        // --- Logika yang sudah ada di bawah ini tidak diubah, hanya diisi dengan hasil perhitungan ---
+                        val colorName = teamDoc.getString("colorScheme") ?: "BLUE"
+                        val colorEnum = try { TeamColorScheme.valueOf(colorName) } catch (e: Exception) { TeamColorScheme.BLUE }
                         val creatorId = teamDoc.getString("createdBy")
                         val role = if (creatorId == currentUser.uid) "Admin" else "Member"
+                        val memberCount = (teamDoc.get("members") as? List<*>)?.size ?: 1
 
-                        val membersList = teamDoc.get("members") as? List<*>
-                        val memberCount = membersList?.size ?: 1
-
+                        // Buat objek UI Team dengan data yang sudah dihitung
                         val teamObj = com.example.yourassistantyora.screen.Team(
                             id = teamDoc.id,
                             name = teamDoc.getString("name") ?: "Unknown",
                             description = teamDoc.getString("description") ?: "",
+                            // Mengambil kategori pertama dari list untuk ditampilkan di UI
                             category = (teamDoc.get("categories") as? List<String>)?.firstOrNull() ?: "General",
                             colorScheme = colorEnum,
                             members = memberCount,
-                            activeTasks = 0,
-                            completedTasks = 0,
-                            progress = 0f,
+                            activeTasks = activeTasks,           // <-- Diisi dari hasil hitungan
+                            completedTasks = completedTasks,     // <-- Diisi dari hasil hitungan
+                            progress = progress,                 // <-- Diisi dari hasil hitungan
                             role = role
                         )
                         fetchedTeams.add(teamObj)
                     }
                 }
 
-                _teams.value = fetchedTeams
+                _teams.value = fetchedTeams.sortedBy { it.name }
 
             } catch (e: Exception) {
-                errorMessage.value = "Error: ${e.message}"
+                errorMessage.value = "Error fetching teams: ${e.message}"
             } finally {
                 isLoading.value = false
             }
         }
     }
-
     fun createTeam(
         name: String,
         description: String,
