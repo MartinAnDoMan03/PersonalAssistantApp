@@ -20,14 +20,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// ---------- VIEW MODE NAVIGATION (REUSABLE) ----------
+import androidx.compose.foundation.shape.CircleShape
+// ---------- VIEW MODE NAVIGATION ----------
 @Composable
 fun TaskViewModeNavigation(
     selectedViewMode: String,
     onViewModeChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    // Callback untuk navigasi ke halaman berbeda
     onNavigateToList: (() -> Unit)? = null,
     onNavigateToDaily: (() -> Unit)? = null,
     onNavigateToWeekly: (() -> Unit)? = null,
@@ -41,50 +40,28 @@ fun TaskViewModeNavigation(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ViewModeTab(
-            icon = Icons.Outlined.List,
-            text = "List",
-            isSelected = selectedViewMode == "List",
-            onClick = {
-                onViewModeChange("List")
-                onNavigateToList?.invoke()
-            },
-            modifier = Modifier.weight(1f)
+        val tabs = listOf(
+            Triple(Icons.Outlined.List, "List", onNavigateToList),
+            Triple(Icons.Outlined.DateRange, "Daily", onNavigateToDaily),
+            Triple(Icons.Outlined.CalendarMonth, "Weekly", onNavigateToWeekly),
+            Triple(Icons.Outlined.CalendarToday, "Monthly", onNavigateToMonthly)
         )
-        ViewModeTab(
-            icon = Icons.Outlined.DateRange,
-            text = "Daily",
-            isSelected = selectedViewMode == "Daily",
-            onClick = {
-                onViewModeChange("Daily")
-                onNavigateToDaily?.invoke()
-            },
-            modifier = Modifier.weight(1f)
-        )
-        ViewModeTab(
-            icon = Icons.Outlined.CalendarMonth,
-            text = "Weekly",
-            isSelected = selectedViewMode == "Weekly",
-            onClick = {
-                onViewModeChange("Weekly")
-                onNavigateToWeekly?.invoke()
-            },
-            modifier = Modifier.weight(1f)
-        )
-        ViewModeTab(
-            icon = Icons.Outlined.CalendarToday,
-            text = "Monthly",
-            isSelected = selectedViewMode == "Monthly",
-            onClick = {
-                onViewModeChange("Monthly")
-                onNavigateToMonthly?.invoke()
-            },
-            modifier = Modifier.weight(1f)
-        )
+
+        tabs.forEach { (icon, text, action) ->
+            ViewModeTab(
+                icon = icon,
+                text = text,
+                isSelected = selectedViewMode == text,
+                onClick = {
+                    onViewModeChange(text)
+                    action?.invoke()
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
-// ---------- VIEW MODE TAB ----------
 @Composable
 private fun ViewModeTab(
     icon: ImageVector,
@@ -102,9 +79,7 @@ private fun ViewModeTab(
         shape = RoundedCornerShape(8.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -119,13 +94,14 @@ private fun ViewModeTab(
                 text = text,
                 color = if (isSelected) Color.White else Color(0xFF666666),
                 fontSize = 11.sp,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1
             )
         }
     }
 }
 
-// ---------- FILTER ROW (STATUS + CATEGORY) - REUSABLE ----------
+// ---------- FILTER ROW (STATUS + CATEGORY) ----------
 @Composable
 fun TaskFilterRow(
     selectedStatus: String,
@@ -143,19 +119,18 @@ fun TaskFilterRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Status Dropdown: Weight 1f untuk align dengan tab pertama
+        // ✅ PERBAIKAN: Weight dinaikkan ke 1.4f agar teks "In Progress" punya ruang cukup
         StatusDropdown(
             selectedStatus = selectedStatus,
             onStatusSelected = onStatusSelected,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1.4f)
         )
 
-        // Category chips: Weight 3f untuk fill sisa space.
-        // Hapus weight(1f) dari chip di dalam agar bisa scroll.
+        // Category chips: Weight dikurangi sedikit untuk memberi ruang pada dropdown
         Row(
             modifier = Modifier
-                .weight(3f) // Memastikan Row ini mengambil 3/4 lebar
-                .horizontalScroll(rememberScrollState()), // Mengaktifkan scroll
+                .weight(2.6f)
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             categories.forEach { category ->
@@ -166,18 +141,14 @@ fun TaskFilterRow(
                         onCategorySelected(
                             if (category == "All" || selectedCategory != category) category else "All"
                         )
-                    },
-                    // ✅ PERBAIKAN: Hapus Modifier.weight(1f) di sini.
-                    // Ini memungkinkan chip untuk menentukan lebarnya berdasarkan teks, bukan dipaksa stretch.
-                    modifier = Modifier
+                    }
                 )
             }
         }
     }
 }
 
-// ---------- STATUS DROPDOWN (UKURAN MEDIUM) ----------
-@OptIn(ExperimentalMaterial3Api::class)
+// ---------- STATUS DROPDOWN ----------
 @Composable
 private fun StatusDropdown(
     selectedStatus: String,
@@ -185,139 +156,77 @@ private fun StatusDropdown(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
+
+    // Konfigurasi warna dropdown (Match dengan gambar referensi)
     val statusOptions = listOf(
-        StatusOption("All", null),
-        StatusOption("Waiting", Color(0xFFE1BEE7)),
-        StatusOption("To do", Color(0xFFBBDEFB)),
-        StatusOption("Hold On", Color(0xFFFFF9C4)),
-        StatusOption("In Progress", Color(0xFFB2DFDB)),
-        StatusOption("Done", Color(0xFFC8E6C9))
+        StatusOption("All", null, Color.White, Color(0xFF6A70D7)),
+        StatusOption("Waiting", Color(0xFFFDF2F9), Color(0xFF7B1FA2), Color(0xFFE1BEE7)),
+        StatusOption("To do", Color(0xFFE3F2FD), Color(0xFF1976D2), Color(0xFFBBDEFB)),
+        StatusOption("Hold On", Color(0xFFFFFDE7), Color(0xFFF57F17), Color(0xFFFFF9C4)),
+        StatusOption("In Progress", Color(0xFFE0F2F1), Color(0xFF00796B), Color(0xFFB2DFDB)),
+        StatusOption("Done", Color(0xFFE8F5E9), Color(0xFF388E3C), Color(0xFFC8E6C9))
     )
 
-    // Mapping warna untuk button berdasarkan selectedStatus (background)
-    val buttonColor = when (selectedStatus) {
-        "Waiting" -> Color(0xFFE1BEE7)
-        "To do" -> Color(0xFFBBDEFB)
-        "Hold On" -> Color(0xFFFFF9C4)
-        "In Progress" -> Color(0xFFB2DFDB)
-        "Done" -> Color(0xFFC8E6C9)
-        else -> Color(0xFF6A70D7) // Default untuk "All"
-    }
-
-    // Mapping warna teks/icon untuk button - match dengan warna di menu
-    val textColor = when (selectedStatus) {
-        "Waiting" -> Color(0xFF7B1FA2)
-        "To do" -> Color(0xFF1976D2)
-        "Hold On" -> Color(0xFFF57F17)
-        "In Progress" -> Color(0xFF00796B)
-        "Done" -> Color(0xFF388E3C)
-        else -> Color.White // Default untuk "All"
-    }
-    val iconTint = textColor // Icon arrow ikut warna teks
+    val currentOption = statusOptions.find { it.name == selectedStatus } ?: statusOptions[0]
 
     Box(modifier = modifier) {
-        // Tombol Dropdown
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(40.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { expanded = !expanded },
-            color = buttonColor,
+            color = currentOption.chipBgColor,
             shape = RoundedCornerShape(8.dp)
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 8.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                // Tambah icon FilterList di depan (seperti icon di tabs)
                 Icon(
                     imageVector = Icons.Outlined.FilterList,
-                    contentDescription = "Filter",
-                    tint = iconTint,
-                    modifier = Modifier.size(16.dp)
+                    contentDescription = null,
+                    tint = currentOption.textColor,
+                    modifier = Modifier.size(14.dp)
                 )
                 Spacer(Modifier.width(4.dp))
+                // ✅ PERBAIKAN: MaxLines dan SoftWrap ditambahkan agar tetap satu baris
                 Text(
                     text = if (selectedStatus == "All") "Status" else selectedStatus,
-                    color = textColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
+                    color = currentOption.textColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false
                 )
-                Spacer(Modifier.width(4.dp))
-                // Arrow di kanan, size 16.dp
                 Icon(
                     imageVector = if (expanded) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
-                    contentDescription = "Dropdown",
-                    tint = iconTint,
+                    contentDescription = null,
+                    tint = currentOption.textColor,
                     modifier = Modifier.size(16.dp)
                 )
             }
         }
 
-        // Dropdown Menu: Lebar disesuaikan konten (tidak ada width(220.dp)), ukuran medium
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            // Menghapus .width(220.dp) agar lebar menyesuaikan konten
-            modifier = Modifier
-                .background(Color.White, RoundedCornerShape(12.dp))
+            modifier = Modifier.background(Color.White, RoundedCornerShape(12.dp))
         ) {
-            Column(
-                modifier = Modifier.padding(12.dp), // Ukuran Medium
-                verticalArrangement = Arrangement.spacedBy(8.dp) // Ukuran Medium
-            ) {
-                statusOptions.forEach { option ->
-                    val isSelected = selectedStatus == option.name
-
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                onStatusSelected(option.name)
-                                expanded = false
-                            },
-                        color = option.color ?: Color(0xFFF5F7FA),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp), // Ukuran Medium
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = option.name,
-                                fontSize = 13.sp, // Ukuran Medium
-                                color = if (option.color != null) {
-                                    when(option.name) {
-                                        "Waiting" -> Color(0xFF7B1FA2)
-                                        "To do" -> Color(0xFF1976D2)
-                                        "Hold On" -> Color(0xFFF57F17)
-                                        "In Progress" -> Color(0xFF00796B)
-                                        "Done" -> Color(0xFF388E3C)
-                                        else -> Color(0xFF666666)
-                                    }
-                                } else Color(0xFF666666),
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Filled.Check,
-                                    contentDescription = "Selected",
-                                    tint = Color(0xFF6A70D7),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
+            statusOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(option.name, fontSize = 13.sp, color = option.textColor)
+                    },
+                    onClick = {
+                        onStatusSelected(option.name)
+                        expanded = false
+                    },
+                    leadingIcon = {
+                        Box(Modifier.size(12.dp).background(option.chipBgColor, CircleShape))
                     }
-                }
+                )
             }
         }
     }
@@ -325,7 +234,9 @@ private fun StatusDropdown(
 
 private data class StatusOption(
     val name: String,
-    val color: Color?
+    val bgColor: Color?, // Untuk item di list
+    val textColor: Color,
+    val chipBgColor: Color // Untuk tampilan tombol utama
 )
 
 // ---------- FILTER CHIP COMPACT ----------
@@ -337,7 +248,6 @@ private fun FilterChipCompact(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        // Catatan: Modifier hanya berisi yang dilewatkan dari luar (tidak ada weight)
         modifier = modifier
             .height(40.dp)
             .clip(RoundedCornerShape(8.dp))
@@ -346,9 +256,7 @@ private fun FilterChipCompact(
         shape = RoundedCornerShape(8.dp)
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp), // Padding horizontal sedikit ditambah agar chip tidak terlalu mepet
+            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -356,8 +264,6 @@ private fun FilterChipCompact(
                 color = if (isSelected) Color.White else Color(0xFF666666),
                 fontSize = 11.sp,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                // Pastikan teks tidak dibungkus, ini akan memaksa chip melebar
                 maxLines = 1
             )
         }

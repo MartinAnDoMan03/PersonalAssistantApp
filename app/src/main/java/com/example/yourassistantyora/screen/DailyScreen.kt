@@ -209,8 +209,12 @@ fun DailyScreen(
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = { navController.navigate("create_task") },
-                    containerColor = Color(0xFF6A70D7)
-                ) { Icon(Icons.Default.Add, null) }
+                    containerColor = Color(0xFF6A70D7),
+                    contentColor = Color.White,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(Icons.Filled.Add, "Create Task", modifier = Modifier.size(28.dp))
+                }
             }
         ) { padding ->
 

@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 
-// --- Gradient Button Composable Helper (Diperbarui untuk Card Elevation) ---
 @Composable
 fun GradientElevatedButton(
     onClick: () -> Unit,
@@ -29,33 +28,43 @@ fun GradientElevatedButton(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
+    // Warna gradient sesuai permintaan Anda
+    val startColor = Color(0xFF6A70D7)
+    val endColor = Color(0xFF7353AD)
+
     val gradient = Brush.horizontalGradient(
-        listOf(Color(0xFF6A70D7), Color(0xFFC870D7)) // Gradient Ungu ke Pink/Violet
+        listOf(startColor, endColor)
     )
 
     Card(
-        modifier = modifier.height(50.dp), // Height dari Button
+        modifier = modifier.height(50.dp),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp), // Shadow untuk Card
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent) // Card transparan untuk gradient di Button
+        // Elevation dikurangi saat disabled agar tidak terlihat "melayang"
+        elevation = CardDefaults.cardElevation(defaultElevation = if (enabled) 4.dp else 0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Button(
             onClick = onClick,
-            modifier = Modifier.fillMaxSize(), // Button mengisi Card
+            modifier = Modifier.fillMaxSize(),
             enabled = enabled,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent, // Container harus transparan agar gradient terlihat
-                disabledContainerColor = Color(0xFFE0E0E0), // Warna solid saat disabled
-                contentColor = if (enabled) Color.White else Color(0xFF9E9E9E), // Warna teks/ikon
-                disabledContentColor = Color(0xFF9E9E9E)
+                containerColor = Color.Transparent,
+                // Penting: Set disabledContainer tetap transparan agar background Box terlihat
+                disabledContainerColor = Color.Transparent,
+                contentColor = Color.White,
+                disabledContentColor = Color.White.copy(alpha = 0.6f)
             ),
-            contentPadding = PaddingValues(0.dp), // Hapus padding default Button
-            shape = RoundedCornerShape(12.dp) // Shape Button sesuai Card
+            contentPadding = PaddingValues(0.dp),
+            shape = RoundedCornerShape(12.dp)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(brush = if (enabled) gradient else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))), // Gradient di Box
+                    // Background selalu ada, tapi gunakan alpha 0.5f saat disabled
+                    .background(
+                        brush = gradient,
+                        alpha = if (enabled) 1f else 0.5f
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
@@ -67,8 +76,6 @@ fun GradientElevatedButton(
         }
     }
 }
-// ------------------------------------------
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JoinTeamScreen(
