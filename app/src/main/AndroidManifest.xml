@@ -77,6 +77,11 @@
            SUDAH TIDAK PERLU dideklarasikan lagi di sini,
            karena sekarang layarnya di-handle di AppNavigation (NavHost).
         -->
+
+        <activity
+            android:name=".OnboardingActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
     </application>
 
 </manifest>

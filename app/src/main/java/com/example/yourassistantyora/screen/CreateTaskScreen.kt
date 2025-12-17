@@ -643,9 +643,19 @@ fun NewStatusDialog(onDismiss: () -> Unit, onConfirm: (String, Color) -> Unit) {
                     OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Cancel") }
                     Button(
                         onClick = { if (statusName.isNotBlank()) onConfirm(statusName, selectedColor) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
-                    ) { Text("Create", color = Color.White) }
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(GradientStartColor, GradientEndColor)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("Create", color = Color.White, fontWeight = FontWeight.Medium)
+                    }
                 }
             }
         }
@@ -777,6 +787,7 @@ fun NewCategoryDialog(
                             )
                         }
 
+                        // ✅ BUTTON CREATE DENGAN GRADIENT SAMA SEPERTI NEW STATUS DIALOG
                         Button(
                             onClick = {
                                 if (categoryName.isNotBlank()) {
@@ -786,13 +797,20 @@ fun NewCategoryDialog(
                             },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(42.dp),
+                                .height(42.dp)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(GradientStartColor, GradientEndColor)
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                ),
                             enabled = categoryName.isNotBlank(),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = AccentColor,
-                                disabledContainerColor = Color(0xFFE0E0E0)
-                            )
+                                containerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent
+                            ),
+                            contentPadding = PaddingValues(0.dp)
                         ) {
                             Text(
                                 "Create",

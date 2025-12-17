@@ -25,4 +25,12 @@
     <color name="strength_medium">#FF9800</color>
     <color name="strength_strong">#43A047</color>
     <color name="link">#1976D2</color>
+
+    <color name="primary">#5B67CA</color>
+    <color name="primary_dark">#8B5CF6</color>
+    <color name="gray_light">#D9D9D9</color>
+    <color name="gray_medium">#9CA3AF</color>
+    <color name="text_dark">#1F2937</color>
+    <color name="text_gray">#6B7280</color>
+    <color name="green_accent">#10B981</color>
 </resources>

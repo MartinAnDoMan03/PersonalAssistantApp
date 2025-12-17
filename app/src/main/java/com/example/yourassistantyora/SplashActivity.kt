@@ -3,6 +3,7 @@ package com.example.yourassistantyora
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -286,24 +287,10 @@ class SplashActivity : AppCompatActivity() {
             textAnimatorSet.playTogether(textScaleX, textScaleY, textFadeIn, textMoveDown)
             textAnimatorSet.start()
 
-            // This handler will now wait for the final animation (700ms) to finish before checking the user and navigating.
+            // Navigate setelah animasi selesai
             Handler(Looper.getMainLooper()).postDelayed({
-                val currentUser = auth.currentUser
-                if (currentUser != null) {
-                    // Jika sudah login, ambil datanya dari Firestore
-                    fetchUserAndNavigate()
-                } else {
-                    // Kalau belum login, arahkan ke login
-                    val intent = Intent(this, MainActivity::class.java).apply {
-                        putExtra("START_DESTINATION", "login")
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    }
-                    startActivity(intent)
-                    finish()
-                }
+                navigateToNextScreen()
             }, 1000)
-
-
 
             // Staggered tagline
             appNameTextView.alpha = 1f
@@ -319,10 +306,40 @@ class SplashActivity : AppCompatActivity() {
 
         }, 200)  // Delay setelah logo mulai naik
     }
+
+    private fun navigateToNextScreen() {
+        val prefs = getSharedPreferences("YoraPrefs", Context.MODE_PRIVATE)
+        val hasSeenOnboarding = prefs.getBoolean("has_seen_onboarding", false)
+        val currentUser = auth.currentUser
+
+        when {
+            // User sudah login -> ke home
+            currentUser != null -> {
+                fetchUserAndNavigate()
+            }
+            // User belum pernah lihat onboarding (first install) -> ke onboarding
+            !hasSeenOnboarding -> {
+                val intent = Intent(this, OnboardingActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                startActivity(intent)
+                finish()
+            }
+            // User sudah pernah lihat onboarding & belum login -> ke login
+            else -> {
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    putExtra("START_DESTINATION", "login")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                startActivity(intent)
+                finish()
+            }
+        }
+    }
+
     private fun fetchUserAndNavigate() {
         val userId = auth.currentUser?.uid
         if (userId == null) {
-            // This should rarely happen if currentUser is not null, but it's a safe fallback.
             navigateToHome("User")
             return
         }
@@ -333,13 +350,11 @@ class SplashActivity : AppCompatActivity() {
                     val username = document.getString("username") ?: "User"
                     navigateToHome(username)
                 } else {
-                    // Fallback if document doesn't exist for some reason
                     val fallbackName = auth.currentUser?.displayName ?: "New User"
                     navigateToHome(fallbackName)
                 }
             }
             .addOnFailureListener {
-                // Fallback on Firestore error
                 navigateToHome("User")
             }
     }
