@@ -66,10 +66,10 @@ Aplikasi mobile berbasis Android yang membantu pengguna mengatur jadwal, catatan
 - **Reminder Otomatis** untuk overdue tasks
 
 ### 🔔 6. Notifikasi & Reminder
-- **Reminder Waktu** via WorkManager
-- **Push Notification** untuk task delegation dan comments (Firebase Cloud Messaging)
-- **Reminder Lokasi** (opsional) menggunakan Geofencing API
-- Pengaturan notifikasi yang dapat dikustomisasi
+- Reminder Deadline Task
+- Notifikasi Pemberian Tugas
+- Notifikasi Komentar
+- Notifikasi Undangan Tim
 
 ### 🔍 7. Filter, Sort & Pencarian
 - Filter by date, priority, status, dan category
@@ -98,11 +98,11 @@ Aplikasi mobile berbasis Android yang membantu pengguna mengatur jadwal, catatan
 ### Teknologi & Tools
 
 #### Development Environment
-- **Android Studio**: Ladybug | 2024.2.1 atau lebih baru
-- **Minimum SDK**: API 24 (Android 7.0 Nougat)
-- **Target SDK**: API 35 (Android 15)
-- **Compile SDK**: API 35
-- **JDK Version**: JDK 17 (Java 17)
+- **Android Studio**: Ladybug | 2024.2.1+
+- **Minimum SDK**: API 27 (Android 8.1 Oreo)
+- **Target & Compile SDK**: API 36 (Android 16 Preview)
+- **Language**: Kotlin dengan Jetpack Compose (Full Declarative UI)
+- **JDK Version**: JDK 11
 
 #### Libraries & Dependencies
 - **Jetpack Components**:
@@ -112,9 +112,22 @@ Aplikasi mobile berbasis Android yang membantu pengguna mengatur jadwal, catatan
     - WorkManager (untuk background tasks & reminders)
 
 - **UI/UX**:
-    - Material Design 3
-    - ViewPager2 (untuk weekly view)
-    - RecyclerView
-    - CardView
+    - Jetpack Compose
+    - Material Design 3 (Compose)
+    - Navigation Compose
+    - LazyColumn & LazyRow (pengganti RecyclerView)
+    - Navigation Compose
+    - Compose Animation (animateItemPlacement, transition & state animation)
 
+#### Cloud & Backend Integration
+-**Firebase Ecosystem**
+ - Firebase Authentication (Email/Password & Google Sign-In)
+ - Cloud Firestore (Real-time NoSQL Database)
+-**Media Management**
+ - Cloudinary (Cloud-based Image & Video Storage)
+ - Coil (Image Loading untuk Jetpack Compose)
+
+#### Networking & Data Processing
+- Gson (JSON Parsing & Serialization)
+   
 ---
