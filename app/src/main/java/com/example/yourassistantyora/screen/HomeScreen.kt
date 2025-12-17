@@ -91,6 +91,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import coil.compose.AsyncImage
 
 // ---------- DATA ----------
 data class Task(
@@ -129,6 +130,9 @@ fun HomeScreen(
             }
     }
 
+    val auth = FirebaseAuth.getInstance()
+    val db = FirebaseFirestore.getInstance()
+    val currentUser = auth.currentUser
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_HOME) }
     val scope = rememberCoroutineScope()
     var userName by remember { mutableStateOf("User") }
@@ -138,35 +142,26 @@ fun HomeScreen(
     val tasksForToday by viewModel.tasksForToday.collectAsState(emptyList())
     val isLoading by viewModel.isLoading.collectAsState(false)
 
-    LaunchedEffect(Unit) {
-        val auth = FirebaseAuth.getInstance()
-        val db = FirebaseFirestore.getInstance()
-        val currentUser = auth.currentUser
-
+    LaunchedEffect(currentUser?.uid) {
         if (currentUser != null) {
             android.util.Log.d("HomeScreenDebug", "Current User UID: ${currentUser.uid}")
             val docRef = db.collection("users").document(currentUser.uid)
 
             docRef.addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    android.util.Log.e("HomeScreenDebug", "Listen failed.", e)
-                    return@addSnapshotListener
-                }
+                if (e != null) return@addSnapshotListener
 
                 if (snapshot != null && snapshot.exists()) {
-                    val fetchedName = snapshot.getString("username")
-                    val fetchedPhoto = snapshot.getString("photoUrl")
-
-                    userName = fetchedName ?: "User"
-                    userPhotoUrl = fetchedPhoto
-
-                    android.util.Log.d("HomeScreenDebug", "Profile updated - Name: $userName")
-                } else {
-                    android.util.Log.d("HomeScreenDebug", "Snapshot is null or doesn't exist")
+                    userName = snapshot.getString("username") ?: "User"
+                    // Just get the URL string. Coil handles the rest.
+                    userPhotoUrl = snapshot.getString("photoUrl")
                 }
             }
+        } else {
+            userName = "User"
+            userPhotoUrl = null
         }
     }
+
 
     // STATE untuk UI interactions
     var swipedTaskId by remember { mutableStateOf<String?>(null) }
@@ -398,7 +393,8 @@ fun HomeScreen(
                                         modifier = Modifier
                                             .align(Alignment.TopEnd)
                                             .offset(x = (-4).dp, y = 4.dp)
-                                            .size(18.dp)
+                                            .padding(top = 4.dp, end = 4.dp)
+                                            .size(16.dp)
                                             .clip(CircleShape)
                                             .background(Color(0xFFFF5252)),
                                         contentAlignment = Alignment.Center
@@ -407,8 +403,11 @@ fun HomeScreen(
                                             text = if (unreadNotificationCount > 9) "9+" else unreadNotificationCount.toString(),
                                             color = Color.White,
                                             fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                            fontWeight = FontWeight.Bold,
+                                                    style = androidx.compose.ui.text.TextStyle(
+                                                    platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+                                                        includeFontPadding = false
+                                                    )))
                                     }
                                 }
 
@@ -424,58 +423,22 @@ fun HomeScreen(
                                         .background(Color(0xFFFFB74D)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    val currentPhotoUrl = userPhotoUrl
-                                    val bitmap = remember(currentPhotoUrl) {
-                                        if (!currentPhotoUrl.isNullOrEmpty()) {
-                                            try {
-                                                val pureBase64 = if (currentPhotoUrl.contains(",")) {
-                                                    currentPhotoUrl.substringAfter(",")
-                                                } else {
-                                                    currentPhotoUrl
-                                                }
-
-                                                val cleanBase64 = pureBase64.trim()
-                                                    .replace("\n", "")
-                                                    .replace("\r", "")
-                                                    .replace(" ", "")
-
-                                                val decodedBytes = android.util.Base64.decode(
-                                                    cleanBase64,
-                                                    android.util.Base64.DEFAULT
-                                                )
-                                                android.graphics.BitmapFactory.decodeByteArray(
-                                                    decodedBytes,
-                                                    0,
-                                                    decodedBytes.size
-                                                )
-                                            } catch (e: Exception) {
-                                                android.util.Log.e(
-                                                    "HomeScreen",
-                                                    "Image decode failed",
-                                                    e
-                                                )
-                                                null
-                                            }
-                                        } else {
-                                            null
-                                        }
-                                    }
-                                    if (bitmap != null) {
-                                        Image(
-                                            bitmap = bitmap.asImageBitmap(),
+                                    if (userPhotoUrl != null) {
+                                        AsyncImage(
+                                            model = userPhotoUrl,
                                             contentDescription = "Profile Picture",
                                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     } else {
                                         Text(
-                                            text = if (userName.isNotEmpty()) userName.take(1)
-                                                .uppercase() else "U",
+                                            text = if (userName.isNotEmpty()) userName.take(1).uppercase() else "U",
                                             color = Color.White,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
+
                             }
                         }
                     }

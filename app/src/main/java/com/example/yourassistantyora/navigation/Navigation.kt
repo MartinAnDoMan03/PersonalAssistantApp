@@ -140,8 +140,7 @@ fun AppNavigation(
 
         composable("notifications") {
             NotificationScreen(
-                navController = navController,
-            )
+                navController = navController)
         }
 
         /**

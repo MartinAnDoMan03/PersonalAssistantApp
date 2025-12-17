@@ -348,76 +348,53 @@ fun TeamDetailScreen(
                         clipboard.setPrimaryClip(clip)
                         Toast.makeText(context, "Code Copied", Toast.LENGTH_SHORT).show()
                     },
-                    onSendEmail = { rawEmail ->
-                        val targetEmail = rawEmail.trim()
-
+                    onSendEmail = { email ->
                         val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                        val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
-                        val currentUser = auth.currentUser
-
-                        android.util.Log.d("InviteDebug", "Searching for: '$targetEmail'")
 
                         db.collection("users")
-                            .whereEqualTo("email", targetEmail)
+                            .whereEqualTo("email", email)
                             .get()
-                            .addOnSuccessListener { documents ->
-                                android.util.Log.d("InviteDebug", "Found ${documents.size()} users")
-
-                                if (!documents.isEmpty) {
-                                    val recipientUser = documents.documents[0]
-                                    val recipientId = recipientUser.id
-
-                                    val notificationData = hashMapOf(
-                                        "userId" to recipientId,
-                                        "title" to "Team Invitation",
-                                        "description" to "You have been invited to join the team '${detail.name}'",
-                                        "isRead" to false,
-                                        "createdAt" to com.google.firebase.Timestamp.now(),
-
-                                        "type" to "TEAM_INVITE",
-                                        "teamId" to detail.id,
-                                        "inviteCode" to detail.inviteCode,
-
-                                        "relatedUserId" to (currentUser?.uid ?: ""),
-                                        "relatedUserName" to (currentUser?.displayName ?: "Someone"),
-
-                                        "taskId" to "",
-                                        "taskTitle" to ""
-                                    )
-
-                                    db.collection("notifications")
-                                        .add(notificationData)
-                                        .addOnSuccessListener {
-                                            android.util.Log.d("InviteDebug", "SUCCESS: Written to DB")
-                                            Toast.makeText(context, "Invitation sent to App Notification!", Toast.LENGTH_LONG).show()
-                                            showInviteDialog = false
-                                        }
-                                        .addOnFailureListener { e ->
-                                            android.util.Log.e("InviteDebug", "FAILED WRITE", e)
-                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                                        }
-
-                                } else {
-                                    android.util.Log.d("InviteDebug", "User not in DB. Opening Email App.")
-                                    val subject = "Join my team '${detail.name}' on Yora"
-                                    val body = "Join using this code: ${detail.inviteCode}"
-
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
-                                        data = android.net.Uri.parse("mailto:")
-                                        putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(targetEmail))
-                                        putExtra(android.content.Intent.EXTRA_SUBJECT, subject)
-                                        putExtra(android.content.Intent.EXTRA_TEXT, body)
-                                    }
-                                    try {
-                                        context.startActivity(intent)
-                                        showInviteDialog = false
-                                    } catch (e: Exception) {
-                                        Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
-                                    }
+                            .addOnSuccessListener { snapshot ->
+                                if (snapshot.isEmpty) {
+                                    Toast.makeText(context, "User not found with this email", Toast.LENGTH_SHORT).show()
+                                    return@addOnSuccessListener
                                 }
+
+                                val targetUser = snapshot.documents.first()
+                                val targetUserId = targetUser.id
+                                val targetUserName = targetUser.getString("username") ?: "User"
+
+                                // 2. Check if user is ALREADY in the team
+                                db.collection("teams").document(teamId).get()
+                                    .addOnSuccessListener { teamDoc ->
+                                        val currentMembers = teamDoc.get("members") as? List<String> ?: emptyList()
+
+                                        if (currentMembers.contains(targetUserId)) {
+                                            Toast.makeText(context, "User is already in this team!", Toast.LENGTH_LONG).show()
+                                        } else {
+                                            val notifData = hashMapOf(
+                                                "userId" to targetUserId,
+                                                "title" to "Team Invitation",
+                                                "description" to "You have been invited to join ${detail.name}",
+                                                "type" to "TEAM_INVITE",
+                                                "isRead" to false,
+                                                "createdAt" to System.currentTimeMillis(),
+                                                "teamId" to teamId,
+                                                "relatedUserName" to "Admin",
+                                                "inviteCode" to detail.inviteCode
+                                            )
+
+                                            db.collection("notifications").add(notifData)
+                                                .addOnSuccessListener {
+                                                    Toast.makeText(context, "Invitation sent to $targetUserName", Toast.LENGTH_SHORT).show()
+                                                    // Close dialog here if you want
+                                                    showInviteDialog = false
+                                                }
+                                        }
+                                    }
                             }
-                            .addOnFailureListener { e ->
-                                android.util.Log.e("InviteDebug", "QUERY FAILED", e)
+                            .addOnFailureListener {
+                                Toast.makeText(context, "Error checking email", Toast.LENGTH_SHORT).show()
                             }
                     }
 

@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +43,80 @@ fun ProfileScreen(
     modifier: Modifier = Modifier
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    var currentName by remember { mutableStateOf(userName) }
+    var currentPhotoUrl by remember { mutableStateOf(userPhotoUrl) }
+
+    var realTotalTasks by remember { mutableIntStateOf(0) }
+    var realCompletedTasks by remember { mutableIntStateOf(0) }
+
+    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+    val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+    val currentUser = auth.currentUser
+
+
+    LaunchedEffect(currentUser?.uid) {
+        if (currentUser != null) {
+            // 1. Listen for User Profile Updates
+            db.collection("users").document(currentUser.uid)
+                .addSnapshotListener { snapshot, _ ->
+                    if (snapshot != null && snapshot.exists()) {
+                        currentName = snapshot.getString("username") ?: "User"
+                        currentPhotoUrl = snapshot.getString("photoUrl")
+                    }
+                }
+
+            // --- COMBINED TASK COUNTING ---
+            var personalTotal = 0
+            var personalCompleted = 0
+            var teamTotal = 0
+            var teamCompleted = 0
+
+            fun updateStats() {
+                realTotalTasks = personalTotal + teamTotal
+                realCompletedTasks = personalCompleted + teamCompleted
+            }
+
+            db.collection("tasks")
+                .whereEqualTo("userId", currentUser.uid)
+                .addSnapshotListener { snapshot, _ ->
+                    if (snapshot != null) {
+                        val docs = snapshot.documents
+                        personalTotal = docs.size
+                        personalCompleted = docs.count {
+                            val statusVal = it.get("Status") ?: it.get("status")
+                            val statusInt = when (statusVal) {
+                                is Number -> statusVal.toInt()
+                                is String -> statusVal.toIntOrNull() ?: 0
+                                else -> 0
+                            }
+                            statusInt == 2
+                        }
+                        updateStats()
+                    }
+                }
+
+            db.collection("team_tasks")
+                .whereArrayContains("assignees", currentUser.uid)
+                .addSnapshotListener { snapshot, _ ->
+                    if (snapshot != null) {
+                        val docs = snapshot.documents
+                        teamTotal = docs.size
+                        teamCompleted = docs.count {
+                            val statusVal = it.get("status")
+                            val statusInt = when (statusVal) {
+                                is Number -> statusVal.toInt()
+                                is String -> statusVal.toIntOrNull() ?: 0
+                                else -> 0
+                            }
+                            statusInt == 2
+                        }
+                        updateStats()
+                    }
+                }
+        }
+    }
+
 
     Scaffold(
         containerColor = Color(0xFFF5F7FA),
@@ -101,16 +177,18 @@ fun ProfileScreen(
                             .background(Color(0xFFFFB74D)),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (!userPhotoUrl.isNullOrEmpty()) {
+                        // CHANGED: Use currentPhotoUrl
+                        if (!currentPhotoUrl.isNullOrEmpty()) {
                             AsyncImage(
-                                model = userPhotoUrl,
+                                model = currentPhotoUrl,
                                 contentDescription = "Profile Picture",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
                             )
                         } else {
+                            // CHANGED: Use currentName
                             Text(
-                                text = if (userName.isNotEmpty()) userName.take(1).uppercase() else "U",
+                                text = if (currentName.isNotEmpty()) currentName.take(1).uppercase() else "U",
                                 color = Color.White,
                                 fontSize = 32.sp,
                                 fontWeight = FontWeight.Bold
@@ -120,12 +198,14 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // CHANGED: Use currentName
                     Text(
-                        text = userName,
+                        text = currentName,
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
                     )
+
                 }
             }
 
@@ -154,7 +234,7 @@ fun ProfileScreen(
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    text = totalTasks.toString(),
+                                    text = realTotalTasks.toString(),
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF2D2D2D)
@@ -166,7 +246,7 @@ fun ProfileScreen(
 
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    text = completedTasks.toString(),
+                                    text = realCompletedTasks.toString(),
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF2D2D2D)
@@ -199,7 +279,7 @@ fun ProfileScreen(
             ) {
                 Text(text = "Username", fontSize = 13.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
                 OutlinedTextField(
-                    value = userName,
+                    value = currentName,
                     onValueChange = {},
                     enabled = false,
                     modifier = Modifier.fillMaxWidth(),

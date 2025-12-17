@@ -81,6 +81,12 @@ fun NotificationScreen(navController: NavController) {
                 }
 
                 notifications = snapshot.documents.map { doc ->
+                    val rawTime = doc.get("createdAt")
+                    val finalTime = when (rawTime) {
+                        is Long -> rawTime
+                        is com.google.firebase.Timestamp -> rawTime.toDate().time
+                        else -> 0L
+                    }
                     Notification(
                         id = doc.id,
                         userId = doc.getString("userId") ?: "",
@@ -88,7 +94,7 @@ fun NotificationScreen(navController: NavController) {
                         description = doc.getString("description") ?: "",
                         type = doc.getString("type") ?: "GENERAL",
                         isRead = doc.getBoolean("isRead") ?: false,
-                        createdAt = doc.getTimestamp("createdAt")?.toDate()?.time ?: 0L,
+                        createdAt = finalTime,
                         taskId = doc.getString("taskId"),
                         teamId = doc.getString("teamId"),
                         inviteCode = doc.getString("inviteCode")
@@ -492,22 +498,56 @@ fun ModernNotificationCard(
     }
 
     fun acceptInvite() {
-        if (notification.inviteCode == null || notification.teamId == null) return
+        if (notification.teamId == null) {
+            android.util.Log.e("ACCEPT_INVITE", "Team ID is null, cannot join.")
+            return
+        }
+
         isProcessing = true
         val userId = auth.currentUser?.uid ?: return
+        val teamRef = db.collection("teams").document(notification.teamId)
 
-        db.collection("teams").document(notification.teamId)
-            .update("members", com.google.firebase.firestore.FieldValue.arrayUnion(userId))
-            .addOnSuccessListener {
-                db.collection("notifications").document(notification.id).delete()
-                navController.navigate("team_detail/${notification.teamId}") {
-                    launchSingleTop = true
+        // 1. Check if user is ALREADY in the team
+        teamRef.get().addOnSuccessListener { document ->
+            if (document.exists()) {
+                val currentMembers = document.get("members") as? List<String> ?: emptyList()
+
+                if (currentMembers.contains(userId)) {
+                    // User is ALREADY a member -> Just delete the notification and navigate
+                    android.util.Log.d("ACCEPT_INVITE", "User already in team. Deleting notification.")
+                    db.collection("notifications").document(notification.id).delete()
+
+                    navController.navigate("team_detail/${notification.teamId}") {
+                        launchSingleTop = true
+                    }
+                    isProcessing = false
+                } else {
+                    // User is NOT a member -> Add them
+                    teamRef.update("members", com.google.firebase.firestore.FieldValue.arrayUnion(userId))
+                        .addOnSuccessListener {
+                            // Delete notification after joining
+                            db.collection("notifications").document(notification.id).delete()
+
+                            // Navigate
+                            navController.navigate("team_detail/${notification.teamId}") {
+                                launchSingleTop = true
+                            }
+                            isProcessing = false
+                        }
+                        .addOnFailureListener { e ->
+                            android.util.Log.e("ACCEPT_INVITE", "Error joining team: ${e.message}")
+                            isProcessing = false
+                        }
                 }
+            } else {
+                // Team doesn't exist anymore (maybe deleted)
+                android.util.Log.e("ACCEPT_INVITE", "Team no longer exists")
+                db.collection("notifications").document(notification.id).delete() // Clean up dead notif
                 isProcessing = false
             }
-            .addOnFailureListener {
-                isProcessing = false
-            }
+        }.addOnFailureListener {
+            isProcessing = false
+        }
     }
 
     fun declineInvite() {
@@ -525,23 +565,39 @@ fun ModernNotificationCard(
                 )
                 .animateContentSize()
                 .clickable {
+                    // 1. Mark as read locally
                     if (!notification.isRead && !isLocallyRead) {
                         onLocalMarkAsRead(notification.id)
-                        db
-                            .collection("notifications")
+                        db.collection("notifications")
                             .document(notification.id)
                             .update("isRead", true)
                     }
 
+                    // 2. Safe Navigation Logic
                     when (notification.type) {
                         "ASSIGNMENT", "TASK_COMPLETED", "DEADLINE_REMINDER", "COMMENT" -> {
-                            notification.taskId
-                                ?.takeIf { it.isNotBlank() }
-                                ?.let { taskId ->
-                                    navController.navigate("team_task_detail/$taskId") {
-                                        launchSingleTop = true
-                                    }
+                            val taskId = notification.taskId
+                            val teamId = notification.teamId
+
+                            // CHECK: Ensure we actually have IDs before navigating
+                            if (!taskId.isNullOrBlank() && !teamId.isNullOrBlank()) {
+                                navController.navigate("team_task_detail/$teamId/$taskId") {
+                                    launchSingleTop = true
                                 }
+                            } else if (!taskId.isNullOrBlank()) {
+                                // Fallback for personal tasks if you have that route
+                                navController.navigate("task_detail/$taskId") {
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
+                        "TEAM_INVITE", "TEAM_INVITATION", "TEAM_JOINED" -> {
+                            val teamId = notification.teamId
+                            if (!teamId.isNullOrBlank()) {
+                                navController.navigate("team_detail/$teamId") {
+                                    launchSingleTop = true
+                                }
+                            }
                         }
                     }
                 },
