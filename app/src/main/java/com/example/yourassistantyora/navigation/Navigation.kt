@@ -19,6 +19,7 @@ import com.example.yourassistantyora.screen.ProfileScreen
 import com.example.yourassistantyora.screen.RegisterScreen
 import com.example.yourassistantyora.screen.TaskDetailScreen
 import com.example.yourassistantyora.screen.TeamDetailScreen
+import com.example.yourassistantyora.screen.NotificationScreen
 import com.example.yourassistantyora.screen.TeamScreen
 import com.example.yourassistantyora.screen.WeeklyScreen
 import com.example.yourassistantyora.viewModel.AuthViewModel
@@ -133,6 +134,12 @@ fun AppNavigation(
          */
         composable("home") {
             HomeScreen(
+                navController = navController,
+            )
+        }
+
+        composable("notifications") {
+            NotificationScreen(
                 navController = navController,
             )
         }

@@ -326,7 +326,7 @@ fun HomeScreen(
                         ) {
                             Box {
                                 IconButton(
-                                    onClick = { },
+                                    onClick = { navController.navigateSingleTop("notifications") },
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
