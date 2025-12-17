@@ -167,11 +167,17 @@ fun TeamScreen(
                 }
             }
 
-            val filteredTeams = if (searchQuery.isBlank()) {
+            // ✅ VERSI BARU DENGAN LOGIKA SORTING
+            val filteredAndSortedTeams = if (searchQuery.isBlank()) {
                 teamList
             } else {
                 teamList.filter { it.name.contains(searchQuery, ignoreCase = true)}
-            }
+            }.sortedWith(
+                // Pertama, urutkan berdasarkan peran (Admin di atas)
+                compareByDescending<Team> { it.role == "Admin" }
+                    // Kedua, urutkan berdasarkan progress (terkecil di atas)
+                    .thenBy { it.progress }
+            )
 
             if (isLoading) {
                 item {
@@ -179,18 +185,19 @@ fun TeamScreen(
                         CircularProgressIndicator(color = Color(0xFF6A70D7))
                     }
                 }
-            } else if (filteredTeams.isEmpty()) {
+            } else if (filteredAndSortedTeams.isEmpty()) { // Gunakan list yang sudah diurutkan
                 item {
                     Text("No teams found", modifier = Modifier.padding(20.dp), color = Color.Gray)
                 }
             } else {
-                items(filteredTeams) { team ->
+                items(filteredAndSortedTeams) { team -> // Gunakan list yang sudah diurutkan
                     TeamCard(
                         team = team,
                         onClick = {onTeamClick(team.id)}
                     )
                 }
             }
+
 
         }
     }

@@ -47,6 +47,9 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.io.ByteArrayOutputStream
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -323,36 +326,43 @@ fun EditProfileScreen(
                     // Save Button
                     Button(
                         onClick = {
-                            if (!isSaving) {
-                                scope.launch {
-                                    isSaving = true
-                                    var base64Image: String? = currentPhotoUrl
+                            if(!isSaving) {
+                                isSaving = true
 
-                                    // --- NEW BASE64 LOGIC ---
-                                    if (imageBytesToUpload != null) {
-                                        try {
-                                            // Convert the compressed bytes directly to a Base64 String
-                                            val base64String = android.util.Base64.encodeToString(
-                                                imageBytesToUpload,
-                                                android.util.Base64.DEFAULT
-                                            )
-                                            // We add a prefix so image loaders know how to read it
-                                            base64Image = "data:image/jpeg;base64,$base64String"
+                                if(imageBytesToUpload != null) {
+                                    val requestId = MediaManager.get().upload(imageBytesToUpload)
+                                        .unsigned("ProfilePicturePreset")
+                                        .callback(object : UploadCallback {
+                                            override fun onStart(requestId: String) {}
+                                            override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}
+                                            override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                                                android.util.Log.d("UploadDebug", "Cloudinary Raw Result: $resultData")
+                                                val secureUrl = resultData["secure_url"] as String
 
-                                        } catch (e: Exception) {
-                                            isSaving = false
-                                            snackbarHostState.showSnackbar("Encoding error: ${e.message}")
-                                            return@launch
-                                        }
+                                                scope.launch {
+                                                    onSaveProfile(editedUsername, secureUrl)
+                                                    isSaving = false
+                                                    navController.popBackStack()
+                                                }
+                                            }
+                                            override fun onError(requestId: String, error: ErrorInfo) {
+                                                scope.launch {
+                                                    isSaving = false
+                                                    snackbarHostState.showSnackbar("Upload Gagal: ${error.description}")
+                                                }
+                                            }
+                                            override fun onReschedule(requestId: String, error: ErrorInfo) {}
+                                        } )
+                                        .dispatch()
+                                } else {
+                                    scope.launch {
+                                        onSaveProfile(editedUsername,currentPhotoUrl)
+                                        isSaving = false
+                                        navController.popBackStack()
                                     }
-
-                                    // Pass the Base64 string instead of a URL
-                                    onSaveProfile(editedUsername, base64Image)
-
-                                    isSaving = false
-                                    navController.popBackStack()
                                 }
                             }
+
                         },
                         // ... rest of your button modifiers
                         modifier = Modifier

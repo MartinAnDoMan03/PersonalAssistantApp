@@ -175,7 +175,30 @@ fun AppNavigation(
                 currentEmail = authViewModel.currentUser.value?.email ?: "user@example.com",
                 currentPhotoUrl = authViewModel.userPhotoUrl.value,
                 onSaveProfile = { newName, newPhotoUrl ->
-                    authViewModel.updateUserProfile(newName, newPhotoUrl)
+                    val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+
+                    if (currentUser != null) {
+                        val updates = hashMapOf<String, Any>(
+                            "username" to newName
+                        )
+
+                        if (!newPhotoUrl.isNullOrEmpty()) {
+                            updates["photoUrl"] = newPhotoUrl
+                        }
+
+                        android.util.Log.d("FirestoreDebug", "Attempting update for ${currentUser.uid} with data: $updates")
+                        db.collection("users").document(currentUser.uid)
+                            .set(updates, com.google.firebase.firestore.SetOptions.merge())
+                            .addOnSuccessListener {
+                                android.util.Log.d("FirestoreDebug", "SUCCESS! Document updated.")
+                            }
+                            .addOnFailureListener { e ->
+                                android.util.Log.e("FirestoreDebug", "FAILURE! Could not update document.", e)
+                            }
+                    } else {
+                        android.util.Log.e("FirestoreDebug", "User is null, cannot save.")
+                    }
                 }
             )
         }

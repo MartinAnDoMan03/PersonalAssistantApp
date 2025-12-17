@@ -12,6 +12,13 @@
     <uses-permission android:name = "android.permission.RECORD_AUDIO"/>
 <!--    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />-->
 
+    <queries>
+        <package android:name="com.google.android.googlequicksearchbox" />
+        <package android:name="com.google.android.gms" />
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 
 <!--    <uses-permission-->
 <!--        android:name="android.permission.WRITE_EXTERNAL_STORAGE"-->
@@ -27,7 +34,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.YourAssistantYora"
         tools:targetApi="31"
-        android:name=".CloudinaryApp">
+        android:name=".CloudinaryApp"
+        android:usesCleartextTraffic="true">
 
         <!-- SPLASH ACTIVITY - ENTRY POINT APP -->
         <activity

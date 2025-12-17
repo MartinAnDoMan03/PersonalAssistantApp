@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -21,46 +20,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.auth.FirebaseAuth
+import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.delay
-import android.Manifest
-import android.content.Context
-import android.content.Intent
-import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.launch
-import com.example.yourassistantyora.service.AiNoteService
-import com.example.yourassistantyora.service.AiGeneratedNote
 
-enum class VoiceInputState {
-    IDLE, READY_TO_RECORD, LISTENING, PROCESSING, TRANSCRIBED
-}
+// --- TAMBAHAN UNTUK FIREBASE (Pastikan sudah ada di build.gradle) ---
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.auth.FirebaseAuth
+// --- END TAMBAHAN ---
 
-val PrimaryPurple = Color(0xFF8B5CF6)
-val SoftPurple = Color(0xFFEFEFF9)
-val SecondaryPink = Color(0xFFEC4899)
-val RedRecording = Color(0xFFEF4444)
-
-val GradientBrush = Brush.horizontalGradient(
-    colors = listOf(Color(0xFF8B5CF6), Color(0xFFEC4899))
-)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -69,107 +47,31 @@ fun CreateNoteScreen(
     onSaveClick: (String, String, List<String>) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     var selectedCategories by remember { mutableStateOf(listOf<String>()) }
-
-    // AI Voice Feature
-    var voiceInputState by remember { mutableStateOf(VoiceInputState.IDLE) }
-    var transcribedText by remember { mutableStateOf("") }
-    var aiGeneratedNote by remember { mutableStateOf<AiGeneratedNote?>(null) }
-
-    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
-    val speechIntent = remember {
-        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-        }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if(isGranted) {
-            voiceInputState = VoiceInputState.LISTENING
-            speechRecognizer.startListening(speechIntent)
-        } else {
-            Toast.makeText(context, "Microphone Permission Needed", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            speechRecognizer.destroy()
-        }
-    }
-
-    DisposableEffect(speechRecognizer) {
-        val listener = object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {}
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {
-                // Wait for onResults to fire
-            }
-
-            override fun onError(error: Int) {
-                if (error == SpeechRecognizer.ERROR_NO_MATCH) return
-
-                voiceInputState = VoiceInputState.IDLE
-                val msg = when(error) {
-                    SpeechRecognizer.ERROR_NO_MATCH -> "No speech matched"
-                    SpeechRecognizer.ERROR_NETWORK -> "Networkk error"
-                    else -> "Error occured: $error"
-                }
-                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-            }
-
-            override fun onResults(results: Bundle?) {
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!matches.isNullOrEmpty()) {
-                    transcribedText = matches[0]
-                    voiceInputState = VoiceInputState.PROCESSING
-
-                    scope.launch {
-                        try {
-                            val result = AiNoteService.generateNoteFromText(transcribedText)
-                            aiGeneratedNote = result
-                            voiceInputState = VoiceInputState.TRANSCRIBED
-                        } catch (e: Exception) {
-                            voiceInputState = VoiceInputState.IDLE
-                            Toast.makeText(context, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
-                    }
-
-                }
-            }
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        }
-        speechRecognizer.setRecognitionListener(listener)
-        onDispose { }
-    }
-
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
 
-
+    // --- TAMBAHAN: INISIALISASI FIREBASE INSTANCE DAN USER ID ---
     val firestore = remember { FirebaseFirestore.getInstance() }
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous_user" }
+    // --- END TAMBAHAN ---
 
+    // Predefined categories dengan warna yang SAMA dengan NoteScreen
     val predefinedCategories = listOf(
         "Work" to Color(0xFF667EEA),
         "Study" to Color(0xFF64B5F6),
+        "Project" to Color(0xFFEF5350),
+        "Idea" to Color(0xFFFFB74D),
         "Travel" to Color(0xFF4DB6AC),
-        "Meeting" to Color(0xFF9575CD),
-        "Project" to Color(0xFFEF5350)
+        "Meeting" to Color(0xFF9575CD)
     )
 
+    // Custom categories yang ditambahkan user
     var customCategories by remember { mutableStateOf(listOf<Pair<String, Color>>()) }
+
+    // Gabungkan semua categories
     val allCategories = predefinedCategories + customCategories
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -201,6 +103,7 @@ fun CreateNoteScreen(
                         containerColor = Color(0xFFF8F9FA)
                     ),
                     actions = {
+                        // Spacer untuk center title
                         Spacer(modifier = Modifier.width(48.dp))
                     }
                 )
@@ -211,83 +114,16 @@ fun CreateNoteScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
-                        .clickable {
-                            if (voiceInputState == VoiceInputState.IDLE) {
-                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            }
-                        },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = "Voice to Note",
-                                tint = PrimaryPurple,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(SoftPurple)
-                                    .padding(6.dp)
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    "Voice to Note",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF2D2D2D)
-                                )
-                                Text(
-                                    "Speak and I'll write for you",
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF9E9E9E)
-                                )
-                            }
-                        }
-                        Button(
-                            onClick = {
-                                if (voiceInputState == VoiceInputState.IDLE) {
-                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                }
-                            },
-                            modifier = Modifier.height(36.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFF3E8FF)
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp)
-                        ) {
-                            Text(
-                                "Start",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = PrimaryPurple
-                            )
-                        }
-                    }
-                }
-
+                // Scrollable Content
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 0.dp),
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
+                    // Title Input (Big Placeholder)
                     TextField(
                         value = title,
                         onValueChange = { title = it },
@@ -306,7 +142,7 @@ fun CreateNoteScreen(
                             disabledContainerColor = Color.Transparent,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
-                            cursorColor = PrimaryPurple
+                            cursorColor = Color(0xFF6A70D7)
                         ),
                         textStyle = LocalTextStyle.current.copy(
                             fontSize = 24.sp,
@@ -318,9 +154,12 @@ fun CreateNoteScreen(
 
                     Spacer(Modifier.height(4.dp))
 
+                    // Date and Time
                     Text(
                         text = remember {
-                            SimpleDateFormat("d MMMM  HH:mm", Locale.getDefault()).format(Date())
+                            val currentDate = SimpleDateFormat("d MMMM  HH:mm", Locale.getDefault())
+                                .format(Date())
+                            currentDate
                         },
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Normal,
@@ -330,70 +169,39 @@ fun CreateNoteScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        TextField(
-                            value = content,
-                            onValueChange = { content = it },
-                            placeholder = {
-                                Text(
-                                    "Start typing or use voice input...",
-                                    color = Color(0xFFBDBDBD),
-                                    fontSize = 15.sp
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 250.dp),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                cursorColor = PrimaryPurple
-                            ),
-                            textStyle = LocalTextStyle.current.copy(
-                                fontSize = 15.sp,
-                                color = Color(0xFF2D2D2D),
-                                lineHeight = 22.sp
-                            ),
-                            maxLines = Int.MAX_VALUE
-                        )
-
-                        FloatingActionButton(
-                            onClick = {
-                                if (voiceInputState == VoiceInputState.IDLE) {
-                                    voiceInputState = VoiceInputState.READY_TO_RECORD
-                                    transcribedText = ""
-                                }
-                            },
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(end = 12.dp, bottom = 12.dp)
-                                .size(56.dp),
-                            shape = CircleShape,
-                            containerColor = Color.Transparent,
-                            contentColor = Color.White,
-                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(GradientBrush, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Mic,
-                                    contentDescription = "Voice Input",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
+                    // Content Input (No label, direct typing)
+                    TextField(
+                        value = content,
+                        onValueChange = { content = it },
+                        placeholder = {
+                            Text(
+                                "Start typing...",
+                                color = Color(0xFFBDBDBD),
+                                fontSize = 15.sp
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 250.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            cursorColor = Color(0xFF6A70D7)
+                        ),
+                        textStyle = LocalTextStyle.current.copy(
+                            fontSize = 15.sp,
+                            color = Color(0xFF2D2D2D),
+                            lineHeight = 22.sp
+                        ),
+                        maxLines = Int.MAX_VALUE
+                    )
 
                     Spacer(Modifier.height(24.dp))
 
+                    // Category Section
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -405,11 +213,13 @@ fun CreateNoteScreen(
                             color = Color(0xFF9E9E9E)
                         )
 
+                        // Category chips - FlowRow (Multi-line)
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            // Predefined & Custom Categories
                             allCategories.forEach { (category, color) ->
                                 CreateCategoryChip(
                                     text = category,
@@ -425,6 +235,7 @@ fun CreateNoteScreen(
                                 )
                             }
 
+                            // Add New Button
                             Surface(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(16.dp))
@@ -440,12 +251,12 @@ fun CreateNoteScreen(
                                     Icon(
                                         imageVector = Icons.Filled.Add,
                                         contentDescription = "Add Category",
-                                        tint = PrimaryPurple,
+                                        tint = Color(0xFF6A70D7),
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
-                                        "Add New",
-                                        color = PrimaryPurple,
+                                        text = "Add New",
+                                        color = Color(0xFF6A70D7),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Normal
                                     )
@@ -453,12 +264,14 @@ fun CreateNoteScreen(
                             }
                         }
                     }
-                    Spacer(Modifier.height(30.dp))
                 }
 
+                // Save Button dengan Gradient (Fixed at bottom) - SELALU TERLIHAT
                 Button(
                     onClick = {
                         if (title.isNotEmpty() && content.isNotEmpty() && selectedCategories.isNotEmpty()) {
+
+                            // --- TAMBAHAN: LOGIKA PENYIMPANAN FIREBASE ---
                             val noteData = hashMapOf(
                                 "title" to title,
                                 "note" to content,
@@ -466,25 +279,35 @@ fun CreateNoteScreen(
                                 "user_id" to userId,
                                 "created_at" to FieldValue.serverTimestamp()
                             )
-                            firestore.collection("notes").add(noteData)
+
+                            firestore.collection("notes")
+                                .add(noteData)
                                 .addOnSuccessListener {
                                     onSaveClick(title, content, selectedCategories)
                                 }
                                 .addOnFailureListener { e ->
                                     e.printStackTrace()
                                 }
+                            // --- END TAMBAHAN ---
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp)
-                        .height(48.dp),
+                        .height(48.dp)
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(Color(0xFF6A70D7), Color(0xFF7353AD))
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
                     enabled = title.isNotEmpty() && content.isNotEmpty() && selectedCategories.isNotEmpty(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryPurple,
-                        disabledContainerColor = Color(0xFFE0E0E0)
+                        containerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
                     Text(
                         "Save",
@@ -496,440 +319,185 @@ fun CreateNoteScreen(
             }
         }
 
-        val isVoiceOverlayVisible = voiceInputState != VoiceInputState.IDLE
-
+        // Add Category Dialog dengan Blur Background
         AnimatedVisibility(
-            visible = isVoiceOverlayVisible,
+            visible = showAddCategoryDialog,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
+            // Blur Background Overlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
+                    .background(Color.Black.copy(alpha = 0.4f))
                     .clickable(enabled = false) { }
             )
         }
 
-        VoiceInputOverlay(
-            voiceInputState = voiceInputState,
-            transcribedText = transcribedText,
-            aiResult = aiGeneratedNote,
-            onClose = {
-                speechRecognizer.stopListening()
-                voiceInputState = VoiceInputState.IDLE
-                      },
-            onStartRecording = {
-                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            },
-            onStopRecording = {
-                speechRecognizer.stopListening()
-            },
-            onRecordingDone = {},
-            onUseThis = {
-                aiGeneratedNote?.let { note ->
-                title = note.title
-                content = if (content.isBlank()) note.content else content + "\n\n" + note.content
-                    val newCats = note.categories.filter { !selectedCategories.contains(it) }
-                    selectedCategories = selectedCategories + newCats
-                } ?: run {
-                    content = if(content.isBlank()) transcribedText else content + "\n" + transcribedText
-                }
-                voiceInputState = VoiceInputState.IDLE
-            },
-            onRerecord = {
-                speechRecognizer.startListening(speechIntent)
-                voiceInputState = VoiceInputState.LISTENING
-                transcribedText = ""
-            }
-        )
-    }
-}
-
-@Composable
-fun BoxScope.VoiceInputOverlay(
-    voiceInputState: VoiceInputState,
-    transcribedText: String,
-    aiResult: AiGeneratedNote?,
-    onClose: () -> Unit,
-    onStartRecording: () -> Unit,
-    onStopRecording: () -> Unit,
-    onRecordingDone: () -> Unit,
-    onUseThis: () -> Unit,
-    onRerecord: () -> Unit
-) {
-    AnimatedVisibility(
-        visible = voiceInputState != VoiceInputState.IDLE,
-        modifier = Modifier.align(Alignment.Center),
-        enter = fadeIn() + scaleIn(initialScale = 0.9f),
-        exit = fadeOut() + scaleOut(targetScale = 0.9f)
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+        // Dialog Content
+        if (showAddCategoryDialog) {
+            Dialog(
+                onDismissRequest = {
+                    showAddCategoryDialog = false
+                    newCategoryName = ""
+                },
+                properties = DialogProperties(
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = true
+                )
+            ) {
+                AnimatedVisibility(
+                    visible = showAddCategoryDialog,
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut()
                 ) {
-                    val iconColor = when (voiceInputState) {
-                        VoiceInputState.LISTENING -> RedRecording
-                        else -> PrimaryPurple
-                    }
-                    val iconBackground = when (voiceInputState) {
-                        VoiceInputState.LISTENING -> Color(0xFFFFEBEE)
-                        else -> Color(0xFFF3E8FF)
-                    }
-                    val statusText = when (voiceInputState) {
-                        VoiceInputState.READY_TO_RECORD -> "Ready to record"
-                        VoiceInputState.LISTENING -> "Listening..."
-                        VoiceInputState.PROCESSING -> "Processing..."
-                        VoiceInputState.TRANSCRIBED -> "Ready to record"
-                        else -> "Voice Input"
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        Column(
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(iconBackground),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(20.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = "Voice Input",
-                                tint = iconColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
+                            // Title
                             Text(
-                                "Voice Input",
-                                fontSize = 16.sp,
+                                "New Category",
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF2D2D2D)
                             )
-                            Text(
-                                statusText,
-                                fontSize = 13.sp,
-                                color = Color(0xFF9E9E9E)
-                            )
-                        }
-                    }
-                    IconButton(onClick = onClose) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = Color(0xFF9E9E9E)
-                        )
-                    }
-                }
 
-                Spacer(Modifier.height(20.dp))
-
-                when (voiceInputState) {
-                    VoiceInputState.READY_TO_RECORD -> {
-                        TipBox(
-                            "Tip: Speak clearly and mention priority, deadline, or assignees for better AI suggestions",
-                            Color(0xFFEEF2FF),
-                            Color(0xFF6366F1)
-                        )
-                        Spacer(Modifier.height(20.dp))
-
-                        Button(
-                            onClick = onStartRecording,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(0.dp),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(GradientBrush, RoundedCornerShape(12.dp)),
-                                contentAlignment = Alignment.Center
+                            // Input Field
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Mic,
-                                        contentDescription = "Start Recording",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        "Start Recording",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 15.sp
-                                    )
-                                }
+                                Text(
+                                    "Category Name",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = Color(0xFF9E9E9E)
+                                )
+
+                                TextField(
+                                    value = newCategoryName,
+                                    onValueChange = { newCategoryName = it },
+                                    placeholder = {
+                                        Text(
+                                            "Holiday",
+                                            color = Color(0xFFBDBDBD),
+                                            fontSize = 15.sp
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        disabledContainerColor = Color.Transparent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent,
+                                        cursorColor = Color(0xFF6A70D7)
+                                    ),
+                                    textStyle = LocalTextStyle.current.copy(
+                                        fontSize = 15.sp,
+                                        color = Color(0xFF2D2D2D)
+                                    ),
+                                    singleLine = true
+                                )
+
+                                HorizontalDivider(
+                                    color = Color(0xFFE0E0E0),
+                                    thickness = 0.5.dp
+                                )
                             }
-                        }
-                    }
 
-                    VoiceInputState.LISTENING -> {
-                        TipBox(
-                            "Tip: Speak clearly and mention priority, deadline, or assignees for better AI suggestions",
-                            Color(0xFFEEF2FF),
-                            Color(0xFF6366F1)
-                        )
-                        Spacer(Modifier.height(20.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(60.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            WaveVisualizerPlaceholder()
-                        }
-                        Spacer(Modifier.height(20.dp))
-
-                        Button(
-                            onClick = onStopRecording,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = RedRecording
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
+                            // Action Buttons
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Stop,
-                                    contentDescription = "Stop Recording",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Stop Recording",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 15.sp
-                                )
-                            }
-                        }
-                    }
-
-                    VoiceInputState.PROCESSING -> {
-                        LaunchedEffect(Unit) {
-                            delay(2000L)
-                            onRecordingDone()
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = PrimaryPurple,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                "Yora is processing your voice...",
-                                color = Color(0xFF2D2D2D),
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 14.sp
-                            )
-                        }
-                        Spacer(Modifier.height(16.dp))
-                        TipBox(
-                            "Tip: Speak clearly and mention priority, deadline, or assignees for better AI suggestions",
-                            Color(0xFFEEF2FF),
-                            Color(0xFF6366F1)
-                        )
-                    }
-
-                    VoiceInputState.TRANSCRIBED -> {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 300.dp)
-                                .verticalScroll(rememberScrollState()),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFF0FDF4)
-                            )
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Transcribed",
-                                        tint = Color(0xFF22C55E),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        "AI Suggestion",
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF22C55E),
-                                        fontSize = 14.sp
-                                    )
-                                }
-                                Spacer(Modifier.height(8.dp))
-
-                                if (aiResult != null) {
-                                    Text("Title: ${aiResult.title}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(aiResult.content, fontSize = 13.sp)
-                                    Spacer(Modifier.height(8.dp))
-
-                                    // Categories Row
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        aiResult.categories.forEach { cat ->
-                                            Surface(
-                                                color = PrimaryPurple.copy(alpha=0.1f),
-                                                shape = RoundedCornerShape(4.dp)
-                                            ) {
-                                                Text(
-                                                    cat,
-                                                    modifier = Modifier.padding(4.dp),
-                                                    fontSize = 10.sp,
-                                                    color = PrimaryPurple
-                                                )
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    Text(
-                                        transcribedText,
-                                        color = Color(0xFF374151),
-                                        fontSize = 14.sp,
-                                        lineHeight = 20.sp
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-                        TipBox(
-                            "Tip: If the result is wrong, you can re-record.",
-                            Color(0xFFEEF2FF),
-                            Color(0xFF6366F1)
-                        )
-                        Spacer(Modifier.height(20.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Button(
-                                onClick = onRerecord,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFF3F4F6)
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    "Re-record",
-                                    color = Color(0xFF6B7280),
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp
-                                )
-                            }
-
-                            Button(
-                                onClick = onUseThis,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(0.dp),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-                            ) {
-                                Box(
+                                // Cancel Button
+                                OutlinedButton(
+                                    onClick = {
+                                        showAddCategoryDialog = false
+                                        newCategoryName = ""
+                                    },
                                     modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(GradientBrush, RoundedCornerShape(12.dp)),
-                                    contentAlignment = Alignment.Center
+                                        .weight(1f)
+                                        .height(44.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color(0xFFEF5350)
+                                    ),
+                                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                                        width = 1.5.dp,
+                                        brush = SolidColor(Color(0xFFEF5350))
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
-                                        "Apply to Note",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 14.sp
+                                        "Cancel",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFFEF5350)
+                                    )
+                                }
+
+                                // Create Button dengan Gradient - SELALU TERLIHAT
+                                Button(
+                                    onClick = {
+                                        if (newCategoryName.isNotEmpty()) {
+                                            // Generate random color for new category
+                                            val randomColor = listOf(
+                                                Color(0xFFE91E63),
+                                                Color(0xFF9C27B0),
+                                                Color(0xFF3F51B5),
+                                                Color(0xFF00BCD4),
+                                                Color(0xFF4CAF50),
+                                                Color(0xFFFF9800),
+                                                Color(0xFFFF5722)
+                                            ).random()
+
+                                            customCategories = customCategories + (newCategoryName to randomColor)
+                                            selectedCategories = selectedCategories + newCategoryName
+                                            showAddCategoryDialog = false
+                                            newCategoryName = ""
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .background(
+                                            brush = Brush.linearGradient(
+                                                colors = listOf(Color(0xFF6A70D7), Color(0xFF7353AD))
+                                            ),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ),
+                                    enabled = newCategoryName.isNotEmpty(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.Transparent,
+                                        disabledContainerColor = Color.Transparent
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Text(
+                                        "Create",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.White
                                     )
                                 }
                             }
                         }
                     }
-
-
-                    else -> {}
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun TipBox(text: String, backgroundColor: Color, contentColor: Color) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
-        color = backgroundColor
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(12.dp),
-            color = contentColor,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Normal,
-            lineHeight = 18.sp
-        )
-    }
-}
-
-@Composable
-fun WaveVisualizerPlaceholder() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val heights = listOf(12, 20, 28, 36, 40, 36, 28, 20, 28, 36, 40, 36, 28, 20, 12)
-
-        heights.forEachIndexed { index, height ->
-            val color = if (index % 2 == 0) Color(0xFF8B5CF6) else Color(0xFFEC4899)
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(height.dp)
-                    .clip(RoundedCornerShape(1.5.dp))
-                    .background(color)
-            )
-            if (index < heights.size - 1) {
-                Spacer(Modifier.width(4.dp))
             }
         }
     }
@@ -956,5 +524,13 @@ fun CreateCategoryChip(
             fontSize = 12.sp,
             fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CreateNoteScreenPreview() {
+    YourAssistantYoraTheme {
+        CreateNoteScreen()
     }
 }

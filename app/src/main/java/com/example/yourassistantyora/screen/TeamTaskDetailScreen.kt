@@ -9,22 +9,18 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
-import androidx.activity.result.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
- import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,7 +46,7 @@ fun TeamTaskDetailScreen(
     taskId: String,
     navController: NavController,
     modifier: Modifier = Modifier,
-    detailViewModel: TeamDetailViewModel = viewModel(), // Untuk mendapatkan warna tim
+    detailViewModel: TeamDetailViewModel = viewModel(),
     taskViewModel: TeamTaskDetailViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -60,55 +56,44 @@ fun TeamTaskDetailScreen(
     val isLoading by taskViewModel.isLoading.collectAsState()
     val error by taskViewModel.error.collectAsState()
 
-    // Ambil detail tim (untuk warna) dan detail task
     LaunchedEffect(key1 = teamId, key2 = taskId) {
         if (teamId.isNotBlank()) detailViewModel.loadTeamDetails(teamId)
         if (taskId.isNotBlank()) taskViewModel.loadTaskAndComments(taskId, teamId)
     }
 
-// Launcher untuk pemilih file
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let {
-            // Panggil fungsi ViewModel yang baru
-            taskViewModel.addAttachment(taskId, it, context)
-        }
+        uri?.let { taskViewModel.addAttachment(taskId, it, context) }
     }
 
-// Definisikan izin yang dibutuhkan
     val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
     } else {
         arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
-// Launcher untuk meminta izin
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions: Map<String, Boolean> ->
+    ) { permissions ->
         if (permissions.values.any { it }) {
-            // Jika izin diberikan, buka pemilih file
-            filePickerLauncher.launch("*/*") // Buka untuk semua tipe file
+            filePickerLauncher.launch("*/*")
         } else {
-            Toast.makeText(context, "Storage permission is required to attach files.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Permission required for attachments", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // Tampilkan error
     LaunchedEffect(key1 = error) {
         error?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
     }
 
     if (isLoading || teamDetail == null || taskDetail == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = Color(0xFF6A70D7))
         }
     } else {
-        // Data sudah siap
         val readyTeamDetail = teamDetail!!
         val readyTaskDetail = taskDetail!!
-
         var commentText by remember { mutableStateOf("") }
         var showStatusDropdown by remember { mutableStateOf(false) }
 
@@ -116,26 +101,19 @@ fun TeamTaskDetailScreen(
         val canUpdateStatus = readyTeamDetail.currentUserRole == "Admin" || isAssignedToUser
 
         val screenTitle = if (isAssignedToUser && readyTeamDetail.currentUserRole == "Member") "Your Task"
-        // ✅ PERBAIKAN: Gunakan readyTaskDetail juga di sini
         else if (readyTaskDetail.assignedTo.isNotEmpty()) "${readyTaskDetail.assignedTo.first().name.split(" ").first()}'s Task"
         else "Task Details"
 
         Scaffold(containerColor = Color(0xFFF8F9FA)) { paddingValues ->
-            Column(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                // Header
+            Column(modifier = modifier.fillMaxSize().padding(paddingValues)) {
                 HeaderSection(
-                    teamGradient = readyTeamDetail.colorScheme.gradient, // ✅ PERBAIKAN
+                    teamGradient = readyTeamDetail.colorScheme.gradient,
                     title = screenTitle,
                     isAssigned = isAssignedToUser,
                     role = readyTeamDetail.currentUserRole,
                     onBackClick = { navController.popBackStack() }
                 )
 
-                // Konten Utama
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(20.dp),
@@ -152,23 +130,18 @@ fun TeamTaskDetailScreen(
                                 showStatusDropdown = false
                             },
                             currentUserId = readyTeamDetail.currentUserId,
-                            // ✅ TERUSKAN LOGIKA LAUNCHER KE DALAM onClick
                             onAddAttachmentClick = {
-                                val allPermissionsGranted = permissionsToRequest.all {
+                                val allGranted = permissionsToRequest.all {
                                     ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
                                 }
-                                if (allPermissionsGranted) {
-                                    filePickerLauncher.launch("*/*")
-                                } else {
-                                    permissionLauncher.launch(permissionsToRequest)
-                                }
+                                if (allGranted) filePickerLauncher.launch("*/*") else permissionLauncher.launch(permissionsToRequest)
                             }
                         )
                     }
 
                     item {
                         CommentsSection(
-                            comments = comments, // Gunakan state `comments`
+                            comments = comments,
                             commentText = commentText,
                             onCommentTextChange = { commentText = it },
                             onSendComment = {
@@ -184,9 +157,6 @@ fun TeamTaskDetailScreen(
     }
 }
 
-
-// === HELPER COMPOSABLES ===
-
 @Composable
 private fun HeaderSection(
     teamGradient: List<Color>,
@@ -197,9 +167,8 @@ private fun HeaderSection(
 ) {
     Box(
         modifier = Modifier
-            .fillMaxWidth()            .background(
-                brush = Brush.horizontalGradient(teamGradient) // ✅ PERBAIKAN: Gunakan list-nya secara langsung
-            )
+            .fillMaxWidth()
+            .background(brush = Brush.horizontalGradient(teamGradient))
             .padding(20.dp)
     ) {
         Column {
@@ -213,10 +182,10 @@ private fun HeaderSection(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                if (isAssigned) "This task is assigned to you. You can update the status to track your progress."
-                else if (role == "Admin") "Manage this task and track team progress."
-                else "You are viewing this task. Only assigned members can update the status.",
-                fontSize = 12.sp, color = Color.White.copy(alpha = 0.9f), lineHeight = 16.sp
+                if (isAssigned) "This task is assigned to you. You can update the status."
+                else if (role == "Admin") "Manage this task and track progress."
+                else "Viewing task. Only assigned members can update status.",
+                fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f), lineHeight = 16.sp
             )
         }
     }
@@ -240,9 +209,7 @@ private fun MainTaskCard(
         colors = CardDefaults.cardColors(Color.White),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        // Menggunakan Column dengan pembatas (divider) untuk tata letak yang lebih fleksibel
         Column(modifier = Modifier.padding(vertical = 16.dp)) {
-            // --- Bagian Title & Description ---
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Text(task.title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2D2D2D))
                 Spacer(Modifier.height(4.dp))
@@ -255,7 +222,13 @@ private fun MainTaskCard(
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Text("Status", fontSize = 13.sp, color = Color(0xFF757575))
                 Spacer(Modifier.height(8.dp))
-                StatusDisplay(task.status, canUpdateStatus) { onShowStatusDropdownChange(!showStatusDropdown) }
+
+                // PERBAIKAN: StatusDisplay sekarang memiliki panah di ujung kanan
+                StatusDisplay(
+                    status = task.status,
+                    canUpdate = canUpdateStatus
+                ) { onShowStatusDropdownChange(!showStatusDropdown) }
+
                 AnimatedVisibility(visible = showStatusDropdown && canUpdateStatus) {
                     StatusDropdown(currentStatus = task.status, onStatusChange = onStatusChange)
                 }
@@ -265,15 +238,8 @@ private fun MainTaskCard(
 
             Spacer(Modifier.height(16.dp))
 
-            // --- Bagian Priority (tanpa label) & Assigned To ---
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Priority
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 PriorityChip(task.priority)
-
-                // Assigned To
                 Text("Assigned to", fontSize = 13.sp, color = Color(0xFF757575))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     task.assignedTo.forEach { member ->
@@ -282,60 +248,38 @@ private fun MainTaskCard(
                 }
             }
 
-            // Pembatas
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = Color(0xFFF0F0F0))
 
-            // --- Bagian Deadline ---
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.CalendarToday, null, tint = Color.Gray, modifier = Modifier.size(18.dp))
                     Text("Deadline", fontSize = 13.sp, color = Color(0xFF757575))
                 }
                 Text(
-                    // Format tanggal agar sesuai dengan "yyyy-MM-dd"
                     text = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(task.deadline)),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF2D2D2D)
+                    fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF2D2D2D)
                 )
             }
 
-            // --- Bagian Attachments ---
-            if (task.attachments.isNotEmpty() || canUpdateStatus) { // Tampilkan section jika ada attachment ATAU bisa update
-                // Pembatas
+            if (task.attachments.isNotEmpty() || canUpdateStatus) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = Color(0xFFF0F0F0))
-
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Attachment, null, tint = Color.Gray, modifier = Modifier.size(18.dp))
                         Text("${task.attachments.size} Attachments", fontSize = 13.sp, color = Color(0xFF757575))
                     }
-                    // List attachment di bawahnya
                     task.attachments.forEach { attachment ->
                         AttachmentChip(attachment) {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(attachment.fileUrl))
                             context.startActivity(intent)
                         }
                     }
-
-                    // ✅ TAMBAHKAN TOMBOL "ADD ATTACHMENT" DI SINI
                     if (canUpdateStatus) {
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(4.dp))
                         OutlinedButton(
                             onClick = onAddAttachmentClick,
                             modifier = Modifier.fillMaxWidth(),
@@ -347,6 +291,58 @@ private fun MainTaskCard(
                             Text("Add Attachment", color = Color.Gray, fontSize = 13.sp)
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusDisplay(status: TaskStatus, canUpdate: Boolean, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(enabled = canUpdate, onClick = onClick),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(status.bgColor)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Label Status & Ikon Kiri
+            Row(
+                modifier = Modifier.weight(1f), // ✅ Mendorong sisa konten ke kanan
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Schedule, null, tint = status.color, modifier = Modifier.size(18.dp))
+                Text(status.displayName, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = status.color)
+            }
+
+            // Panah di Ujung Kanan
+            if (canUpdate) {
+                Icon(
+                    Icons.Filled.KeyboardArrowDown,
+                    null,
+                    tint = status.color,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusDropdown(currentStatus: TaskStatus, onStatusChange: (TaskStatus) -> Unit) {
+    Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TaskStatus.values().filter { it != currentStatus }.forEach { status ->
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable { onStatusChange(status) },
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(Color(0xFFF8F9FA))
+            ) {
+                Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.RadioButtonUnchecked, null, tint = status.color, modifier = Modifier.size(18.dp))
+                    Text(status.displayName, fontSize = 14.sp, color = Color(0xFF2D2D2D))
                 }
             }
         }
@@ -368,22 +364,17 @@ private fun CommentsSection(
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.ChatBubbleOutline, null, tint = Color.Gray)
-                Text("Comments (${comments.size})", fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.ChatBubbleOutline, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                Text("Comments (${comments.size})", fontWeight = FontWeight.SemiBold, color = Color(0xFF2D2D2D))
             }
             Spacer(Modifier.height(16.dp))
 
-            // Comment List
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                comments.forEach { comment ->
-                    CommentItem(comment, teamColor)
-                }
+                comments.forEach { comment -> CommentItem(comment, teamColor) }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // Input Field
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = commentText,
@@ -402,90 +393,32 @@ private fun CommentsSection(
                 IconButton(
                     onClick = onSendComment,
                     enabled = commentText.isNotBlank(),
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (commentText.isNotBlank()) teamColor else Color.LightGray),
+                    modifier = Modifier.size(48.dp).clip(CircleShape).background(if (commentText.isNotBlank()) teamColor else Color.LightGray),
                     colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)
                 ) {
-                    Icon(Icons.Filled.Send, null)
+                    Icon(Icons.Filled.Send, null, modifier = Modifier.size(20.dp))
                 }
             }
         }
     }
 }
 
-// === HELPER-HELPER KECIL ===
-
 @Composable
-private fun DetailRow(label: String, content: @Composable RowScope.() -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            color = Color(0xFF757575),
-            modifier = Modifier.width(90.dp)
-        )
-        content()
-    }
-}
-
-@Composable
-private fun StatusDisplay(status: TaskStatus, canUpdate: Boolean, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = canUpdate, onClick = onClick),
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(status.bgColor)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+private fun CommentItem(comment: TaskComment, teamColor: Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            modifier = Modifier.size(36.dp).clip(CircleShape).background(if (comment.isCurrentUser) teamColor else Color(0xFFE0E0E0)),
+            contentAlignment = Alignment.Center
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Schedule, null, tint = status.color, modifier = Modifier.size(18.dp))
-                Text(status.displayName, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = status.color)
-            }
-            if (canUpdate) {
-                Icon(Icons.Filled.KeyboardArrowDown, null, tint = status.color)
-            }
+            Text(comment.userName.first().toString().uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
-    }
-}
-
-@Composable
-private fun StatusDropdown(currentStatus: TaskStatus, onStatusChange: (TaskStatus) -> Unit) {
-    Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        TaskStatus.values().filter { it != currentStatus }.forEach { status ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onStatusChange(status) },
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(Color(0xFFF8F9FA))
-            ) {
-                Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.RadioButtonUnchecked, null, tint = status.color, modifier = Modifier.size(18.dp))
-                    Text(status.displayName, fontSize = 14.sp, color = Color(0xFF2D2D2D))
-                }
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (comment.isCurrentUser) "You" else comment.userName, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text(comment.timestamp, fontSize = 11.sp, color = Color.Gray)
             }
+            Text(comment.comment, fontSize = 13.sp, color = Color(0xFF424242))
         }
-    }
-}
-
-@Composable
-private fun PermissionInfo(canUpdate: Boolean) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            if (canUpdate) Icons.Filled.Edit else Icons.Filled.Lock, null,
-            tint = if (canUpdate) Color(0xFF16A34A) else Color(0xFFED8936),
-            modifier = Modifier.size(14.dp)
-        )
-        Text(
-            if (canUpdate) "You can update this task status" else "Only assigned members or Admins can update",
-            fontSize = 11.sp, color = if (canUpdate) Color(0xFF16A34A) else Color(0xFFED8936)
-        )
     }
 }
 
@@ -494,8 +427,8 @@ private fun PriorityChip(priority: TaskPriority) {
     Surface(color = priority.bgColor, shape = RoundedCornerShape(8.dp)) {
         Text(
             priority.displayName,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            fontSize = 12.sp, fontWeight = FontWeight.Medium, color = priority.color
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            fontSize = 11.sp, fontWeight = FontWeight.Bold, color = priority.color
         )
     }
 }
@@ -505,22 +438,16 @@ private fun AssigneeChip(member: TeamMember, isCurrentUser: Boolean) {
     val color = if (isCurrentUser) Color(0xFFF472B6) else Color(0xFF6A70D7)
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = color.copy(alpha = 0.15f),
-        border = if (isCurrentUser) BorderStroke(1.dp, color) else null
+        color = color.copy(alpha = 0.1f),
+        border = if (isCurrentUser) BorderStroke(1.dp, color.copy(alpha = 0.5f)) else null
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(color),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(member.name.first().toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Box(modifier = Modifier.size(18.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
+                Text(member.name.first().toString().uppercase(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
             Text(if (isCurrentUser) "You" else member.name, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = color)
         }
@@ -530,39 +457,29 @@ private fun AssigneeChip(member: TeamMember, isCurrentUser: Boolean) {
 @Composable
 private fun AttachmentChip(attachment: TaskAttachment, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(Color(0xFFF8F9FA)),
-        border = BorderStroke(1.dp, Color(0xFFE8E8E8))
+        border = BorderStroke(1.dp, Color(0xFFEEEEEE))
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Default.Attachment, null, tint = Color.Gray, modifier = Modifier.size(18.dp))
-            Text(attachment.fileName, fontSize = 13.sp, color = Color(0xFF616161))
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(Icons.Default.InsertDriveFile, null, tint = Color.Gray, modifier = Modifier.size(18.dp))
+            Text(attachment.fileName, fontSize = 13.sp, color = Color(0xFF424242))
         }
     }
 }
 
 @Composable
-private fun CommentItem(comment: TaskComment, teamColor: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(if (comment.isCurrentUser) teamColor else Color.Gray.copy(alpha = 0.3f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(comment.userName.first().toString(), color = if (comment.isCurrentUser) Color.White else teamColor, fontWeight = FontWeight.Bold)
-        }
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (comment.isCurrentUser) "You" else comment.userName, fontWeight = FontWeight.SemiBold)
-                Text(comment.timestamp, fontSize = 11.sp, color = Color.Gray) // ✅ PERBAIKAN
-            }
-            Text(comment.comment, fontSize = 13.sp, color = Color(0xFF616161))
-        }
+private fun PermissionInfo(canUpdate: Boolean) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            if (canUpdate) Icons.Filled.CheckCircle else Icons.Filled.Lock, null,
+            tint = if (canUpdate) Color(0xFF10B981) else Color(0xFFF59E0B),
+            modifier = Modifier.size(14.dp)
+        )
+        Text(
+            if (canUpdate) "Status can be updated" else "Viewing only (Restricted)",
+            fontSize = 11.sp, color = if (canUpdate) Color(0xFF10B981) else Color(0xFFF59E0B)
+        )
     }
 }
-
