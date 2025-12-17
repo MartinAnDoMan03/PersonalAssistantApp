@@ -167,6 +167,8 @@ fun HomeScreen(
     var swipedTaskId by remember { mutableStateOf<String?>(null) }
     var lastCompletedTask by remember { mutableStateOf<TaskModel?>(null) }
     var showUndoSnackbar by remember { mutableStateOf(false) }
+    var lastDeletedTask by remember { mutableStateOf<TaskModel?>(null) }
+    var showDeleteSnackbar by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
     var taskToRestore by remember { mutableStateOf<TaskModel?>(null) }
     var deletingTask by remember { mutableStateOf<TaskModel?>(null) }
@@ -199,12 +201,14 @@ fun HomeScreen(
                 .addOnSuccessListener {
                     lastCompletedTask = task
                     showUndoSnackbar = true
+                    showDeleteSnackbar = false
                 }
         } else {
             // ===== PERSONAL TASK =====
             viewModel.updateTaskStatus(task.id, true)
             lastCompletedTask = task
             showUndoSnackbar = true
+            showDeleteSnackbar = false
         }
 
         swipedTaskId = null
@@ -240,8 +244,22 @@ fun HomeScreen(
 
     // Function untuk delete task
     fun deleteTaskConfirmed(task: TaskModel) {
+        lastDeletedTask = task
         viewModel.deleteTask(task.id)
+        showDeleteSnackbar = true
+        showUndoSnackbar = false
         swipedTaskId = null
+        scope.launch {
+            delay(8000)
+            showDeleteSnackbar = false
+            lastDeletedTask = null
+        }
+    }
+
+    // Function untuk undo delete
+    fun undoDelete() {
+        showDeleteSnackbar = false
+        lastDeletedTask = null
     }
 
     // show restore dialog
@@ -404,10 +422,10 @@ fun HomeScreen(
                                             color = Color.White,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                                    style = androidx.compose.ui.text.TextStyle(
-                                                    platformStyle = androidx.compose.ui.text.PlatformTextStyle(
-                                                        includeFontPadding = false
-                                                    )))
+                                            style = androidx.compose.ui.text.TextStyle(
+                                                platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+                                                    includeFontPadding = false
+                                                )))
                                     }
                                 }
 
@@ -678,6 +696,60 @@ fun HomeScreen(
                     }
                     TextButton(
                         onClick = { undoCompletion() },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            "UNDO",
+                            color = Color(0xFF6A70D7),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Undo Snackbar (delete)
+        AnimatedVisibility(
+            visible = showDeleteSnackbar,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = null,
+                            tint = Color(0xFFF44336),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Task deleted",
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                    }
+                    TextButton(
+                        onClick = { undoDelete() },
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                     ) {
                         Text(
@@ -1125,5 +1197,3 @@ private fun TaskModel.isTeamTask(): Boolean {
             this.userId == "TEAM" ||
             this.categoryNamesSafe.any { it.equals("Team", ignoreCase = true) }
 }
-
-
