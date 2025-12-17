@@ -70,6 +70,14 @@ fun TeamDetailScreen(
     } else if (teamDetail != null) {
         val detail = teamDetail!!
         val isAdmin = detail.currentUserRole == "Admin"
+        val sortedMembers = remember(detail.members) {
+            detail.members.sortedWith(
+                compareByDescending<TeamMember> { it.role == "Admin" } // Admin (true) di atas
+                    .thenBy { it.name.lowercase() } // Sisanya urut ABC
+            )
+        }
+
+
         val filteredTasks = if (selectedFilter != null) {
             detail.tasks.filter { it.status == selectedFilter }
         } else {
@@ -312,7 +320,8 @@ fun TeamDetailScreen(
                     )
                 }
 
-                items(detail.members, key = { it.id }) { member ->
+                // Menggunakan sortedMembers yang sudah diproses di atas
+                items(sortedMembers, key = { it.id }) { member ->
                     MemberCard(
                         member = member,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)

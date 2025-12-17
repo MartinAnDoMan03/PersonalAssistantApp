@@ -1,4 +1,3 @@
-// ProfileScreen.kt
 package com.example.yourassistantyora.screen
 
 import androidx.compose.foundation.BorderStroke
@@ -18,18 +17,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import com.example.yourassistantyora.navigateSingleTop
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
-import androidx.compose.foundation.Image
-import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,256 +42,219 @@ fun ProfileScreen(
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFFF5F7FA))
-    ) {
-        // 🔹 HEADER (kotak ungu)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color(0xFF6A70D7), Color(0xFF7353AD))
+    Scaffold(
+        containerColor = Color(0xFFF5F7FA),
+        topBar = {
+            // ✅ Menggunakan WindowInsets agar icon back turun (tidak tertutup status bar/jam)
+            CenterAlignedTopAppBar(
+                windowInsets = WindowInsets.statusBars,
+                title = {
+                    Text(
+                        "Profile",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color(0xFF6A70D7)
                 )
-                .padding(bottom = 20.dp)
+            )
+        }
+    ) { scaffoldPadding ->
+        // ✅ Column utama menggunakan fillMaxSize agar weight(1f) berfungsi
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(scaffoldPadding)
+                .verticalScroll(rememberScrollState())
         ) {
+            // 🔹 HEADER GRADIENT
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color(0xFF6A70D7), Color(0xFF7353AD))
+                        )
+                    )
+                    .padding(vertical = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Avatar
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFB74D)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!userPhotoUrl.isNullOrEmpty()) {
+                            AsyncImage(
+                                model = userPhotoUrl,
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Text(
+                                text = if (userName.isNotEmpty()) userName.take(1).uppercase() else "U",
+                                color = Color.White,
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = userName,
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // 🔹 CARD STATISTIK
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = (-20).dp)
+                    .padding(horizontal = 20.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp, horizontal = 16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = totalTasks.toString(),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2D2D2D)
+                                )
+                                Text("Task", fontSize = 12.sp, color = Color(0xFF9E9E9E))
+                            }
+
+                            Box(modifier = Modifier.width(1.dp).height(30.dp).background(Color(0xFFE0E0E0)))
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = completedTasks.toString(),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2D2D2D)
+                                )
+                                Text("Completed", fontSize = 12.sp, color = Color(0xFF9E9E9E))
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        TextButton(
+                            onClick = { navController.navigateSingleTop("edit_profile") },
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        ) {
+                            Icon(Icons.Filled.Edit, null, tint = Color(0xFF6A70D7), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Edit Profile", color = Color(0xFF6A70D7), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+
+            // 🔹 DATA DIRI SECTION
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 12.dp)
+                    .padding(horizontal = 24.dp)
+                    // ✅ Kunci agar tombol berada di bawah: Menggunakan weight(1f) pada bagian Spacer nanti
+                    .heightIn(min = 400.dp)
             ) {
-                IconButton(
-                    onClick = { navController.popBackStack() },   // ⬅️ back via NavController
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
+                Text(text = "Username", fontSize = 13.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
+                OutlinedTextField(
+                    value = userName,
+                    onValueChange = {},
+                    enabled = false,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = Color.Black,
+                        disabledBorderColor = Color(0xFFE0E0E0),
+                        disabledContainerColor = Color(0xFFF9F9F9)
                     )
-                }
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Avatar
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .size(68.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFFFB74D)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (!userPhotoUrl.isNullOrEmpty()) {
-                        AsyncImage(
-                            model = userPhotoUrl,
-                            contentDescription = "Profile Picture",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-
-                    } else{
-                        Text(
-                            text = if (userName.isNotEmpty()) userName.take(1).uppercase() else "U",
-                            color = Color.White,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = userName,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
+                Text(text = "Email Address", fontSize = 13.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
+                OutlinedTextField(
+                    value = userEmail,
+                    onValueChange = {},
+                    enabled = false,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = Color.Black,
+                        disabledBorderColor = Color(0xFFE0E0E0),
+                        disabledContainerColor = Color(0xFFF9F9F9)
+                    )
                 )
-            }
-        }
+                Text("Email cannot be changed", fontSize = 12.sp, color = Color(0xFF9E9E9E), modifier = Modifier.padding(top = 6.dp))
 
-        // 🔹 CARD PUTIH
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .offset(y = (-20).dp)
-                .padding(horizontal = 20.dp)
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 100.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-            ) {
-                Column(
+                // ✅ Mendorong konten ke bawah
+                Spacer(modifier = Modifier.height(60.dp))
+
+                // 🔹 TOMBOL LOG OUT (Paling Bawah)
+                OutlinedButton(
+                    onClick = { showLogoutDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 10.dp, horizontal = 16.dp)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.5.dp, Color(0xFFE53935)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935))
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = totalTasks.toString(),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2D2D2D)
-                            )
-                            Text("Task", fontSize = 12.sp, color = Color(0xFF9E9E9E))
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(28.dp)
-                                .background(Color(0xFFE0E0E0))
-                        )
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = completedTasks.toString(),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2D2D2D)
-                            )
-                            Text("Completed", fontSize = 12.sp, color = Color(0xFF9E9E9E))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // 🔹 Tombol Edit Profile → ke "edit_profile"
-                    TextButton(
-                        onClick = { navController.navigateSingleTop("edit_profile") },
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .height(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Edit,
-                            contentDescription = "Edit",
-                            tint = Color(0xFF6A70D7),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Edit Profile",
-                            color = Color(0xFF6A70D7),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    Text("Log Out", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
+
+                Spacer(modifier = Modifier.height(30.dp))
             }
-        }
-
-        // 🔹 FORM DATA DIRI
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(top = 8.dp)
-        ) {
-            Text(
-                text = "Username",
-                fontSize = 13.sp,
-                color = Color.Black,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            OutlinedTextField(
-                value = userName,
-                onValueChange = {},
-                enabled = false,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = Color.Black,
-                    disabledBorderColor = Color(0xFFE0E0E0),
-                    disabledContainerColor = Color.White
-                )
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = "Email Address",
-                fontSize = 13.sp,
-                color = Color.Black,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            OutlinedTextField(
-                value = userEmail,
-                onValueChange = {},
-                enabled = false,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = Color.Black,
-                    disabledBorderColor = Color(0xFFE0E0E0),
-                    disabledContainerColor = Color.White
-                )
-            )
-
-            Text(
-                text = "Email cannot be changed",
-                fontSize = 12.sp,
-                color = Color(0xFF9E9E9E),
-                modifier = Modifier.padding(top = 6.dp)
-            )
-
-            Spacer(modifier = Modifier.height(30.dp))
-
-            // 🔹 Tombol Log Out
-            OutlinedButton(
-                onClick = { showLogoutDialog = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFE53935)),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = Color(0xFFE53935)
-                )
-            ) {
-                Text(
-                    text = "Log Out",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 
-    // 🔹 Popup Konfirmasi Logout
+    // 🔹 POPUP LOGOUT
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Log Out", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-            text = { Text("Are you sure you want to log out?", fontSize = 14.sp, color = Color(0xFF444444)) },
+            title = { Text("Log Out", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to log out?") },
             confirmButton = {
                 TextButton(onClick = {
                     showLogoutDialog = false
@@ -308,22 +268,6 @@ fun ProfileScreen(
                     Text("Cancel", color = Color(0xFF6A70D7))
                 }
             }
-        )
-    }
-}
-
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
-@Composable
-private fun ProfileScreenPreview() {
-    YourAssistantYoraTheme {
-        val navController = rememberNavController()
-        ProfileScreen(
-            navController = navController,
-            userName = "Tom Holland",
-            userEmail = "tomholland@gmail.com",
-            totalTasks = 10,
-            completedTasks = 6,
-            onLogout = {}
         )
     }
 }
