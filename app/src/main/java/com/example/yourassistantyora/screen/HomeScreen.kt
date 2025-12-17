@@ -115,6 +115,20 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: TaskViewModel = viewModel()
 ) {
+    var unreadNotificationCount by remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@LaunchedEffect
+        val db = FirebaseFirestore.getInstance()
+
+        db.collection("notifications")
+            .whereEqualTo("userId", uid)
+            .whereEqualTo("isRead", false)
+            .addSnapshotListener { snapshot, _ ->
+                unreadNotificationCount = snapshot?.size() ?: 0
+            }
+    }
+
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_HOME) }
     val scope = rememberCoroutineScope()
     var userName by remember { mutableStateOf("User") }
@@ -379,14 +393,25 @@ fun HomeScreen(
                                         tint = Color.White
                                     )
                                 }
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = (-2).dp, y = 2.dp)
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFFFD54F))
-                                )
+                                if (unreadNotificationCount > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = (-4).dp, y = 4.dp)
+                                            .size(18.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFFF5252)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (unreadNotificationCount > 9) "9+" else unreadNotificationCount.toString(),
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
                             }
                             IconButton(
                                 onClick = { navController.navigateSingleTop("profile") },

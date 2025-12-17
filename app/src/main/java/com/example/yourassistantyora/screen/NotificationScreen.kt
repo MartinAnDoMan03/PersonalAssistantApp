@@ -18,7 +18,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,6 +31,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import java.util.*
 import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 
 /* ---------------- DATA ---------------- */
 
@@ -58,7 +62,6 @@ fun NotificationScreen(navController: NavController) {
     var filter by remember { mutableStateOf("All") }
     var isLoading by remember { mutableStateOf(true) }
 
-    // State untuk tracking IDs yang sudah di-mark as read secara lokal
     var locallyReadIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     val unreadCount = notifications.count { notif ->
@@ -110,8 +113,9 @@ fun NotificationScreen(navController: NavController) {
     }
 
     Scaffold(
+        containerColor = Color(0xFFF8F9FD),
         topBar = {
-            SimpleHeader(
+            ModernHeader(
                 unreadCount = unreadCount,
                 onBack = { navController.popBackStack() }
             )
@@ -123,9 +127,9 @@ fun NotificationScreen(navController: NavController) {
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            FilterRow(filter) { filter = it }
+            ModernFilterRow(filter) { filter = it }
 
-            ActionRow(
+            ModernActionRow(
                 notifications = notifications,
                 onMarkAllAsRead = { idsToMark ->
                     locallyReadIds = locallyReadIds + idsToMark
@@ -134,13 +138,13 @@ fun NotificationScreen(navController: NavController) {
 
             when {
                 isLoading -> LoadingView()
-                filteredNotifications.isEmpty() -> EmptyView()
+                filteredNotifications.isEmpty() -> ModernEmptyView()
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(filteredNotifications, key = { it.id }) { notif ->
-                        NotificationCard(
+                        ModernNotificationCard(
                             notification = notif,
                             navController = navController,
                             isLocallyRead = notif.id in locallyReadIds,
@@ -155,86 +159,132 @@ fun NotificationScreen(navController: NavController) {
     }
 }
 
-/* ---------------- HEADER ---------------- */
+/* ---------------- MODERN HEADER ---------------- */
 
 @Composable
-fun SimpleHeader(unreadCount: Int, onBack: () -> Unit) {
+fun ModernHeader(unreadCount: Int, onBack: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                androidx.compose.ui.graphics.Brush.horizontalGradient(
-                    listOf(Color(0xFF6A5AE0), Color(0xFF836AFF))
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF6366F1),
+                        Color(0xFF8B5CF6)
+                    )
                 )
             )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White
-                )
-            }
-
-            Spacer(Modifier.width(8.dp))
-
-            Text(
-                text = "Notifications",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.weight(1f)
-            )
-
-            if (unreadCount > 0) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    modifier = Modifier.padding(4.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.2f))
+                        .clickable { onBack() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = unreadCount.toString(),
-                        color = Color(0xFF6A5AE0),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
+                }
+
+                Spacer(Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Notifications",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    if (unreadCount > 0) {
+                        Text(
+                            text = "$unreadCount new",
+                            fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                    }
+                }
+
+                if (unreadCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (unreadCount > 99) "99+" else unreadCount.toString(),
+                            color = Color(0xFF6366F1),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-/* ---------------- FILTER ROW ---------------- */
+/* ---------------- MODERN FILTER ROW ---------------- */
 
 @Composable
-fun FilterRow(selected: String, onSelect: (String) -> Unit) {
-    Row(
-        Modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+fun ModernFilterRow(
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        listOf("All", "Unread", "Task", "Team", "Comment").forEach {
-            FilterChip(
-                selected = selected == it,
-                onClick = { onSelect(it) },
-                label = { Text(it) }
-            )
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("All", "Unread", "Task", "Team", "Comment").forEach { filter ->
+                    val isSelected = selected == filter
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { onSelect(filter) },
+                        color = if (isSelected) Color(0xFF6366F1) else Color.White,
+                        shape = RoundedCornerShape(20.dp),
+                        shadowElevation = if (isSelected) 4.dp else 1.dp
+                    ) {
+                        Text(
+                            text = filter,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                            color = if (isSelected) Color.White else Color(0xFF64748B),
+                            fontSize = 14.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
-/* ---------------- ACTION BAR ---------------- */
+
+/* ---------------- MODERN ACTION ROW ---------------- */
 
 @Composable
-fun ActionRow(
+fun ModernActionRow(
     notifications: List<Notification>,
     onMarkAllAsRead: (Set<String>) -> Unit
 ) {
@@ -270,10 +320,10 @@ fun ActionRow(
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
-                            color = Color.Red
+                            color = Color(0xFFEF4444)
                         )
                     } else {
-                        Text("Yes", color = Color.Red)
+                        Text("Yes", color = Color(0xFFEF4444), fontWeight = FontWeight.SemiBold)
                     }
                 }
             },
@@ -282,11 +332,13 @@ fun ActionRow(
                     onClick = { showDialog = false },
                     enabled = !isProcessing
                 ) {
-                    Text("Cancel")
+                    Text("Cancel", color = Color(0xFF64748B))
                 }
             },
-            title = { Text("Confirm Deletion") },
-            text = { Text("Are you sure you want to delete all notifications?") }
+            title = { Text("Clear All Notifications?", fontWeight = FontWeight.Bold) },
+            text = { Text("This action cannot be undone.", color = Color(0xFF64748B)) },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(20.dp)
         )
     }
 
@@ -297,50 +349,82 @@ fun ActionRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            Modifier.clickable {
-                val unreadNotifs = notifications.filter { !it.isRead }
-                if (unreadNotifs.isNotEmpty()) {
-                    // Update UI instantly
-                    val idsToMark = unreadNotifs.map { it.id }.toSet()
-                    onMarkAllAsRead(idsToMark)
+        Surface(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .clickable {
+                    val unreadNotifs = notifications.filter { !it.isRead }
+                    if (unreadNotifs.isNotEmpty()) {
+                        val idsToMark = unreadNotifs.map { it.id }.toSet()
+                        onMarkAllAsRead(idsToMark)
 
-                    // Then update Firestore in background
-                    val batch = db.batch()
-                    unreadNotifs.forEach { notif ->
-                        val docRef = db.collection("notifications").document(notif.id)
-                        batch.update(docRef, "isRead", true)
-                    }
-                    batch.commit()
-                        .addOnFailureListener { e ->
-                            println("Error marking as read: ${e.message}")
+                        val batch = db.batch()
+                        unreadNotifs.forEach { notif ->
+                            val docRef = db.collection("notifications").document(notif.id)
+                            batch.update(docRef, "isRead", true)
                         }
-                }
-            },
-            verticalAlignment = Alignment.CenterVertically
+                        batch.commit()
+                            .addOnFailureListener { e ->
+                                println("Error marking as read: ${e.message}")
+                            }
+                    }
+                },
+            color = Color.White,
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Icon(Icons.Default.CheckCircle, null)
-            Spacer(Modifier.width(6.dp))
-            Text("Mark all as read", fontSize = 14.sp)
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    null,
+                    tint = Color(0xFF10B981),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Mark all read",
+                    fontSize = 13.sp,
+                    color = Color(0xFF1E293B),
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
 
-        Row(
-            Modifier.clickable { showDialog = true },
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { showDialog = true },
+            color = Color(0xFFFEE2E2),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Icon(Icons.Default.Delete, null, tint = Color.Red)
-            Spacer(Modifier.width(6.dp))
-            Text("Clear all", color = Color.Red, fontSize = 14.sp)
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    null,
+                    tint = Color(0xFFEF4444),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Clear all",
+                    color = Color(0xFFEF4444),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
 
-/* ---------------- CARD ---------------- */
-
-/* ---------------- CARD ---------------- */
+/* ---------------- MODERN CARD ---------------- */
 
 @Composable
-fun NotificationCard(
+fun ModernNotificationCard(
     notification: Notification,
     navController: NavController,
     isLocallyRead: Boolean,
@@ -350,8 +434,6 @@ fun NotificationCard(
     val auth = FirebaseAuth.getInstance()
     var showConfirm by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
-
-    // State to disable buttons while processing
     var isProcessing by remember { mutableStateOf(false) }
 
     if (showConfirm) {
@@ -369,35 +451,39 @@ fun NotificationCard(
                             showConfirm = false
                         }
                 }) {
-                    Text("Yes", color = Color.Red)
+                    Text("Delete", color = Color(0xFFEF4444), fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showConfirm = false }) {
+                    Text("Cancel", color = Color(0xFF64748B))
+                }
             },
-            title = { Text("Delete Notification") },
-            text = { Text("Are you sure you want to delete this notification?") }
+            title = { Text("Delete Notification?", fontWeight = FontWeight.Bold) },
+            text = { Text("This action cannot be undone.", color = Color(0xFF64748B)) },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(20.dp)
         )
     }
 
     val effectiveIsRead = notification.isRead || isLocallyRead
     val backgroundColor by animateColorAsState(
-        targetValue = if (!effectiveIsRead)
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
-        else
-            Color(0xFFFDFDFD),
+        targetValue = if (!effectiveIsRead) Color.White else Color(0xFFF8F9FD),
         animationSpec = tween(durationMillis = 300),
         label = "background_animation"
     )
 
-    // Update icon mapping to include TEAM_INVITE
-    val icon = when (notification.type) {
-        "TEAM_INVITE", "TEAM_INVITATION" -> Icons.Default.GroupAdd // New Icon
-        "COMMENT" -> Icons.Default.Comment
-        "ASSIGNMENT" -> Icons.Default.Assignment
-        "DEADLINE_REMINDER" -> Icons.Default.Alarm
-        "TASK_COMPLETED" -> Icons.Default.CheckCircle
-        else -> Icons.Default.Notifications
+    val (icon, iconColor, iconBg) = when (notification.type) {
+        "TEAM_INVITE", "TEAM_INVITATION" -> Triple(
+            Icons.Default.GroupAdd,
+            Color(0xFF6366F1),
+            Color(0xFFEEF2FF)
+        )
+        "COMMENT" -> Triple(Icons.Default.Comment, Color(0xFF8B5CF6), Color(0xFFF3E8FF))
+        "ASSIGNMENT" -> Triple(Icons.Default.Assignment, Color(0xFF3B82F6), Color(0xFFDBEAFE))
+        "DEADLINE_REMINDER" -> Triple(Icons.Default.Alarm, Color(0xFFF59E0B), Color(0xFFFEF3C7))
+        "TASK_COMPLETED" -> Triple(Icons.Default.CheckCircle, Color(0xFF10B981), Color(0xFFD1FAE5))
+        else -> Triple(Icons.Default.Notifications, Color(0xFF6366F1), Color(0xFFEEF2FF))
     }
 
     val formattedDate = remember(notification.createdAt) {
@@ -405,20 +491,15 @@ fun NotificationCard(
         android.text.format.DateFormat.format("dd MMM yyyy, HH:mm", date).toString()
     }
 
-    // --- LOGIC FUNCTIONS ---
     fun acceptInvite() {
         if (notification.inviteCode == null || notification.teamId == null) return
         isProcessing = true
         val userId = auth.currentUser?.uid ?: return
 
-        // 1. Add user to team 'members' array
         db.collection("teams").document(notification.teamId)
             .update("members", com.google.firebase.firestore.FieldValue.arrayUnion(userId))
             .addOnSuccessListener {
-                // 2. Delete the notification
                 db.collection("notifications").document(notification.id).delete()
-
-                // 3. Navigate to team
                 navController.navigate("team_detail/${notification.teamId}") {
                     launchSingleTop = true
                 }
@@ -434,37 +515,40 @@ fun NotificationCard(
         db.collection("notifications").document(notification.id).delete()
     }
 
-    // --- UI CONTENT ---
     if (!isDeleting) {
-        Card(
-            Modifier
+        Surface(
+            modifier = Modifier
                 .fillMaxWidth()
-                .shadow(1.dp, RoundedCornerShape(12.dp))
+                .shadow(
+                    elevation = if (!effectiveIsRead) 3.dp else 1.dp,
+                    shape = RoundedCornerShape(16.dp)
+                )
                 .animateContentSize()
                 .clickable {
-                    // Mark as read logic
                     if (!notification.isRead && !isLocallyRead) {
                         onLocalMarkAsRead(notification.id)
-                        db.collection("notifications").document(notification.id).update("isRead", true)
+                        db
+                            .collection("notifications")
+                            .document(notification.id)
+                            .update("isRead", true)
                     }
 
-                    // Navigation logic
                     when (notification.type) {
                         "ASSIGNMENT", "TASK_COMPLETED", "DEADLINE_REMINDER", "COMMENT" -> {
-                            notification.taskId?.takeIf { it.isNotBlank() }?.let { taskId ->
-                                navController.navigate("team_task_detail/$taskId") { launchSingleTop = true }
-                            }
+                            notification.taskId
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { taskId ->
+                                    navController.navigate("team_task_detail/$taskId") {
+                                        launchSingleTop = true
+                                    }
+                                }
                         }
-                        // Note: We don't auto-navigate on click for Invite, they must use buttons
                     }
                 },
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = backgroundColor)
+            shape = RoundedCornerShape(16.dp),
+            color = backgroundColor
         ) {
-            // CHANGED: Wrapped everything in a Column so we can stack buttons at the bottom
             Column(Modifier.padding(16.dp)) {
-
-                // TOP ROW (Icon, Text, Delete Button)
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -474,63 +558,134 @@ fun NotificationCard(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.Top
                     ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = if (notification.type == "TEAM_INVITE") Color(0xFF6A5AE0) else Color(0xFF5C6BC0),
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(iconBg),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = iconColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
                         Spacer(Modifier.width(12.dp))
+
                         Column {
-                            Text(notification.title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(
+                                text = notification.title,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = Color(0xFF0F172A)
+                            )
                             Spacer(Modifier.height(4.dp))
-                            Text(notification.description, fontSize = 13.sp, color = Color.DarkGray)
-                            Spacer(Modifier.height(6.dp))
-                            Text(formattedDate, fontSize = 11.sp, color = Color.Gray)
+                            Text(
+                                text = notification.description,
+                                fontSize = 13.sp,
+                                color = Color(0xFF64748B),
+                                lineHeight = 18.sp
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = formattedDate,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
                         }
                     }
 
-                    IconButton(
-                        onClick = { showConfirm = true },
-                        modifier = Modifier.size(36.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFEE2E2))
+                            .clickable { showConfirm = true },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete",
-                            tint = Color.Red
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
 
-                // BOTTOM ROW (Only show for Invites)
                 if (notification.type == "TEAM_INVITE" || notification.type == "TEAM_INVITATION") {
                     Spacer(Modifier.height(16.dp))
                     Row(
-                        Modifier.fillMaxWidth().padding(start = 36.dp), // Indent to align with text
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(start = 60.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Button(
                             onClick = { acceptInvite() },
                             enabled = !isProcessing,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A5AE0)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(36.dp)
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF6366F1)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp),
+                            elevation = ButtonDefaults.buttonElevation(2.dp)
                         ) {
                             if (isProcessing) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White)
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
                             } else {
-                                Text("Accept", fontSize = 12.sp)
+                                Text("Accept", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
 
                         OutlinedButton(
                             onClick = { declineInvite() },
                             enabled = !isProcessing,
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(36.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF64748B)
+                            )
                         ) {
-                            Text("Decline", color = Color.Gray, fontSize = 12.sp)
+                            Text("Decline", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         }
+                    }
+                }
+
+                if (!effectiveIsRead) {
+                    Spacer(Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 60.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF3B82F6))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "NEW",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
             }
@@ -538,28 +693,49 @@ fun NotificationCard(
     }
 }
 
-
 /* ---------------- STATE VIEWS ---------------- */
 
 @Composable
 fun LoadingView() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
+        CircularProgressIndicator(color = Color(0xFF6366F1))
     }
 }
 
 @Composable
-fun EmptyView() {
+fun ModernEmptyView() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.Notifications,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = Color.Gray
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF1F5F9)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Notifications,
+                    contentDescription = null,
+                    modifier = Modifier.size(60.dp),
+                    tint = Color(0xFFCBD5E1)
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = "No notifications yet",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B)
             )
-            Spacer(Modifier.height(16.dp))
-            Text("No notifications", color = Color.Gray)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "You're all caught up!",
+                color = Color(0xFF64748B),
+                fontSize = 14.sp
+            )
         }
     }
 }
