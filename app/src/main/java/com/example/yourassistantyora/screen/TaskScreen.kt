@@ -48,24 +48,19 @@ fun TaskScreen(
 
     // State untuk Pencarian
     var isSearching by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") } // <-- Kita tetap menggunakan ini
-
-    // ... (Logika filtering, scope, dll. tetap sama)
+    var searchQuery by remember { mutableStateOf("") }
 
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
     var swipedTaskId by remember { mutableStateOf<String?>(null) }
     var lastCompletedTask by remember { mutableStateOf<TaskModel?>(null) }
     var showUndoSnackbar by remember { mutableStateOf(false) }
-    var lastDeletedTask by remember { mutableStateOf<TaskModel?>(null) }
-    var showDeleteSnackbar by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
     var taskToRestore by remember { mutableStateOf<TaskModel?>(null) }
     var deletingTask by remember { mutableStateOf<TaskModel?>(null) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-    // --- LOGIKA FILTERING --- (Tetap sama)
-    // ⛔ BUANG TEAM TASK (TaskScreen = PERSONAL ONLY)
+    // --- LOGIKA FILTERING ---
     val personalTasks = tasks.filter { !it.id.startsWith("team_") }
 
     val activeTasks = personalTasks.filter { !it.isCompleted }
@@ -96,13 +91,11 @@ fun TaskScreen(
             queryMatch
         }
 
-    // ... (Fungsi completeTask, undoCompletion, deleteTaskConfirmed, dll. tetap sama)
     fun completeTask(task: TaskModel) {
         if (!task.isCompleted) {
             viewModel.updateTaskStatus(task.id, true)
             lastCompletedTask = task
             showUndoSnackbar = true
-            showDeleteSnackbar = false
             swipedTaskId = null
             scope.launch {
                 delay(8000)
@@ -119,21 +112,8 @@ fun TaskScreen(
     }
 
     fun deleteTaskConfirmed(task: TaskModel) {
-        lastDeletedTask = task
         viewModel.deleteTask(task.id)
-        showDeleteSnackbar = true
-        showUndoSnackbar = false
         swipedTaskId = null
-        scope.launch {
-            delay(8000)
-            showDeleteSnackbar = false
-            lastDeletedTask = null
-        }
-    }
-
-    fun undoDelete() {
-        showDeleteSnackbar = false
-        lastDeletedTask = null
     }
 
     fun showRestoreConfirmation(task: TaskModel) {
@@ -152,13 +132,10 @@ fun TaskScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color(0xFFF5F7FA),
-            // ✅ PERUBAHAN UTAMA DI SINI
             topBar = {
-                // Menggunakan TopAppBar tunggal untuk SearchBar dan Title
                 TopAppBar(
-                    modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars), // Pertahankan responsiveness
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                     title = {
-                        // Tampilkan Title biasa
                         AnimatedVisibility(
                             visible = !isSearching,
                             enter = fadeIn(),
@@ -172,7 +149,6 @@ fun TaskScreen(
                             )
                         }
 
-                        // Tampilkan Search Bar saat isSearching true
                         AnimatedVisibility(
                             visible = isSearching,
                             enter = fadeIn(),
@@ -199,20 +175,15 @@ fun TaskScreen(
                         }
                     },
                     navigationIcon = {
-                        // Navigation Icon hanya ditampilkan saat tidak mencari
                         if (!isSearching) {
                             IconButton(onClick = { navController.popBackStack() }) {
                                 Icon(Icons.Filled.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
                             }
-                        } else {
-                            // Saat mencari, ikon ArrowBack/Close sudah berada di actions
                         }
                     },
                     actions = {
-                        // Tombol Toggle Search/Close
                         IconButton(onClick = {
                             if (isSearching) {
-                                // Jika mode mencari aktif, matikan mode dan reset query
                                 searchQuery = ""
                             }
                             isSearching = !isSearching
@@ -227,7 +198,6 @@ fun TaskScreen(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                 )
             },
-            // ... (BottomBar dan FAB tetap sama)
             bottomBar = {
                 BottomNavigationBar(
                     selectedTab = selectedTab,
@@ -264,7 +234,6 @@ fun TaskScreen(
                     onNavigateToMonthly = { navController.navigateSingleTop("monthly_tasks") }
                 )
 
-                // Filter Row hanya tampil jika TIDAK sedang mencari
                 if (!isSearching) {
                     TaskFilterRow(
                         selectedStatus = selectedStatus,
@@ -282,7 +251,6 @@ fun TaskScreen(
                         CircularProgressIndicator()
                     }
                 }
-                // Tampilkan pesan jika tidak ada hasil saat pencarian
                 else if (filteredActiveTasks.isEmpty() && filteredCompletedTasks.isEmpty() && searchQuery.isNotBlank()) {
                     Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
                         Text(
@@ -356,7 +324,7 @@ fun TaskScreen(
             }
         }
 
-        // SNACKBAR dan DIALOGS (tetap sama)
+        // Snackbar untuk undo completion
         AnimatedVisibility(
             visible = showUndoSnackbar,
             enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -370,22 +338,6 @@ fun TaskScreen(
                 text = "Task completed",
                 actionText = "UNDO",
                 onAction = { undoCompletion() }
-            )
-        }
-
-        AnimatedVisibility(
-            visible = showDeleteSnackbar,
-            enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
-        ) {
-            SnackbarCard(
-                icon = { Icon(Icons.Filled.Delete, null, tint = Color(0xFFF44336), modifier = Modifier.size(20.dp)) },
-                text = "Task deleted",
-                actionText = "UNDO",
-                onAction = { undoDelete() }
             )
         }
 
