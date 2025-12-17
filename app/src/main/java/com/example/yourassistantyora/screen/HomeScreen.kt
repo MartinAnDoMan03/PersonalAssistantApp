@@ -152,7 +152,6 @@ fun HomeScreen(
 
                 if (snapshot != null && snapshot.exists()) {
                     userName = snapshot.getString("username") ?: "User"
-                    // Just get the URL string. Coil handles the rest.
                     userPhotoUrl = snapshot.getString("photoUrl")
                 }
             }
@@ -162,13 +161,10 @@ fun HomeScreen(
         }
     }
 
-
     // STATE untuk UI interactions
     var swipedTaskId by remember { mutableStateOf<String?>(null) }
     var lastCompletedTask by remember { mutableStateOf<TaskModel?>(null) }
     var showUndoSnackbar by remember { mutableStateOf(false) }
-    var lastDeletedTask by remember { mutableStateOf<TaskModel?>(null) }
-    var showDeleteSnackbar by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
     var taskToRestore by remember { mutableStateOf<TaskModel?>(null) }
     var deletingTask by remember { mutableStateOf<TaskModel?>(null) }
@@ -201,14 +197,12 @@ fun HomeScreen(
                 .addOnSuccessListener {
                     lastCompletedTask = task
                     showUndoSnackbar = true
-                    showDeleteSnackbar = false
                 }
         } else {
             // ===== PERSONAL TASK =====
             viewModel.updateTaskStatus(task.id, true)
             lastCompletedTask = task
             showUndoSnackbar = true
-            showDeleteSnackbar = false
         }
 
         swipedTaskId = null
@@ -219,7 +213,6 @@ fun HomeScreen(
             lastCompletedTask = null
         }
     }
-
 
     // Function untuk undo completion
     fun undoCompletion() {
@@ -241,25 +234,24 @@ fun HomeScreen(
         lastCompletedTask = null
     }
 
-
     // Function untuk delete task
     fun deleteTaskConfirmed(task: TaskModel) {
-        lastDeletedTask = task
-        viewModel.deleteTask(task.id)
-        showDeleteSnackbar = true
-        showUndoSnackbar = false
-        swipedTaskId = null
-        scope.launch {
-            delay(8000)
-            showDeleteSnackbar = false
-            lastDeletedTask = null
-        }
-    }
+        if (task.isTeamTask()) {
+            // ===== DELETE TEAM TASK =====
+            val parts = task.id.split("_")
+            val taskId = parts.getOrNull(2) ?: return
 
-    // Function untuk undo delete
-    fun undoDelete() {
-        showDeleteSnackbar = false
-        lastDeletedTask = null
+            FirebaseFirestore.getInstance()
+                .collection("team_tasks")
+                .document(taskId)
+                .delete()
+        } else {
+            // ===== DELETE PERSONAL TASK =====
+            viewModel.deleteTask(task.id)
+        }
+        swipedTaskId = null
+        showDeleteConfirmDialog = false
+        deletingTask = null
     }
 
     // show restore dialog
@@ -290,7 +282,6 @@ fun HomeScreen(
         showRestoreDialog = false
         taskToRestore = null
     }
-
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -425,10 +416,10 @@ fun HomeScreen(
                                             style = androidx.compose.ui.text.TextStyle(
                                                 platformStyle = androidx.compose.ui.text.PlatformTextStyle(
                                                     includeFontPadding = false
-                                                )))
+                                                ))
+                                        )
                                     }
                                 }
-
                             }
                             IconButton(
                                 onClick = { navController.navigateSingleTop("profile") },
@@ -456,7 +447,6 @@ fun HomeScreen(
                                         )
                                     }
                                 }
-
                             }
                         }
                     }
@@ -563,21 +553,14 @@ fun HomeScreen(
                                 task = task,
                                 onTaskClick = {
                                     if (task.id.startsWith("team_")) {
-
                                         val parts = task.id.split("_")
-                                        // format: team_<teamId>_<taskId>
                                         val teamId = parts.getOrNull(1) ?: return@TaskCardFromModel
                                         val taskId = parts.getOrNull(2) ?: return@TaskCardFromModel
-
-                                        navController.navigate(
-                                            "team_task_detail/$teamId/$taskId"
-                                        )
+                                        navController.navigate("team_task_detail/$teamId/$taskId")
                                     } else {
                                         navController.navigate("task_detail/${task.id}")
                                     }
-                                }
-
-                                ,
+                                },
                                 onCheckboxClick = {
                                     onCheckboxClick(task)
                                 },
@@ -590,8 +573,6 @@ fun HomeScreen(
                                     swipedTaskId = if (isSwiped) id else null
                                 }
                             )
-
-
                         }
                     }
 
@@ -618,21 +599,14 @@ fun HomeScreen(
                                     task = task,
                                     onTaskClick = {
                                         if (task.id.startsWith("team_")) {
-
                                             val parts = task.id.split("_")
-                                            // format: team_<teamId>_<taskId>
                                             val teamId = parts.getOrNull(1) ?: return@TaskCardFromModel
                                             val taskId = parts.getOrNull(2) ?: return@TaskCardFromModel
-
-                                            navController.navigate(
-                                                "team_task_detail/$teamId/$taskId"
-                                            )
+                                            navController.navigate("team_task_detail/$teamId/$taskId")
                                         } else {
                                             navController.navigate("task_detail/${task.id}")
                                         }
-                                    }
-
-                                    ,
+                                    },
                                     onCheckboxClick = { showRestoreConfirmation(task) },
                                     onDeleteIconClick = {
                                         deletingTask = task
@@ -709,60 +683,6 @@ fun HomeScreen(
             }
         }
 
-        // Undo Snackbar (delete)
-        AnimatedVisibility(
-            visible = showDeleteSnackbar,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 80.dp, start = 20.dp, end = 20.dp)
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF323232)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Delete,
-                            contentDescription = null,
-                            tint = Color(0xFFF44336),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            "Task deleted",
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                    }
-                    TextButton(
-                        onClick = { undoDelete() },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            "UNDO",
-                            color = Color(0xFF6A70D7),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-
         // Restore Confirmation Dialog
         if (showRestoreDialog) {
             AlertDialog(
@@ -789,15 +709,14 @@ fun HomeScreen(
                 confirmButton = {
                     TextButton(onClick = {
                         deletingTask?.let { deleteTaskConfirmed(it) }
-                        showDeleteConfirmDialog = false
-                        deletingTask = null
                     }) {
                         Text("Hapus", color = Color(0xFFF44336))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        showDeleteConfirmDialog = false; deletingTask = null
+                        showDeleteConfirmDialog = false
+                        deletingTask = null
                     }) { Text("Batal") }
                 }
             )
@@ -845,13 +764,13 @@ fun TaskCardFromModel(
     val scope = rememberCoroutineScope()
     val deleteOffset = remember { Animatable(0f) }
 
-    // Priority-based strip color
     val stripColor = if (task.isTeamTask()) {
-        Color(0xFFF093FB) // PINK → TEAM
+        Color(0xFFF093FB)
     } else {
-        Color(0xFF667EEA) // UNGU → PERSONAL
+        Color(0xFF667EEA)
     }
 
+    val isTeamTask = task.isTeamTask()
 
     LaunchedEffect(swipedTaskId) {
         val deleteWidthPx = with(density) { deleteWidth.toPx() }
@@ -874,6 +793,7 @@ fun TaskCardFromModel(
         modifier = modifier
             .fillMaxWidth()
             .pointerInput(Unit) {
+                if(!isTeamTask){
                 val deleteWidthPx = with(density) { deleteWidth.toPx() }
                 detectHorizontalDragGestures(
                     onDragEnd = {
@@ -906,7 +826,7 @@ fun TaskCardFromModel(
                             deleteOffset.snapTo(clampedOffset)
                         }
                     }
-                )
+                )}
             }
     ) {
         // Background layer untuk delete
@@ -968,39 +888,33 @@ fun TaskCardModel(
     modifier: Modifier = Modifier,
     isCompleted: Boolean = false
 ) {
-    // Priority-based strip color
     val baseStripColor = when (task.Priority) {
-        2 -> Color(0xFFD32F2F) // High
-        0 -> Color(0xFF1976D2) // Low
-        else -> Color(0xFFEF6C00) // Medium
+        2 -> Color(0xFFD32F2F)
+        0 -> Color(0xFF1976D2)
+        else -> Color(0xFFEF6C00)
     }
 
     val backgroundColor = Color.White
     val stripColor = if (task.isTeamTask()) {
-        Color(0xFFF093FB) // PINK → TEAM
+        Color(0xFFF093FB)
     } else {
-        Color(0xFF667EEA) // UNGU → PERSONAL
+        Color(0xFF667EEA)
     }
 
-
-    // Opacity untuk konten completed
     val contentAlpha = if (isCompleted) 0.5f else 1f
     val titleColor = Color(0xFF2D2D2D).copy(alpha = contentAlpha)
     val secondaryTextColor = Color(0xFF9E9E9E).copy(alpha = contentAlpha)
 
-    // Format time
     val timeString = task.Deadline?.toDate()?.let { date ->
         java.text.SimpleDateFormat("hh:mm a", java.util.Locale.ENGLISH).format(date)
     } ?: "--:--"
 
-    // Priority text
     val priorityText = when (task.Priority) {
         2 -> "High"
         0 -> "Low"
         else -> "Medium"
     }
 
-    // Status text
     val statusText = when (task.Status) {
         0 -> "Waiting"
         1 -> "To do"
@@ -1014,7 +928,6 @@ fun TaskCardModel(
         task.id.startsWith("team_") ||
                 task.userId == "TEAM" ||
                 task.categoryNamesSafe.any { it.equals("Team", ignoreCase = true) }
-
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -1030,7 +943,6 @@ fun TaskCardModel(
                 .padding(end = 12.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // Strip Kiri
             Box(
                 modifier = Modifier
                     .width(4.dp)
@@ -1040,7 +952,6 @@ fun TaskCardModel(
 
             Spacer(Modifier.width(12.dp))
 
-            // Konten
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -1061,7 +972,6 @@ fun TaskCardModel(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Time
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Outlined.AccessTime,
@@ -1073,7 +983,6 @@ fun TaskCardModel(
                         Text(timeString, fontSize = 11.sp, color = secondaryTextColor)
                     }
 
-                    // Priority
                     Chip(
                         text = priorityText,
                         bg = when (task.Priority) {
@@ -1088,8 +997,6 @@ fun TaskCardModel(
                         }.copy(alpha = if (isCompleted) 0.6f else 1f)
                     )
 
-                    // Category
-                    // Category / Team
                     val categoryName = task.categoryNamesSafe.firstOrNull() ?: "Personal"
                     Chip(
                         text = categoryName,
@@ -1097,7 +1004,6 @@ fun TaskCardModel(
                         fg = Color(0xFF3949AB).copy(alpha = if (isCompleted) 0.6f else 1f)
                     )
 
-// Status → HANYA UNTUK TEAM TASK
                     if (isTeamTask && statusText != null) {
                         Chip(
                             text = statusText,
@@ -1105,10 +1011,8 @@ fun TaskCardModel(
                             fg = Color(0xFF9C27B0).copy(alpha = if (isCompleted) 0.6f else 1f)
                         )
                     }
-
                 }
 
-                // ===== TEAM INFO (LETANYA DI SINI) =====
                 if (isTeamTask) {
                     Spacer(Modifier.height(8.dp))
                     Row(
@@ -1130,35 +1034,13 @@ fun TaskCardModel(
                                 color = Color(0xFF9C27B0),
                                 fontWeight = FontWeight.Medium
                             )
-
                         }
-
-//                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-//                            repeat(3) {
-//                                Box(
-//                                    modifier = Modifier
-//                                        .size(18.dp)
-//                                        .clip(CircleShape)
-//                                        .background(Color(0xFFD1C4E9)),
-//                                    contentAlignment = Alignment.Center
-//                                ) {
-//                                    Text(
-//                                        text = ('A' + it).toString(),
-//                                        fontSize = 9.sp,
-//                                        color = Color.White,
-//                                        fontWeight = FontWeight.Bold
-//                                    )
-//                                }
-//                            }
-//                        }
                     }
                 }
-
             }
 
             Spacer(Modifier.width(8.dp))
 
-            // Checkbox
             Column(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -1191,6 +1073,7 @@ fun HomeScreenPreview() {
         )
     }
 }
+
 // ===== HELPER: DETECT TEAM TASK (UI ONLY) =====
 private fun TaskModel.isTeamTask(): Boolean {
     return this.id.startsWith("team_") ||

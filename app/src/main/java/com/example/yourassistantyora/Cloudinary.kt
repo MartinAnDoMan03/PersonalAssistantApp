@@ -11,7 +11,7 @@ class CloudinaryApp : Application() {
             mapOf(
                 "cloud_name" to "deiquzgmn",
                 "api_key" to "585322474414964",
-                "api_secret" to "AEhpSnXJXwDKIyJHgW_6mGlVdJI"
+                "api_secret" to "AEhpSnXJXwDKIyJHgW_6mGlVdJ"
             )
         )
 

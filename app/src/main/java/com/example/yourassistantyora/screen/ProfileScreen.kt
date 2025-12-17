@@ -77,6 +77,7 @@ fun ProfileScreen(
                 realCompletedTasks = personalCompleted + teamCompleted
             }
 
+            // 2. Listen for PERSONAL Tasks
             db.collection("tasks")
                 .whereEqualTo("userId", currentUser.uid)
                 .addSnapshotListener { snapshot, _ ->
@@ -84,6 +85,7 @@ fun ProfileScreen(
                         val docs = snapshot.documents
                         personalTotal = docs.size
                         personalCompleted = docs.count {
+                            // Check both Status (Capital) and status (lowercase)
                             val statusVal = it.get("Status") ?: it.get("status")
                             val statusInt = when (statusVal) {
                                 is Number -> statusVal.toInt()
@@ -96,14 +98,18 @@ fun ProfileScreen(
                     }
                 }
 
+            // 3. Listen for TEAM Tasks
             db.collection("team_tasks")
+                // Make sure your database field is actually named "assignees"
                 .whereArrayContains("assignees", currentUser.uid)
                 .addSnapshotListener { snapshot, _ ->
                     if (snapshot != null) {
                         val docs = snapshot.documents
                         teamTotal = docs.size
                         teamCompleted = docs.count {
-                            val statusVal = it.get("status")
+                            // FIX: Added check for "Status" (Capital) here too
+                            val statusVal = it.get("Status") ?: it.get("status")
+
                             val statusInt = when (statusVal) {
                                 is Number -> statusVal.toInt()
                                 is String -> statusVal.toIntOrNull() ?: 0
@@ -116,6 +122,7 @@ fun ProfileScreen(
                 }
         }
     }
+
 
 
     Scaffold(
