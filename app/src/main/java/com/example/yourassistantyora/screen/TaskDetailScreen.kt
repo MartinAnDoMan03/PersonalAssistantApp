@@ -249,7 +249,17 @@ fun EditTaskForm(viewModel: EditTaskViewModel) {
                 }
                 DropdownInputChip(
                     selectedText = selectedReminder,
-                    options = listOf("Tidak ada pengingat", "Pada waktunya", "10 menit sebelumnya", "30 menit sebelumnya", "1 jam sebelumnya"),
+                    // Gunakan daftar opsi yang lebih lengkap
+                    options = listOf(
+                        "Tidak ada pengingat",
+                        "Pada waktunya",
+                        "10 menit sebelumnya",
+                        "20 menit sebelumnya",
+                        "30 menit sebelumnya",
+                        "1 hari sebelumnya",
+                        "2 hari sebelumnya",
+                        "3 hari sebelumnya"
+                    ),
                     onOptionSelected = { viewModel.selectedReminder.value = it },
                     modifier = Modifier.fillMaxWidth()
                 )

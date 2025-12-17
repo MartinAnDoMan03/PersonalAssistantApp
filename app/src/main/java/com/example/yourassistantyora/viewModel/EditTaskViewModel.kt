@@ -129,7 +129,9 @@ class EditTaskViewModel : ViewModel() {
         errorMessage.value = null
     }
 
-    fun clearError() { errorMessage.value = null }
+    fun clearError() {
+        errorMessage.value = null
+    }
 
     private fun combineDateAndTime(date: Date, time: Calendar): Timestamp {
         val finalCalendar = Calendar.getInstance().apply {
@@ -143,33 +145,39 @@ class EditTaskViewModel : ViewModel() {
     }
 
     private fun getPriorityNumber(p: String): Int =
-        when (p) { "High" -> 2; "Medium" -> 1; "Low" -> 0; else -> 1 }
+        when (p) {
+            "High" -> 2; "Medium" -> 1; "Low" -> 0; else -> 1
+        }
 
     private fun getCategoryNumber(c: String): Int =
-        when (c) { "Work" -> 0; "Study" -> 1; "Travel" -> 2; "Meeting" -> 3; "Project" -> 4; "Personal" -> 5; else -> 0 }
+        when (c) {
+            "Work" -> 0; "Study" -> 1; "Travel" -> 2; "Meeting" -> 3; "Project" -> 4; "Personal" -> 5; else -> 0
+        }
 
     private fun getStatusNumber(s: String): Int =
-        when (s) { "Waiting" -> 0; "To do" -> 1; "Done" -> 2; "Hold On" -> 3; "In Progress", "On Progress" -> 4; else -> 1 }
+        when (s) {
+            "Waiting" -> 0; "To do" -> 1; "Done" -> 2; "Hold On" -> 3; "In Progress", "On Progress" -> 4; else -> 1
+        }
 
     private fun getReminderNumber(reminder: String): Int = when (reminder) {
-        "Ingatkan 3 hari sebelumnya" -> 7
-        "Ingatkan 2 hari sebelumnya" -> 6
-        "Ingatkan 1 hari sebelumnya" -> 5
-        "Ingatkan 30 menit sebelumnya" -> 4
-        "Ingatkan 20 menit sebelumnya" -> 3
-        "Ingatkan 10 menit sebelumnya" -> 2
-        "Ingatkan pada waktunya" -> 1
-        else -> 0
+        "3 hari sebelumnya" -> 7
+        "2 hari sebelumnya" -> 6
+        "1 hari sebelumnya" -> 5
+        "30 menit sebelumnya" -> 4
+        "20 menit sebelumnya" -> 3
+        "10 menit sebelumnya" -> 2
+        "Pada waktunya" -> 1
+        else -> 0 // "Tidak ada pengingat"
     }
 
     private fun reminderNumberToText(n: Int): String = when (n) {
-        7 -> "Ingatkan 3 hari sebelumnya"
-        6 -> "Ingatkan 2 hari sebelumnya"
-        5 -> "Ingatkan 1 hari sebelumnya"
-        4 -> "Ingatkan 30 menit sebelumnya"
-        3 -> "Ingatkan 20 menit sebelumnya"
-        2 -> "Ingatkan 10 menit sebelumnya"
-        1 -> "Ingatkan pada waktunya"
+        7 -> "3 hari sebelumnya"
+        6 -> "2 hari sebelumnya"
+        5 -> "1 hari sebelumnya"
+        4 -> "30 menit sebelumnya"
+        3 -> "20 menit sebelumnya"
+        2 -> "10 menit sebelumnya"
+        1 -> "Pada waktunya"
         else -> "Tidak ada pengingat"
     }
 }
