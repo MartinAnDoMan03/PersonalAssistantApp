@@ -1,7 +1,5 @@
 package com.example.yourassistantyora.screen
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +20,64 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
+
+// --- Gradient Button Composable Helper (Diperbarui untuk Card Elevation) ---
+@Composable
+fun GradientElevatedButton(
+    onClick: () -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    // Warna gradient sesuai permintaan Anda
+    val startColor = Color(0xFF6A70D7)
+    val endColor = Color(0xFF7353AD)
+
+    val gradient = Brush.horizontalGradient(
+        listOf(startColor, endColor)
+    )
+
+    Card(
+        modifier = modifier.height(50.dp),
+        shape = RoundedCornerShape(12.dp),
+        // Elevation dikurangi saat disabled agar tidak terlihat "melayang"
+        elevation = CardDefaults.cardElevation(defaultElevation = if (enabled) 4.dp else 0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Button(
+            onClick = onClick,
+            modifier = Modifier.fillMaxSize(),
+            enabled = enabled,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                // Penting: Set disabledContainer tetap transparan agar background Box terlihat
+                disabledContainerColor = Color.Transparent,
+                contentColor = Color.White,
+                disabledContentColor = Color.White.copy(alpha = 0.6f)
+            ),
+            contentPadding = PaddingValues(0.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // Background selalu ada, tapi gunakan alpha 0.5f saat disabled
+                    .background(
+                        brush = gradient,
+                        alpha = if (enabled) 1f else 0.5f
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = content
+                )
+            }
+        }
+    }
+}
+// ------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +117,7 @@ fun JoinTeamScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Header
+            // Header (Tidak berubah banyak)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
@@ -226,63 +282,23 @@ fun JoinTeamScreen(
                 }
             }
 
-            // Join Button (Fixed at bottom) - WITH GRADIENT & SHAKE EFFECT
-            var shouldShake by remember { mutableStateOf(false) }
-            val shakeOffset = remember { Animatable(0f) }
-
-            LaunchedEffect(shouldShake) {
-                if (shouldShake) {
-                    repeat(3) {
-                        shakeOffset.animateTo(10f, tween(50))
-                        shakeOffset.animateTo(-10f, tween(50))
-                    }
-                    shakeOffset.animateTo(0f, tween(50))
-                    shouldShake = false
-                }
-            }
-
+            // Join Button (Fixed at bottom) - MENGGUNAKAN GradientElevatedButton
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
+                    .padding(24.dp, 24.dp)
             ) {
-                Button(
-                    onClick = {
-                        if (isValidCode && !isLoading) {
-                            viewModel.joinTeam(inviteCode)
-                        } else if (!isLoading) {
-                            shouldShake = true
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .offset(x = shakeOffset.value.dp)
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(Color(0xFF6A70D7), Color(0xFF7353AD))
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        disabledContainerColor = Color.Transparent
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = true
+                GradientElevatedButton(
+                    onClick = { viewModel.joinTeam(inviteCode) },
+                    enabled = isValidCode && !isLoading,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                     } else {
                         Text(
                             "Join Team",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }

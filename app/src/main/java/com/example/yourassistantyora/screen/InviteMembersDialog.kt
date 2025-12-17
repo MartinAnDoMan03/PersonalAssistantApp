@@ -3,14 +3,19 @@ package com.example.yourassistantyora.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -23,9 +28,16 @@ fun InviteMembersDialog(
     showDialog: Boolean,
     onDismiss: () -> Unit,
     onCopyCode: () -> Unit,
+    // We pass the invite code to the logic so we can generate the message
     onSendEmail: (String) -> Unit
 ) {
     var email by remember { mutableStateOf("") }
+    var isEmailValid by remember { mutableStateOf(true) }
+
+    // Regex for basic email validation
+    fun validateEmail(input: String): Boolean {
+        return android.util.Patterns.EMAIL_ADDRESS.matcher(input).matches()
+    }
 
     if (showDialog) {
         Dialog(onDismissRequest = onDismiss) {
@@ -150,7 +162,10 @@ fun InviteMembersDialog(
 
                         OutlinedTextField(
                             value = email,
-                            onValueChange = { email = it },
+                            onValueChange = {
+                                email = it
+                                isEmailValid = validateEmail(it) || it.isEmpty()
+                            },
                             placeholder = {
                                 Text(
                                     "member@example.com",
@@ -158,31 +173,51 @@ fun InviteMembersDialog(
                                     fontSize = 14.sp
                                 )
                             },
+                            isError = !isEmailValid,
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = teamColor,
                                 unfocusedBorderColor = Color(0xFFE0E0E0),
+                                errorBorderColor = Color.Red,
                                 cursorColor = teamColor
                             ),
                             shape = RoundedCornerShape(12.dp),
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Send
+                            ),
                             leadingIcon = {
                                 Icon(
                                     Icons.Filled.Email,
                                     null,
-                                    tint = Color(0xFF9E9E9E),
+                                    tint = if(!isEmailValid) Color.Red else Color(0xFF9E9E9E),
                                     modifier = Modifier.size(20.dp)
                                 )
                             },
                             textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
                         )
 
+                        if (!isEmailValid) {
+                            Text(
+                                text = "Please enter a valid email address",
+                                color = Color.Red,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(start = 4.dp)
+                            )
+                        }
+
                         Button(
-                            onClick = { onSendEmail(email) },
+                            onClick = {
+                                if (validateEmail(email)) {
+                                    onSendEmail(email)
+                                    // Don't verify here, let the external logic launch the app
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(48.dp),
-                            enabled = email.isNotBlank(),
+                            enabled = email.isNotBlank() && isEmailValid,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = teamColor,
                                 disabledContainerColor = Color(0xFFE0E0E0)

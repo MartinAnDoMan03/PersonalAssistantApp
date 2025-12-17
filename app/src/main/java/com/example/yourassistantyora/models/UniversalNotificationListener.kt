@@ -31,6 +31,7 @@ object UniversalNotificationListener {
         listenForTeamInvites(userId, context)
         listenForUpcomingDeadlines(userId, context) // Real-time deadline listener
         listenForNewComments(userId, context)
+        listenForManualInvites(userId, context)
     }
 
     fun stopListening() {
@@ -255,6 +256,39 @@ object UniversalNotificationListener {
                                         }
                                     }
                             }
+                    }
+                }
+            }
+    }
+
+    private fun listenForManualInvites(userId: String, context: Context) {
+        db.collection("notifications")
+            .whereEqualTo("userId", userId)
+            .whereEqualTo("type", "TEAM_INVITE") // Listen specifically for manual invites
+            .whereEqualTo("isRead", false) // Only unread ones
+            .addSnapshotListener { snapshots, error ->
+                if (error != null || snapshots == null) return@addSnapshotListener
+
+                for (dc in snapshots.documentChanges) {
+                    if (dc.type == DocumentChange.Type.ADDED) {
+                        val data = dc.document.data
+                        val notifId = dc.document.id
+
+                        // Prevent duplicate alerts for the same ID
+                        val key = "manual_invite_$notifId"
+                        if (processedIds.contains(key)) continue
+                        processedIds.add(key)
+
+                        val title = data["title"] as? String ?: "Team Invitation"
+                        val description = data["description"] as? String ?: "You have been invited to a team."
+                        val relatedUserName = data["relatedUserName"] as? String ?: "Someone"
+
+                        // Show the local Android notification
+                        showLocalNotification(
+                            context,
+                            "New Invite from $relatedUserName",
+                            description
+                        )
                     }
                 }
             }
