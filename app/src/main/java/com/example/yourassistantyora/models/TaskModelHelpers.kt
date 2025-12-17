@@ -50,7 +50,6 @@ fun TaskModel.statusColors(isCompleted: Boolean): Pair<Color, Color> {
     return bg.copy(alpha = aBg) to fg.copy(alpha = aFg)
 }
 
-/** ✅ buat TaskDetailScreen (kamu pakai task.reminderText) */
 val TaskModel.reminderText: String
     get() = when (Reminder) {
         7 -> "Ingatkan 3 hari sebelumnya"

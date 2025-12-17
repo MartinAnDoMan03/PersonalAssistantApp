@@ -364,7 +364,6 @@ fun EditProfileScreen(
                             }
 
                         },
-                        // ... rest of your button modifiers
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp),
@@ -372,7 +371,6 @@ fun EditProfileScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A70D7)),
                         enabled = !isSaving
                     ) {
-                        // ... content (Text/Progress Indicator) stays the same
                         if (isSaving) {
                             CircularProgressIndicator(
                                 color = Color.White,
@@ -518,7 +516,6 @@ fun compressImage(context: android.content.Context, uri: Uri): ByteArray {
 
 fun decodeBase64ToBitmap(base64Str: String): Bitmap? {
     try {
-        // Remove the prefix if present
         val pureBase64 = base64Str.substringAfter(",")
         val decodedBytes = android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
         return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)

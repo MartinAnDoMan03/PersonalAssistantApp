@@ -27,7 +27,6 @@ class RegisterViewModel : ViewModel() {
         email: String,
         password: String
     ) {
-        // Validasi minimal, validasi detail tetap di UI
         if (username.isBlank() || email.isBlank() || password.isBlank()) {
             errorMessage.value = "Fields cannot be empty"
             return
@@ -56,7 +55,7 @@ class RegisterViewModel : ViewModel() {
                     db.collection("users").document(uid).set(userMap).await()
                     registerSuccess.value = true
                 } catch (e: Exception) {
-                    // Kalau Firestore gagal, hapus user auth (sama seperti di Activity lama)
+                    // Kalau Firestore gagal, hapus user auth
                     try {
                         auth.currentUser?.delete()?.await()
                     } catch (_: Exception) {

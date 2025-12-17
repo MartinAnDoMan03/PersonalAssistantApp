@@ -34,24 +34,18 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-// === ANIMATION ===
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-
-// === DIALOG ===
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 
 data class StatusItem(val name: String, val color: Color)
 
-// Warna Aksen Utama (digunakan untuk border, ikon, dan teks Add New)
 private val AccentColor = Color(0xFF6A70D7)
-
-// Warna untuk Gradien Tombol "Create Task"
 private val GradientStartColor = Color(0xFF6A70D7)
 private val GradientEndColor = Color(0xFF7353AD)
 
@@ -345,14 +339,11 @@ fun CreateTaskScreen(
                     onAdd = { showNewStatusDialog = true }
                 )
             }
-
-            // MODIFIKASI: Tombol Utama "Create Task" menggunakan Linear Gradient
             Button(
                 onClick = { if (!isLoading) viewModel.createTask() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
-                    // Menerapkan gradien linier
                     .background(
                         brush = Brush.linearGradient(
                             colors = listOf(GradientStartColor, GradientEndColor)
@@ -669,7 +660,6 @@ fun NewCategoryDialog(
 ) {
     var categoryName by remember { mutableStateOf("") }
 
-    // ===== DIM BACKGROUND (SAMA DENGAN TEAM) =====
     AnimatedVisibility(
         visible = true,
         enter = fadeIn(),
@@ -787,7 +777,6 @@ fun NewCategoryDialog(
                             )
                         }
 
-                        // ✅ BUTTON CREATE DENGAN GRADIENT SAMA SEPERTI NEW STATUS DIALOG
                         Button(
                             onClick = {
                                 if (categoryName.isNotBlank()) {

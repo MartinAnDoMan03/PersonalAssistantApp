@@ -55,7 +55,7 @@ import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
 // ========================================
-// 1. DATA MODEL
+// DATA MODEL
 // ========================================
 data class Note(
     val id: String,
@@ -69,7 +69,7 @@ data class Note(
 )
 
 // ========================================
-// 2. VIEW MODEL
+// VIEW MODEL
 // ========================================
 class NoteViewModel : ViewModel() {
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
@@ -152,7 +152,7 @@ class NoteViewModel : ViewModel() {
 }
 
 // ========================================
-// 3. UTILITY FUNCTIONS
+// UTILITY FUNCTIONS
 // ========================================
 fun generateColorForCategory(category: String): Color {
     val hashCode = category.hashCode()
@@ -167,7 +167,7 @@ fun generateColorForCategory(category: String): Color {
 }
 
 // ========================================
-// 4. REUSABLE COMPONENTS
+// REUSABLE COMPONENTS
 // ========================================
 
 // Filter Category Chip (untuk top filter bar)
@@ -201,7 +201,7 @@ fun CategoryBadge(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    // Warna background dan text disesuaikan dengan category - SAMA DENGAN CREATE
+    // Warna background dan text disesuaikan dengan category
     val (bgColor, textColor) = when (text.lowercase()) {
         "work" -> Color(0xFFE3F2FD) to Color(0xFF1976D2)
         "study" -> Color(0xFFE8F5E9) to Color(0xFF388E3C)
@@ -273,7 +273,7 @@ fun ActionChip(
 }
 
 // ========================================
-// 5. NOTE CARD WITH SWIPE
+// NOTE CARD WITH SWIPE
 // ========================================
 @Composable
 fun NoteCardWithSwipe(
@@ -288,7 +288,7 @@ fun NoteCardWithSwipe(
     val scope = rememberCoroutineScope()
     val deleteOffset = remember { Animatable(0f) }
 
-    // Strip color berdasarkan category pertama - SAMA DENGAN CREATE SCREEN
+    // Strip color berdasarkan category pertama
     val stripColor = when (note.category.lowercase()) {
         "work" -> Color(0xFF667EEA)
         "study" -> Color(0xFF64B5F6)
@@ -504,7 +504,7 @@ fun NoteCardWithSwipe(
 }
 
 // ========================================
-// 6. NOTE SCREEN (LIST)
+// NOTE SCREEN (LIST)
 // ========================================
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
@@ -756,7 +756,7 @@ fun NoteScreen(
             }
         }
 
-        // Dialog Konfirmasi Delete dari Swipe - DESIGN LAMA
+        // Dialog Konfirmasi Delete dari Swipe
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = {
@@ -854,7 +854,7 @@ fun NoteScreen(
 }
 
 // ========================================
-// 7. NOTE DETAIL SCREEN
+// NOTE DETAIL SCREEN
 // ========================================
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -1080,7 +1080,7 @@ fun NoteDetailScreen(
                         )
                     }
 
-                    // ✅ CATEGORY SECTION - SUDAH DIUBAH JADI CHIP STYLE
+                    //  CATEGORY SECTION
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1098,7 +1098,7 @@ fun NoteDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             allAvailableCategories.forEach { (catName, catColor) ->
-                                // ✅ CHIP STYLE SEPERTI CREATE SCREEN
+                                // CHIP STYLE
                                 Surface(
                                     modifier = Modifier.clip(RoundedCornerShape(16.dp)),
                                     color = if (selectedCategories.contains(catName)) catColor else catColor.copy(alpha = 0.15f),
@@ -1126,7 +1126,7 @@ fun NoteDetailScreen(
                                 }
                             }
 
-                            // ✅ ADD NEW BUTTON - SAMA SEPERTI CREATE SCREEN
+                            // ADD NEW BUTTON
                             Surface(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(16.dp))
@@ -1211,7 +1211,7 @@ fun NoteDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (isEditMode) {
-                    // ✅ BUTTON SAVE DENGAN GRADIENT SELALU TERLIHAT
+                    // BUTTON SAVE
                     Button(
                         onClick = {
                             if (title.isNotEmpty() && content.isNotEmpty()) {
@@ -1293,7 +1293,7 @@ fun NoteDetailScreen(
             }
         }
 
-        // ✅ ADD CATEGORY DIALOG - SAMA SEPERTI CREATE SCREEN
+        // ADD CATEGORY DIALOG
         // Blur Background Overlay
         AnimatedVisibility(
             visible = showAddCategoryDialog,
@@ -1421,7 +1421,7 @@ fun NoteDetailScreen(
                                     )
                                 }
 
-                                // Create Button dengan Gradient - SELALU TERLIHAT
+                                // Create Button
                                 Button(
                                     onClick = {
                                         if (newCategoryName.isNotEmpty()) {

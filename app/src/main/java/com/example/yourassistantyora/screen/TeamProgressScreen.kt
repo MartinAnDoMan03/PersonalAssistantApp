@@ -30,17 +30,16 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TeamProgressScreen(
-    teamId: String, // ✅ Diambil dari NavController
+    teamId: String,
     navController: NavController,
     modifier: Modifier = Modifier,
-    viewModel: TeamDetailViewModel = viewModel() // ✅ Gunakan ViewModel yang sama
+    viewModel: TeamDetailViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val teamDetail by viewModel.teamDetail.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    // Load data saat pertama kali masuk
     LaunchedEffect(key1 = teamId) {
         viewModel.loadTeamDetails(teamId)
     }
@@ -78,7 +77,6 @@ fun TeamProgressScreen(
                 CircularProgressIndicator()
             }
         } else if (teamDetail != null) {
-            // Jika data sudah siap, tampilkan konten
             val detail = teamDetail!!
 
             // --- Logika Kalkulasi ---
@@ -97,13 +95,13 @@ fun TeamProgressScreen(
                 member to memberTasks
             }.sortedByDescending { it.second }
 
-            // Cek tugas yang overdue (lewat dari hari ini dan statusnya belum DONE)
+            // Cek tugas yang overdue
             val overdueTasks = detail.tasks.count {
                 val deadlineDate = try {
-                    // Coba parsing dengan format yang mungkin
+                    // Coba parsing
                     SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.ENGLISH).parse(it.deadline)
                 } catch (e: Exception) {
-                    null // Jika format tidak sesuai, anggap tidak overdue
+                    null
                 }
                 deadlineDate != null && deadlineDate.before(Date()) && it.status != TaskStatus.DONE
             }
@@ -248,7 +246,7 @@ fun TeamProgressScreen(
                     }
                 }
 
-                // Overdue Warning Card (if any)
+                // Overdue Warning Card
                 if (overdueTasks > 0 && detail.currentUserRole == "Admin") {
                     item {
                         Card(
@@ -289,7 +287,6 @@ fun TeamProgressScreen(
                 }
             }
         } else {
-            // Tampilan jika terjadi error atau teamDetail null setelah loading
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(error ?: "Failed to load team progress.")
             }
@@ -297,8 +294,7 @@ fun TeamProgressScreen(
     }
 }
 /**
- * Composable untuk menampilkan satu baris dalam "Status Breakdown".
- * Contoh: Done ..... 8 Tasks
+ * ComposableStatus Breakdown.
  */
 @Composable
 private fun StatusBreakdownItem(
@@ -340,13 +336,11 @@ private fun StatusBreakdownItem(
 
 /**
  * Composable untuk menampilkan progres per anggota tim.
- * Contoh: (Avatar) Chris Evans (Admin)
- *           5 active tasks
  */
 @Composable
 private fun MemberProgressItem(
     member: TeamMember,
-    taskCount: Int, // Ini adalah total task yang di-assign ke dia
+    taskCount: Int,
     teamColor: Color,
     modifier: Modifier = Modifier
 ) {

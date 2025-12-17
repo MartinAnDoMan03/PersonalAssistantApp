@@ -26,7 +26,7 @@ import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteDetailScreen(
-    note: Note? = null, // null = create new note
+    note: Note? = null,
     onBackClick: () -> Unit = {},
     onSaveClick: (String, String, String) -> Unit = { _, _, _ -> },
     onDeleteClick: () -> Unit = {},
@@ -34,7 +34,6 @@ fun NoteDetailScreen(
 ) {
     var title by remember { mutableStateOf(note?.title ?: "") }
     var content by remember { mutableStateOf(note?.content ?: "") }
-    // Ubah ke list untuk multi-select category
     var selectedCategories by remember {
         mutableStateOf(
             if (note?.category != null) {
@@ -45,13 +44,11 @@ fun NoteDetailScreen(
         )
     }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var isEditMode by remember { mutableStateOf(note == null) } // Auto edit mode untuk note baru
+    var isEditMode by remember { mutableStateOf(note == null) }
     var hasChanges by remember { mutableStateOf(false) }
 
-    // Kategori awal untuk warna header (tetap pakai kategori pertama)
     val primaryCategory = selectedCategories.firstOrNull() ?: "Work"
 
-    // Deteksi perubahan
     LaunchedEffect(title, content, selectedCategories) {
         if (note != null) {
             val originalCategories = listOf(note.category)
@@ -63,7 +60,6 @@ fun NoteDetailScreen(
         }
     }
 
-    // Gradient berdasarkan kategori pertama - diperkuat
     val headerGradient = when (primaryCategory) {
         "Work" -> listOf(Color(0xFF5B6FE8), Color(0xFF8E44AD))
         "Study" -> listOf(Color(0xFF42A5F5), Color(0xFF1E88E5))
@@ -75,7 +71,6 @@ fun NoteDetailScreen(
     Scaffold(
         containerColor = Color(0xFFF5F7FA),
         topBar = {
-            // Custom Top Bar dengan Gradient
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -260,7 +255,7 @@ fun NoteDetailScreen(
                                         if (selectedCategories.size > 1) {
                                             selectedCategories - "Work"
                                         } else {
-                                            selectedCategories // Tidak bisa unselect jika hanya 1
+                                            selectedCategories
                                         }
                                     } else {
                                         selectedCategories + "Work"
@@ -399,7 +394,6 @@ fun NoteDetailScreen(
                     Button(
                         onClick = {
                             if (title.isNotEmpty() && content.isNotEmpty()) {
-                                // Gabungkan categories dengan separator (misalnya koma)
                                 val categoriesString = selectedCategories.joinToString(", ")
                                 onSaveClick(title, content, categoriesString)
                                 if (note != null) {

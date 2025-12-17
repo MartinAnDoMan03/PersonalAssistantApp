@@ -69,29 +69,23 @@ fun WeeklyScreen(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
 
     val allTasks by viewModel.listTasks.collectAsState(initial = emptyList())
-    // tasksForSelectedDate hanya berisi task dari tanggal yang dipilih,
-    // tapi kita perlu memfilter lagi berdasarkan search query
     val tasksForSelectedDate by viewModel.dateFilteredTasks.collectAsState(initial = emptyList())
 
-    // --------- LOCAL UI STATE (PENAMBAHAN SEARCH) ----------
+    // --------- LOCAL UI STATE ----------
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
     val scope = rememberCoroutineScope()
 
-    var isSearching by remember { mutableStateOf(false) } // ✅ BARU: State untuk mengaktifkan Search Bar
-    var searchQuery by remember { mutableStateOf("") } // ✅ BARU: Query pencarian
+    var isSearching by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
-    // biar cuma 1 card swipe kebuka
     var swipedTaskId by remember { mutableStateOf<String?>(null) }
 
-    // snackbar undo complete
     var lastCompletedTask by remember { mutableStateOf<TaskModel?>(null) }
     var showUndoSnackbar by remember { mutableStateOf(false) }
 
-    // snackbar undo delete (UI-only)
     var lastDeletedTask by remember { mutableStateOf<TaskModel?>(null) }
     var showDeleteSnackbar by remember { mutableStateOf(false) }
 
-    // dialogs
     var showRestoreDialog by remember { mutableStateOf(false) }
     var taskToRestore by remember { mutableStateOf<TaskModel?>(null) }
 
@@ -100,7 +94,7 @@ fun WeeklyScreen(
 
     LaunchedEffect(Unit) { viewModel.setViewMode("Weekly") }
 
-    // --------- HELPERS (FIX isCompleted ISSUE) ----------
+    // --------- HELPERS ----------
     fun isCompletedTask(t: TaskModel): Boolean = (t.Status == 2) // Done
 
     // Filter Task Berdasarkan Query, Status, dan Kategori
@@ -111,7 +105,6 @@ fun WeeklyScreen(
         selectedCategory
     ) {
         tasksForSelectedDate
-            // ⛔ BUANG TEAM TASK (WEEKLY = PERSONAL ONLY)
             .filter { task ->
                 !task.id.startsWith("team_")
             }
@@ -132,12 +125,10 @@ fun WeeklyScreen(
     }
 
 
-    // split active vs completed (✅ Menggunakan filteredTasksBySearch)
     val (completedTasks, activeTasks) = remember(filteredTasksBySearch) {
         filteredTasksBySearch.partition { isCompletedTask(it) }
     }
 
-    // generate week strip (start Sunday)
     val weekDays = remember(selectedDate, allTasks) {
         val cal = Calendar.getInstance().apply { time = selectedDate }
         cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
@@ -162,7 +153,7 @@ fun WeeklyScreen(
         }
     }
 
-    // --------- ACTIONS (tetap sama) ----------
+    // --------- ACTIONS ----------
     fun onComplete(task: TaskModel) {
         if (!isCompletedTask(task)) {
             viewModel.updateTaskStatus(task.id, true)
@@ -213,7 +204,6 @@ fun WeeklyScreen(
     }
 
     fun undoDelete() {
-        // UI-only undo (kalau mau “beneran restore”, kamu butuh soft delete di Firestore)
         showDeleteSnackbar = false
         lastDeletedTask = null
     }
@@ -226,7 +216,6 @@ fun WeeklyScreen(
                 TopAppBar(
                     modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                     title = {
-                        // Tampilkan Title biasa
                         AnimatedVisibility(
                             visible = !isSearching,
                             enter = fadeIn(),
@@ -240,7 +229,6 @@ fun WeeklyScreen(
                             )
                         }
 
-                        // ✅ Tampilkan Search Bar saat isSearching true
                         AnimatedVisibility(
                             visible = isSearching,
                             enter = fadeIn(),
@@ -267,7 +255,6 @@ fun WeeklyScreen(
                         }
                     },
                     navigationIcon = {
-                        // Navigation Icon hanya ditampilkan saat tidak mencari
                         if (!isSearching) {
                             IconButton(onClick = { navController.popBackStack() }) {
                                 Icon(Icons.Filled.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
@@ -275,10 +262,8 @@ fun WeeklyScreen(
                         }
                     },
                     actions = {
-                        // ✅ Tombol Toggle Search/Close
                         IconButton(onClick = {
                             if (isSearching) {
-                                // Jika mode mencari aktif, matikan mode dan reset query
                                 searchQuery = ""
                             }
                             isSearching = !isSearching
@@ -332,7 +317,6 @@ fun WeeklyScreen(
                     onNavigateToMonthly = { navController.navigateSingleTop("monthly_tasks") }
                 )
 
-                // Filter Row hanya tampil jika TIDAK sedang mencari
                 if (!isSearching) {
                     TaskFilterRow(
                         selectedStatus = selectedStatus,
@@ -345,7 +329,6 @@ fun WeeklyScreen(
 
                 Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
-                // Calendar strip (selalu tampil)
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -369,7 +352,6 @@ fun WeeklyScreen(
                         CircularProgressIndicator()
                     }
                 }
-                // ✅ Tambahkan pesan jika tidak ada hasil saat pencarian
                 else if (activeTasks.isEmpty() && completedTasks.isEmpty() && searchQuery.isNotBlank()) {
                     Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
                         Text(
@@ -432,7 +414,6 @@ fun WeeklyScreen(
                                     isCompleted = true,
                                     onTaskClick = { navController.navigate("task_detail/${task.id}") },
                                     onCheckboxClick = { checked ->
-                                        // kalau user uncheck -> restore confirm
                                         if (!checked) showRestoreConfirmation(task)
                                     },
                                     onDeleteIconClick = {

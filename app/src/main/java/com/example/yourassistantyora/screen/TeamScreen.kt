@@ -25,7 +25,6 @@ import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.yourassistantyora.models.*
 
-// ✅ DATA MODEL TEAM
 data class Team(
     val id: String,
     val name: String,
@@ -86,7 +85,7 @@ fun TeamScreen(
             contentPadding = PaddingValues(20.dp, 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // ✅ Header
+            // Header
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
@@ -103,7 +102,7 @@ fun TeamScreen(
                 }
             }
 
-            // ✅ Search bar
+            // Search bar
             item {
                 TextField(
                     value = searchQuery,
@@ -129,7 +128,7 @@ fun TeamScreen(
                 )
             }
 
-            // ✅ Create + Join button
+            // Create + Join button
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -167,15 +166,13 @@ fun TeamScreen(
                 }
             }
 
-            // ✅ VERSI BARU DENGAN LOGIKA SORTING
+            // Logic SORTING
             val filteredAndSortedTeams = if (searchQuery.isBlank()) {
                 teamList
             } else {
                 teamList.filter { it.name.contains(searchQuery, ignoreCase = true)}
             }.sortedWith(
-                // Pertama, urutkan berdasarkan peran (Admin di atas)
                 compareByDescending<Team> { it.role == "Admin" }
-                    // Kedua, urutkan berdasarkan progress (terkecil di atas)
                     .thenBy { it.progress }
             )
 
@@ -185,12 +182,12 @@ fun TeamScreen(
                         CircularProgressIndicator(color = Color(0xFF6A70D7))
                     }
                 }
-            } else if (filteredAndSortedTeams.isEmpty()) { // Gunakan list yang sudah diurutkan
+            } else if (filteredAndSortedTeams.isEmpty()) {
                 item {
                     Text("No teams found", modifier = Modifier.padding(20.dp), color = Color.Gray)
                 }
             } else {
-                items(filteredAndSortedTeams) { team -> // Gunakan list yang sudah diurutkan
+                items(filteredAndSortedTeams) { team ->
                     TeamCard(
                         team = team,
                         onClick = {onTeamClick(team.id)}
@@ -218,7 +215,6 @@ fun TeamCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column {
-            // ✅ Header dengan gradient background
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -265,7 +261,7 @@ fun TeamCard(
                 }
             }
 
-            // ✅ Body dengan info members & progress
+            //info members & progress
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

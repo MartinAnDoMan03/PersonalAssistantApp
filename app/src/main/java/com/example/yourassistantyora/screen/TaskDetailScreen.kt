@@ -99,7 +99,7 @@ fun TaskDetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .navigationBarsPadding() // Penting untuk HP dengan gestur bar
+                            .navigationBarsPadding()
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -166,7 +166,7 @@ fun EditTaskForm(viewModel: EditTaskViewModel) {
         derivedStateOf { viewModel.selectedTime.value?.let { timeFormatter.format(it.time) } ?: "Select time" }
     }
 
-    // Date & Time Picker Logic (Tetap sama)
+    // Date & Time Picker Logic
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = viewModel.selectedDate.value?.time ?: System.currentTimeMillis())
         DatePickerDialog(
@@ -202,7 +202,6 @@ fun EditTaskForm(viewModel: EditTaskViewModel) {
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // CARD 1: DETAILS (Gabung Title & Desc)
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -230,7 +229,6 @@ fun EditTaskForm(viewModel: EditTaskViewModel) {
             }
         }
 
-        // CARD 2: SCHEDULE & REMINDER (Gabung agar hemat tempat)
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -249,7 +247,6 @@ fun EditTaskForm(viewModel: EditTaskViewModel) {
                 }
                 DropdownInputChip(
                     selectedText = selectedReminder,
-                    // Gunakan daftar opsi yang lebih lengkap
                     options = listOf(
                         "Tidak ada pengingat",
                         "Pada waktunya",
@@ -266,7 +263,6 @@ fun EditTaskForm(viewModel: EditTaskViewModel) {
             }
         }
 
-        // CARD 3: PRIORITY
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -283,7 +279,7 @@ fun EditTaskForm(viewModel: EditTaskViewModel) {
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp)) // Ruang ekstra di paling bawah
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -310,7 +306,6 @@ private fun PriorityOption(label: String, color: Color, isSelected: Boolean, onC
     }
 }
 
-// Komponen Pembantu Lainnya (Sama seperti sebelumnya namun dioptimasi sedikit)
 @Composable
 private fun FormInputChip(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(

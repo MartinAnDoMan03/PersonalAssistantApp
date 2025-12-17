@@ -175,7 +175,7 @@ class GeometricShapesView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        startShapesAnimation()  // Sekarang TIDAK ERROR
+        startShapesAnimation()
     }
 
     override fun onDetachedFromWindow() {
@@ -274,7 +274,7 @@ class RippleWaveView @JvmOverloads constructor(
         waves.add(Wave(maxRadius * 0.75f, 0.4f, maxRadius, 1.2f))
     }
 
-    // === updateWaves() HARUS DI ATAS startAnimation() ===
+    // === updateWaves() ===
     private fun updateWaves() {
         waves.forEach { wave ->
             wave.radius += wave.speed * 4f

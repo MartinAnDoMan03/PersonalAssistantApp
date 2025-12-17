@@ -18,10 +18,10 @@ class ForgotPasswordViewModel : ViewModel() {
     var loading = mutableStateOf(false)
         private set
 
-    var message = mutableStateOf<String?>(null)   // untuk snackbar
+    var message = mutableStateOf<String?>(null)
         private set
 
-    var isSuccess = mutableStateOf(false)         // true kalau email terkirim
+    var isSuccess = mutableStateOf(false)
         private set
 
     fun onEmailChange(value: String) {
@@ -37,7 +37,7 @@ class ForgotPasswordViewModel : ViewModel() {
             return
         }
 
-        // Validasi basic format (optional, bisa kamu tambahin Patterns.EMAIL_ADDRESS)
+        // Validasi basic format
         loading.value = true
         message.value = null
         isSuccess.value = false

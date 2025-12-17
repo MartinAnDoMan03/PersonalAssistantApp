@@ -56,28 +56,6 @@
             android:name=".MainActivity"
             android:exported="false"
             android:theme="@style/Theme.YourAssistantYora" />
-
-        <!-- ✅ semua ACTIVITY lain yang dulu dipakai layar:
-             - LoginActivity
-             - RegisterActivity
-             - HomeActivity
-             - ProfileActivity
-             - ForgotPasswordActivity
-             - CheckEmailActivity
-             - NoteActivity
-             - NoteDetailActivity
-             - CreateNoteActivity
-             - DailyActivity
-             - WeeklyActivity
-             - MonthlyActivity
-             - TeamActivity
-             - CreateTeamActivity
-             - JoinTeamActivity
-             - TeamDetailActivity
-           SUDAH TIDAK PERLU dideklarasikan lagi di sini,
-           karena sekarang layarnya di-handle di AppNavigation (NavHost).
-        -->
-
         <activity
             android:name=".OnboardingActivity"
             android:exported="false"

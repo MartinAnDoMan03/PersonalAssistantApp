@@ -32,13 +32,9 @@ import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-// --- TAMBAHAN UNTUK FIREBASE (Pastikan sudah ada di build.gradle) ---
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.auth.FirebaseAuth
-// --- END TAMBAHAN ---
-
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -52,11 +48,8 @@ fun CreateNoteScreen(
     var selectedCategories by remember { mutableStateOf(listOf<String>()) }
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
-
-    // --- TAMBAHAN: INISIALISASI FIREBASE INSTANCE DAN USER ID ---
     val firestore = remember { FirebaseFirestore.getInstance() }
     val userId = remember { FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous_user" }
-    // --- END TAMBAHAN ---
 
     // Predefined categories dengan warna yang SAMA dengan NoteScreen
     val predefinedCategories = listOf(
@@ -266,12 +259,10 @@ fun CreateNoteScreen(
                     }
                 }
 
-                // Save Button dengan Gradient (Fixed at bottom) - SELALU TERLIHAT
+                // Save Button dengan Gradient (Fixed at bottom)
                 Button(
                     onClick = {
                         if (title.isNotEmpty() && content.isNotEmpty() && selectedCategories.isNotEmpty()) {
-
-                            // --- TAMBAHAN: LOGIKA PENYIMPANAN FIREBASE ---
                             val noteData = hashMapOf(
                                 "title" to title,
                                 "note" to content,
@@ -279,7 +270,6 @@ fun CreateNoteScreen(
                                 "user_id" to userId,
                                 "created_at" to FieldValue.serverTimestamp()
                             )
-
                             firestore.collection("notes")
                                 .add(noteData)
                                 .addOnSuccessListener {
@@ -288,7 +278,6 @@ fun CreateNoteScreen(
                                 .addOnFailureListener { e ->
                                     e.printStackTrace()
                                 }
-                            // --- END TAMBAHAN ---
                         }
                     },
                     modifier = Modifier

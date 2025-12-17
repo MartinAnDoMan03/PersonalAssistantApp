@@ -18,8 +18,8 @@ class LoginViewModel : ViewModel() {
     var email = mutableStateOf("")
     var password = mutableStateOf("")
     var loading = mutableStateOf(false)
-    var loginSuccess = mutableStateOf(false)  // Added this
-    var errorMessage = mutableStateOf("")      // Changed to non-nullable String
+    var loginSuccess = mutableStateOf(false)
+    var errorMessage = mutableStateOf("")
 
     fun onEmailChange(value: String) {
         email.value = value

@@ -39,7 +39,6 @@ class CreateTeamTaskViewModel : ViewModel() {
     val attachments = MutableStateFlow<List<Uri>>(emptyList())
 
     // --- Data State ---
-    // ✅ State baru untuk menampung daftar anggota tim
     private val _teamMembers = MutableStateFlow<List<TeamMember>>(emptyList())
     val teamMembers = _teamMembers.asStateFlow()
 
@@ -53,12 +52,11 @@ class CreateTeamTaskViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
 
-    // ✅ FUNGSI BARU: Untuk mengambil data anggota tim
     fun loadTeamMembers(teamId: String) {
         viewModelScope.launch {
             _isLoading.value = true // Mulai loading
             try {
-                // 1. Ambil semua tugas untuk tim ini terlebih dahulu (hanya sekali)
+                // 1. Ambil semua tugas untuk tim ini terlebih dahulu
                 val allTeamTasks = db.collection("team_tasks")
                     .whereEqualTo("team_id", teamId)
                     .get()
@@ -80,11 +78,9 @@ class CreateTeamTaskViewModel : ViewModel() {
                     val userDoc = db.collection("users").document(memberId).get().await()
                     val role = if (teamData.createdBy == memberId) "Admin" else "Member"
 
-                    // ✅ LOGIKA PERHITUNGAN DARI TeamDetailViewModel DITERAPKAN DI SINI
                     val completedCount = allTeamTasks.count { task ->
                         task.status == 2 && task.uid.contains(memberId) // status 2 = Done
                     }
-                    // (Opsional) Anda juga bisa menghitung tugas aktif jika diperlukan di masa depan
                     val activeCount = allTeamTasks.count { task ->
                         task.status != 2 && task.uid.contains(memberId)
                     }
@@ -93,8 +89,8 @@ class CreateTeamTaskViewModel : ViewModel() {
                         id = memberId,
                         name = userDoc.getString("username") ?: "Unknown",
                         role = role,
-                        activeTasks = activeCount,        // <-- Nilai sekarang dari hasil hitungan
-                        tasksCompleted = completedCount // <-- Nilai sekarang dari hasil hitungan
+                        activeTasks = activeCount,
+                        tasksCompleted = completedCount
                     )
                 }
                 _teamMembers.value = memberProfiles
@@ -102,7 +98,7 @@ class CreateTeamTaskViewModel : ViewModel() {
             } catch (e: Exception) {
                 _error.value = "Failed to load team members: ${e.message}"
             } finally {
-                _isLoading.value = false // Selesaikan loading
+                _isLoading.value = false
             }
         }
     }

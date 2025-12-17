@@ -1,4 +1,3 @@
-// viewmodel/AuthViewModel.kt
 package com.example.yourassistantyora.viewModel
 
 import androidx.compose.runtime.mutableStateOf

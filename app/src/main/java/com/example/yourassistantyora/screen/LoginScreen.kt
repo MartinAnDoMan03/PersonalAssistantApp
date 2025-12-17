@@ -57,7 +57,7 @@ fun LoginScreen(
     val activity = context as? Activity
     val webClientId = stringResource(id = R.string.default_web_client_id)
 
-    // --- BEKEND & GOOGLE LOGIC (TIDAK DIUBAH) ---
+    // --- BACKEND & GOOGLE LOGIC ---
     val gso = remember(webClientId) {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(webClientId)
@@ -122,12 +122,12 @@ fun LoginScreen(
         }
     }
 
-    // --- UI RESPONSIVE (Hanya bungkus & scroll) ---
+    // --- UI RESPONSIVE ---
     Box(modifier = Modifier
         .fillMaxSize()
         .background(MaterialTheme.colorScheme.surface)
         .statusBarsPadding()
-        .imePadding() // Agar UI naik saat keyboard muncul
+        .imePadding()
     ) {
         Column(
             modifier = modifier
@@ -136,7 +136,6 @@ fun LoginScreen(
                 .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Spacer fleksibel di atas
             Spacer(modifier = Modifier.height(40.dp))
 
             // Logo
@@ -249,7 +248,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Google Button (Logika tetap asli)
+            // Google Button
             OutlinedButton(
                 onClick = {
                     activity?.let {

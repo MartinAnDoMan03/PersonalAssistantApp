@@ -17,7 +17,6 @@ enum class TaskStatus(val displayName: String, val color: Color, val bgColor: Co
     IN_PROGRESS("In Progress", Color(0xFFFF9800), Color(0xFFFFF3E0)),
     DONE("Done", Color(0xFF4CAF50), Color(0xFFE8F5E9)); // Gunakan titik koma
 
-    // ✅ TAMBAHKAN COMPANION OBJECT INI
     companion object {
         fun fromInt(value: Int) = entries.find { it.ordinal == value } ?: NOT_STARTED
     }
@@ -29,7 +28,6 @@ enum class TaskPriority(val displayName: String, val color: Color, val bgColor: 
     MEDIUM("Medium", Color(0xFFFFB300), Color(0xFFFFF8E1)),
     HIGH("High", Color(0xFFEF5350), Color(0xFFFFEBEE)); // Gunakan titik koma
 
-    // ✅ TAMBAHKAN COMPANION OBJECT INI
     companion object {
         fun fromInt(value: Int) = entries.find { it.ordinal == value } ?: MEDIUM
     }

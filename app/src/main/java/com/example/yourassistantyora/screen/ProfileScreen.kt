@@ -57,7 +57,7 @@ fun ProfileScreen(
 
     LaunchedEffect(currentUser?.uid) {
         if (currentUser != null) {
-            // 1. Listen for User Profile Updates
+            // Listen for User Profile Updates
             db.collection("users").document(currentUser.uid)
                 .addSnapshotListener { snapshot, _ ->
                     if (snapshot != null && snapshot.exists()) {
@@ -77,7 +77,7 @@ fun ProfileScreen(
                 realCompletedTasks = personalCompleted + teamCompleted
             }
 
-            // 2. Listen for PERSONAL Tasks
+            // Listen for PERSONAL Tasks
             db.collection("tasks")
                 .whereEqualTo("userId", currentUser.uid)
                 .addSnapshotListener { snapshot, _ ->
@@ -98,16 +98,14 @@ fun ProfileScreen(
                     }
                 }
 
-            // 3. Listen for TEAM Tasks
+            // Listen for TEAM Tasks
             db.collection("team_tasks")
-                // Make sure your database field is actually named "assignees"
                 .whereArrayContains("assignees", currentUser.uid)
                 .addSnapshotListener { snapshot, _ ->
                     if (snapshot != null) {
                         val docs = snapshot.documents
                         teamTotal = docs.size
                         teamCompleted = docs.count {
-                            // FIX: Added check for "Status" (Capital) here too
                             val statusVal = it.get("Status") ?: it.get("status")
 
                             val statusInt = when (statusVal) {
@@ -128,7 +126,6 @@ fun ProfileScreen(
     Scaffold(
         containerColor = Color(0xFFF5F7FA),
         topBar = {
-            // ✅ Menggunakan WindowInsets agar icon back turun (tidak tertutup status bar/jam)
             CenterAlignedTopAppBar(
                 windowInsets = WindowInsets.statusBars,
                 title = {
@@ -154,14 +151,12 @@ fun ProfileScreen(
             )
         }
     ) { scaffoldPadding ->
-        // ✅ Column utama menggunakan fillMaxSize agar weight(1f) berfungsi
         Column(
             modifier = modifier
                 .fillMaxSize()
                 .padding(scaffoldPadding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // 🔹 HEADER GRADIENT
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -184,7 +179,6 @@ fun ProfileScreen(
                             .background(Color(0xFFFFB74D)),
                         contentAlignment = Alignment.Center
                     ) {
-                        // CHANGED: Use currentPhotoUrl
                         if (!currentPhotoUrl.isNullOrEmpty()) {
                             AsyncImage(
                                 model = currentPhotoUrl,
@@ -193,7 +187,6 @@ fun ProfileScreen(
                                 contentScale = ContentScale.Crop,
                             )
                         } else {
-                            // CHANGED: Use currentName
                             Text(
                                 text = if (currentName.isNotEmpty()) currentName.take(1).uppercase() else "U",
                                 color = Color.White,
@@ -205,7 +198,6 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // CHANGED: Use currentName
                     Text(
                         text = currentName,
                         color = Color.White,
@@ -246,7 +238,7 @@ fun ProfileScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF2D2D2D)
                                 )
-                                Text("Task", fontSize = 12.sp, color = Color(0xFF9E9E9E))
+                                Text("Task (Personal)", fontSize = 12.sp, color = Color(0xFF9E9E9E))
                             }
 
                             Box(modifier = Modifier.width(1.dp).height(30.dp).background(Color(0xFFE0E0E0)))
@@ -258,7 +250,7 @@ fun ProfileScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF2D2D2D)
                                 )
-                                Text("Completed", fontSize = 12.sp, color = Color(0xFF9E9E9E))
+                                Text("Completed (Personal)", fontSize = 12.sp, color = Color(0xFF9E9E9E))
                             }
                         }
 
@@ -281,7 +273,6 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    // ✅ Kunci agar tombol berada di bawah: Menggunakan weight(1f) pada bagian Spacer nanti
                     .heightIn(min = 400.dp)
             ) {
                 Text(text = "Username", fontSize = 13.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
@@ -315,10 +306,9 @@ fun ProfileScreen(
                 )
                 Text("Email cannot be changed", fontSize = 12.sp, color = Color(0xFF9E9E9E), modifier = Modifier.padding(top = 6.dp))
 
-                // ✅ Mendorong konten ke bawah
                 Spacer(modifier = Modifier.height(60.dp))
 
-                // 🔹 TOMBOL LOG OUT (Paling Bawah)
+                // 🔹 TOMBOL LOG OUT
                 OutlinedButton(
                     onClick = { showLogoutDialog = true },
                     modifier = Modifier

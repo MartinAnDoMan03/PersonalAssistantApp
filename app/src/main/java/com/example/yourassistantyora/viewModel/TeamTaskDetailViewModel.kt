@@ -1,6 +1,5 @@
 package com.example.yourassistantyora.viewModel
 
-// Tambahkan ini di bagian atas file
 import android.content.Context
 import android.net.Uri
 import com.cloudinary.android.MediaManager
@@ -23,7 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.util.UUID // ✅ TAMBAHKAN INI
+import java.util.UUID
 
 
 class TeamTaskDetailViewModel : ViewModel() {
@@ -33,7 +32,6 @@ class TeamTaskDetailViewModel : ViewModel() {
     private val _taskDetail = MutableStateFlow<TeamTask?>(null)
     val taskDetail = _taskDetail.asStateFlow()
 
-    // ✅ 1. TAMBAHKAN STATEFLOW BARU UNTUK KOMENTAR
     private val _comments = MutableStateFlow<List<TaskComment>>(emptyList())
     val comments = _comments.asStateFlow()
 
@@ -49,7 +47,7 @@ class TeamTaskDetailViewModel : ViewModel() {
     fun loadTaskAndComments(taskId: String, teamId: String) {
         val currentUserId = auth.currentUser?.uid ?: return
         _isLoading.value = true
-        _error.value = null // Reset error
+        _error.value = null
         clearListeners()
 
         // Listener untuk Dokumen Task
@@ -57,7 +55,7 @@ class TeamTaskDetailViewModel : ViewModel() {
             .addSnapshotListener { taskSnapshot, e ->
                 if (e != null || taskSnapshot == null || !taskSnapshot.exists()) {
                     _error.value = "Failed to load task: ${e?.message}"
-                    _isLoading.value = false // Set loading false jika task gagal dimuat
+                    _isLoading.value = false
                     return@addSnapshotListener
                 }
 
@@ -76,7 +74,6 @@ class TeamTaskDetailViewModel : ViewModel() {
                         } catch (ex: Exception) {
                             _error.value = "Failed to resolve members: ${ex.message}"
                         } finally {
-                            // ✅ PERBAIKAN: Set loading false HANYA setelah detail task berhasil di-resolve
                             if (_isLoading.value) {
                                 _isLoading.value = false
                             }
@@ -92,7 +89,6 @@ class TeamTaskDetailViewModel : ViewModel() {
             .addSnapshotListener { commentsSnapshot, e ->
                 if (e != null || commentsSnapshot == null) {
                     _error.value = "Failed to load comments: ${e?.message}"
-                    // Jangan set loading false di sini, biarkan task listener yang mengontrol
                     return@addSnapshotListener
                 }
 
@@ -141,7 +137,7 @@ class TeamTaskDetailViewModel : ViewModel() {
             "createdAt" to FieldValue.serverTimestamp(),
             "createdBy" to currentUserId,
             "ctask_id" to taskId,
-            "userName" to currentUsername // Simpan username untuk efisiensi
+            "userName" to currentUsername
         )
 
         viewModelScope.launch {
@@ -166,7 +162,6 @@ class TeamTaskDetailViewModel : ViewModel() {
     fun deleteAttachment(taskId: String, attachmentToDelete: TaskAttachment) {
         val taskRef = db.collection("team_tasks").document(taskId)
 
-        // Buat map yang sama persis dengan yang ada di Firestore untuk dihapus
         val attachmentMap = mapOf(
             "fileName" to attachmentToDelete.fileName,
             "fileUrl" to attachmentToDelete.fileUrl
@@ -175,7 +170,6 @@ class TeamTaskDetailViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Gunakan FieldValue.arrayRemove untuk menghapus elemen dari array 'docs'
                 taskRef.update("docs", FieldValue.arrayRemove(attachmentMap)).await()
             } catch (e: Exception) {
                 _error.value = "Failed to delete attachment: ${e.message}"
@@ -192,7 +186,6 @@ class TeamTaskDetailViewModel : ViewModel() {
         }
         val currentUsername = auth.currentUser?.displayName?.replace(" ", "_")?.lowercase() ?: "user"
 
-        // Set state loading saat proses dimulai
         _isLoading.value = true
 
         viewModelScope.launch {
@@ -206,7 +199,7 @@ class TeamTaskDetailViewModel : ViewModel() {
 
                     val requestId = MediaManager.get().upload(uri)
                         .option("public_id", publicId)
-                        .unsigned("ml_default") // Ganti dengan upload preset Anda
+                        .unsigned("ml_default")
                         .callback(object : UploadCallback {
                             override fun onSuccess(requestId: String, resultData: Map<*, *>) {
                                 val url = resultData["secure_url"] as? String
@@ -220,7 +213,7 @@ class TeamTaskDetailViewModel : ViewModel() {
                             override fun onError(requestId: String, error: ErrorInfo) {
                                 if (continuation.isActive) continuation.resumeWithException(Exception("Cloudinary upload failed: ${error.description}"))
                             }
-                            // Callback lainnya bisa dibiarkan kosong
+                            // Callback
                             override fun onStart(requestId: String) {}
                             override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}
                             override fun onReschedule(requestId: String, error: ErrorInfo) {}
@@ -237,19 +230,16 @@ class TeamTaskDetailViewModel : ViewModel() {
                 // AMBIL NAMA FILE YANG SEBENARNYA DARI URL (HASIL CLOUDINARY)
                 val finalFileName = secureUrl.substringAfterLast('/')
 
-                // BUAT MAP UNTUK DISIMPAN
                 val newAttachmentMap = mapOf(
                     "fileName" to finalFileName,
                     "fileUrl" to secureUrl
                 )
 
-                // GUNAKAN arrayUnion DENGAN MAP, BUKAN STRING
                 taskRef.update("docs", FieldValue.arrayUnion(newAttachmentMap)).await()
 
             } catch (e: Exception) {
                 _error.value = "Failed to upload attachment: ${e.message}"
             } finally {
-                // Set loading false setelah selesai, baik berhasil maupun gagal
                 _isLoading.value = false
             }
         }
@@ -279,12 +269,11 @@ class TeamTaskDetailViewModel : ViewModel() {
     }
 }
 
-// Helper untuk konversi, bisa ditaruh di luar kelas atau di file terpisah
+// Helper untuk konversi
 fun TeamTaskDb.toUITask(allMembers: List<TeamMember>): TeamTask {
     val assignedMembers = allMembers.filter { member -> this.uid.contains(member.id) }
     val attachments = this.docs.mapNotNull { attachmentData ->
         when (attachmentData) {
-            // Kasus 1: Data BARU dalam format Map
             is Map<*, *> -> {
                 val fileName = attachmentData["fileName"] as? String
                 val fileUrl = attachmentData["fileUrl"] as? String
@@ -295,18 +284,16 @@ fun TeamTaskDb.toUITask(allMembers: List<TeamMember>): TeamTask {
                         fileUrl = fileUrl
                     )
                 } else {
-                    null // Map tidak valid, abaikan
+                    null
                 }
             }
-            // Kasus 2: Data LAMA dalam format String (hanya URL)
             is String -> {
                 TaskAttachment(
                     id = UUID.randomUUID().toString(),
-                    fileUrl = attachmentData, // URL adalah string itu sendiri
-                    fileName = attachmentData.substringAfterLast('/') // Ambil nama file dari URL sebagai fallback
+                    fileUrl = attachmentData,
+                    fileName = attachmentData.substringAfterLast('/')
                 )
             }
-            // Abaikan tipe data lain
             else -> null
         }
     }
@@ -319,7 +306,7 @@ fun TeamTaskDb.toUITask(allMembers: List<TeamMember>): TeamTask {
         priority = TaskPriority.fromInt(this.priority),
         assignedTo = assignedMembers,
         deadline = this.deadline.toDate().toString(),
-        attachments = attachments, // Pastikan variabel ini yang digunakan
+        attachments = attachments,
         createdBy = this.createdBy,
         createdAt = this.createdOn.toDate().toString()
     )

@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
                 val authState by authViewModel.currentUser
                 val isLoading by authViewModel.isLoading
 
-                // ✅ Jalankan listener notifikasi otomatis setelah login
+                // Jalankan listener notifikasi otomatis setelah login
                 LaunchedEffect(authState) {
                     if (authState != null) {
                         // User sudah login → mulai mendengarkan Firestore
@@ -77,7 +77,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // ✅ Pastikan listener berhenti agar tidak memory leak
+        // Pastikan listener berhenti agar tidak memory leak
         UniversalNotificationListener.stopListening()
     }
 }

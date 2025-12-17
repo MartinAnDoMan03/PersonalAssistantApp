@@ -52,7 +52,7 @@ class TeamViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // 1. Ambil ID tim dari dokumen pengguna (Logika yang sudah ada)
+                // 1. Ambil ID tim dari dokumen pengguna
                 val userDoc = db.collection("users").document(currentUser.uid).get().await()
                 val teamIds = userDoc.get("teams") as? List<String> ?: emptyList()
 
@@ -62,8 +62,7 @@ class TeamViewModel : ViewModel() {
                     return@launch
                 }
 
-                // 2. ✅ LOGIKA BARU: Ambil semua tugas yang relevan dalam satu query
-                // Kita query koleksi root 'team_tasks'
+                // 2. Ambil semua tugas yang relevan dalam satu query
                 val allTasksSnapshot = db.collection("team_tasks")
                     .whereIn("team_id", teamIds) // Filter tugas berdasarkan semua teamId
                     .get()
@@ -79,15 +78,11 @@ class TeamViewModel : ViewModel() {
                     val teamDoc = db.collection("teams").document(id).get().await()
 
                     if (teamDoc.exists()) {
-                        // ✅ LOGIKA BARU: Lakukan perhitungan di sini
                         val tasksForThisTeam = tasksByTeamId[id] ?: emptyList()
                         val totalTasks = tasksForThisTeam.size
-                        // Status '2' dianggap "Done"
                         val completedTasks = tasksForThisTeam.count { (it.get("status") as? Long ?: 0) == 2L }
                         val activeTasks = totalTasks - completedTasks
                         val progress = if (totalTasks > 0) completedTasks.toFloat() / totalTasks.toFloat() else 0f
-
-                        // --- Logika yang sudah ada di bawah ini tidak diubah, hanya diisi dengan hasil perhitungan ---
                         val colorName = teamDoc.getString("colorScheme") ?: "BLUE"
                         val colorEnum = try { TeamColorScheme.valueOf(colorName) } catch (e: Exception) { TeamColorScheme.BLUE }
                         val creatorId = teamDoc.getString("createdBy")
@@ -99,13 +94,12 @@ class TeamViewModel : ViewModel() {
                             id = teamDoc.id,
                             name = teamDoc.getString("name") ?: "Unknown",
                             description = teamDoc.getString("description") ?: "",
-                            // Mengambil kategori pertama dari list untuk ditampilkan di UI
                             category = (teamDoc.get("categories") as? List<String>)?.firstOrNull() ?: "General",
                             colorScheme = colorEnum,
                             members = memberCount,
-                            activeTasks = activeTasks,           // <-- Diisi dari hasil hitungan
-                            completedTasks = completedTasks,     // <-- Diisi dari hasil hitungan
-                            progress = progress,                 // <-- Diisi dari hasil hitungan
+                            activeTasks = activeTasks,
+                            completedTasks = completedTasks,
+                            progress = progress,
                             role = role
                         )
                         fetchedTeams.add(teamObj)

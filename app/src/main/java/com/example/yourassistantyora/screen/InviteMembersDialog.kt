@@ -28,7 +28,6 @@ fun InviteMembersDialog(
     showDialog: Boolean,
     onDismiss: () -> Unit,
     onCopyCode: () -> Unit,
-    // We pass the invite code to the logic so we can generate the message
     onSendEmail: (String) -> Unit
 ) {
     var email by remember { mutableStateOf("") }

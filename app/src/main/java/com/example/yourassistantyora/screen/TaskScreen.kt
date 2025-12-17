@@ -48,9 +48,7 @@ fun TaskScreen(
 
     // State untuk Pencarian
     var isSearching by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") } // <-- Kita tetap menggunakan ini
-
-    // ... (Logika filtering, scope, dll. tetap sama)
+    var searchQuery by remember { mutableStateOf("") }
 
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(NavigationConstants.TAB_TASK) }
@@ -64,8 +62,7 @@ fun TaskScreen(
     var deletingTask by remember { mutableStateOf<TaskModel?>(null) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-    // --- LOGIKA FILTERING --- (Tetap sama)
-    // ⛔ BUANG TEAM TASK (TaskScreen = PERSONAL ONLY)
+    // --- LOGIKA FILTERING ---
     val personalTasks = tasks.filter { !it.id.startsWith("team_") }
 
     val activeTasks = personalTasks.filter { !it.isCompleted }
@@ -96,7 +93,6 @@ fun TaskScreen(
             queryMatch
         }
 
-    // ... (Fungsi completeTask, undoCompletion, deleteTaskConfirmed, dll. tetap sama)
     fun completeTask(task: TaskModel) {
         if (!task.isCompleted) {
             viewModel.updateTaskStatus(task.id, true)
@@ -152,13 +148,10 @@ fun TaskScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color(0xFFF5F7FA),
-            // ✅ PERUBAHAN UTAMA DI SINI
             topBar = {
-                // Menggunakan TopAppBar tunggal untuk SearchBar dan Title
                 TopAppBar(
                     modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars), // Pertahankan responsiveness
                     title = {
-                        // Tampilkan Title biasa
                         AnimatedVisibility(
                             visible = !isSearching,
                             enter = fadeIn(),
@@ -205,14 +198,13 @@ fun TaskScreen(
                                 Icon(Icons.Filled.ArrowBack, "Back", tint = Color(0xFF2D2D2D))
                             }
                         } else {
-                            // Saat mencari, ikon ArrowBack/Close sudah berada di actions
+                            // else
                         }
                     },
                     actions = {
                         // Tombol Toggle Search/Close
                         IconButton(onClick = {
                             if (isSearching) {
-                                // Jika mode mencari aktif, matikan mode dan reset query
                                 searchQuery = ""
                             }
                             isSearching = !isSearching
@@ -227,7 +219,7 @@ fun TaskScreen(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                 )
             },
-            // ... (BottomBar dan FAB tetap sama)
+            // BottomBar dan FAB
             bottomBar = {
                 BottomNavigationBar(
                     selectedTab = selectedTab,
@@ -264,7 +256,7 @@ fun TaskScreen(
                     onNavigateToMonthly = { navController.navigateSingleTop("monthly_tasks") }
                 )
 
-                // Filter Row hanya tampil jika TIDAK sedang mencari
+                // Filter Row
                 if (!isSearching) {
                     TaskFilterRow(
                         selectedStatus = selectedStatus,
@@ -356,7 +348,7 @@ fun TaskScreen(
             }
         }
 
-        // SNACKBAR dan DIALOGS (tetap sama)
+        // SNACKBAR dan DIALOG
         AnimatedVisibility(
             visible = showUndoSnackbar,
             enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + fadeIn(),

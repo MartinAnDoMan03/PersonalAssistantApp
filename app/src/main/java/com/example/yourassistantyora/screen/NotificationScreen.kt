@@ -585,7 +585,6 @@ fun ModernNotificationCard(
                                     launchSingleTop = true
                                 }
                             } else if (!taskId.isNullOrBlank()) {
-                                // Fallback for personal tasks if you have that route
                                 navController.navigate("task_detail/$taskId") {
                                     launchSingleTop = true
                                 }

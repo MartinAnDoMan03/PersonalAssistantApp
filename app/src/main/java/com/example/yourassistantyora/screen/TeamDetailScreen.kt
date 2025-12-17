@@ -44,14 +44,13 @@ fun TeamDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    // Picu pemuatan data saat pertama kali masuk
     LaunchedEffect(key1 = teamId) {
         if (teamId.isNotBlank()) {
             viewModel.loadTeamDetails(teamId)
         }
     }
 
-    // Tampilkan pesan error jika ada
+    // Tampilkan pesan error
     LaunchedEffect(key1 = error) {
         error?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
@@ -72,8 +71,8 @@ fun TeamDetailScreen(
         val isAdmin = detail.currentUserRole == "Admin"
         val sortedMembers = remember(detail.members) {
             detail.members.sortedWith(
-                compareByDescending<TeamMember> { it.role == "Admin" } // Admin (true) di atas
-                    .thenBy { it.name.lowercase() } // Sisanya urut ABC
+                compareByDescending<TeamMember> { it.role == "Admin" }
+                    .thenBy { it.name.lowercase() }
             )
         }
 
@@ -105,7 +104,6 @@ fun TeamDetailScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // Header with gradient
                 item {
                     Box(
                         modifier = Modifier
@@ -320,7 +318,6 @@ fun TeamDetailScreen(
                     )
                 }
 
-                // Menggunakan sortedMembers yang sudah diproses di atas
                 items(sortedMembers, key = { it.id }) { member ->
                     MemberCard(
                         member = member,
@@ -364,7 +361,6 @@ fun TeamDetailScreen(
                                 val targetUserId = targetUser.id
                                 val targetUserName = targetUser.getString("username") ?: "User"
 
-                                // 2. Check if user is ALREADY in the team
                                 db.collection("teams").document(teamId).get()
                                     .addOnSuccessListener { teamDoc ->
                                         val currentMembers = teamDoc.get("members") as? List<String> ?: emptyList()
@@ -507,7 +503,6 @@ fun TeamTaskCard(
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Row {
-            // Garis vertikal di kiri
             Box(
                 modifier = Modifier
                     .width(5.dp)
@@ -522,13 +517,11 @@ fun TeamTaskCard(
                     .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Baris Atas: "Your Task" badge dan Priority badge
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    // Badge "Your Task" hanya muncul jika tugas ini milik user saat ini
                     if (task.assignedTo.any { it.id == currentUserId }) {
                         Surface(
                             color = teamColor,
@@ -554,7 +547,6 @@ fun TeamTaskCard(
                             }
                         }
                     } else {
-                        // Spacer agar priority badge tetap di kanan
                         Spacer(modifier = Modifier)
                     }
 
@@ -573,7 +565,6 @@ fun TeamTaskCard(
                     }
                 }
 
-                // Judul dan Deskripsi
                 Column {
                     Text(
                         task.title,
@@ -590,7 +581,7 @@ fun TeamTaskCard(
                     )
                 }
 
-                // Baris Bawah: Status, Avatars, dan Comments
+                // Baris Bawah
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

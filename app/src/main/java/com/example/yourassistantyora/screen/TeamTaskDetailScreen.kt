@@ -223,7 +223,6 @@ private fun MainTaskCard(
                 Text("Status", fontSize = 13.sp, color = Color(0xFF757575))
                 Spacer(Modifier.height(8.dp))
 
-                // PERBAIKAN: StatusDisplay sekarang memiliki panah di ujung kanan
                 StatusDisplay(
                     status = task.status,
                     canUpdate = canUpdateStatus
@@ -310,7 +309,7 @@ private fun StatusDisplay(status: TaskStatus, canUpdate: Boolean, onClick: () ->
         ) {
             // Label Status & Ikon Kiri
             Row(
-                modifier = Modifier.weight(1f), // ✅ Mendorong sisa konten ke kanan
+                modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -318,7 +317,6 @@ private fun StatusDisplay(status: TaskStatus, canUpdate: Boolean, onClick: () ->
                 Text(status.displayName, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = status.color)
             }
 
-            // Panah di Ujung Kanan
             if (canUpdate) {
                 Icon(
                     Icons.Filled.KeyboardArrowDown,

@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.yourassistantyora.ui.theme.YourAssistantYoraTheme
 
-// --- Gradient Button Composable Helper (Diperbarui untuk Card Elevation) ---
+// --- Gradient Button Composable Helper ---
 @Composable
 fun GradientElevatedButton(
     onClick: () -> Unit,
@@ -29,7 +29,6 @@ fun GradientElevatedButton(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
-    // Warna gradient sesuai permintaan Anda
     val startColor = Color(0xFF6A70D7)
     val endColor = Color(0xFF7353AD)
 
@@ -40,7 +39,6 @@ fun GradientElevatedButton(
     Card(
         modifier = modifier.height(50.dp),
         shape = RoundedCornerShape(12.dp),
-        // Elevation dikurangi saat disabled agar tidak terlihat "melayang"
         elevation = CardDefaults.cardElevation(defaultElevation = if (enabled) 4.dp else 0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
@@ -50,7 +48,6 @@ fun GradientElevatedButton(
             enabled = enabled,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
-                // Penting: Set disabledContainer tetap transparan agar background Box terlihat
                 disabledContainerColor = Color.Transparent,
                 contentColor = Color.White,
                 disabledContentColor = Color.White.copy(alpha = 0.6f)
@@ -61,7 +58,6 @@ fun GradientElevatedButton(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    // Background selalu ada, tapi gunakan alpha 0.5f saat disabled
                     .background(
                         brush = gradient,
                         alpha = if (enabled) 1f else 0.5f
@@ -282,7 +278,7 @@ fun JoinTeamScreen(
                 }
             }
 
-            // Join Button (Fixed at bottom) - MENGGUNAKAN GradientElevatedButton
+            // Join Button (Fixed at bottom)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

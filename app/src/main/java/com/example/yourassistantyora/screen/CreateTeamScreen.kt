@@ -69,17 +69,14 @@ fun CreateTeamScreen(
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
 
-    // Predefined categories dengan warna
     val predefinedCategories = listOf(
         "Project" to Color(0xFF667EEA),
         "Study" to Color(0xFF64B5F6),
         "Organization" to Color(0xFF4DB6AC)
     )
 
-    // Custom categories yang ditambahkan user
     var customCategories by remember { mutableStateOf(listOf<Pair<String, Color>>()) }
 
-    // Gabungkan semua categories
     val allCategories = predefinedCategories + customCategories
 
     val isFormValid = teamName.isNotBlank() && description.isNotBlank() &&
@@ -355,7 +352,7 @@ fun CreateTeamScreen(
             }
         }
 
-        // Add Category Dialog dengan Blur Background (SAMA SEPERTI CreateNoteScreen)
+        // Add Category Dialog dengan Blur Background
         AnimatedVisibility(
             visible = showAddCategoryDialog,
             enter = fadeIn(),

@@ -68,7 +68,7 @@ fun DailyScreen(
 
     fun isCompleted(task: TaskModel) = task.Status == 2
 
-    // ---------- COMPLETE / UNDO (SAMA TASKSCREEN) ----------
+    // ---------- COMPLETE / UNDO  ----------
     fun completeTask(task: TaskModel) {
         if (!isCompleted(task)) {
             viewModel.updateTaskStatus(task.id, true)
@@ -92,7 +92,7 @@ fun DailyScreen(
         lastCompletedTask = null
     }
 
-    // ---------- RESTORE (SAMA TASKSCREEN) ----------
+    // ---------- RESTORE  ----------
     fun showRestoreConfirmation(task: TaskModel) {
         taskToRestore = task
         showRestoreDialog = true
@@ -111,7 +111,6 @@ fun DailyScreen(
     val filteredTasks = remember(tasksForToday, searchQuery, selectedStatus, selectedCategory) {
         tasksForToday
             .filter { task ->
-                // ⛔ BUANG TEAM TASK
                 !task.id.startsWith("team_")
             }
             .filter { task ->
@@ -235,7 +234,7 @@ fun DailyScreen(
                     }
                 )
 
-                // ---------- FILTER (SAMA TASKSCREEN) ----------
+                // ---------- FILTER ----------
                 if (!isSearching) {
                     Column(
                         modifier = Modifier

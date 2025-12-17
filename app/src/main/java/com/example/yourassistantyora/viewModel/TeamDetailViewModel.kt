@@ -21,7 +21,7 @@ class TeamDetailViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
 
-    // --- State yang akan Digunakan oleh UI ---
+    // --- State Eksternal ---
     val teamDetail = _teamDetail.asStateFlow()
     val isLoading = _isLoading.asStateFlow()
     val error = _error.asStateFlow()
@@ -44,7 +44,7 @@ class TeamDetailViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // 1. Ambil data dasar Tim dari Firestore (hanya sekali)
+                // 1. Ambil data dasar Tim dari Firestore
                 val teamDoc = db.collection("teams").document(teamId).get().await()
                 val teamData = teamDoc.toObject(Team::class.java)
 
@@ -62,18 +62,17 @@ class TeamDetailViewModel : ViewModel() {
                             return@addSnapshotListener
                         }
                         if (snapshot != null) {
-                            // Setiap kali ada perubahan pada tugas, kita proses ulang semuanya.
+                            // Setiap kali ada perubahan pada tugas, proses ulang semuanya.
                             viewModelScope.launch { // Gunakan coroutine baru di dalam listener
                                 try {
                                     val teamTasksFromDb = snapshot.toObjects(TeamTaskDb::class.java)
 
-                                    // ✅ 3. AMBIL PROFIL MEMBER DAN HITUNG TUGAS AKTIF DI DALAM LISTENER
-                                    // Ini memastikan hitungan selalu terbaru setiap kali tugas berubah.
+                                    //  3. AMBIL PROFIL MEMBER DAN HITUNG TUGAS AKTIF DI DALAM LISTENER
                                     val memberProfilesWithTaskCount = teamData.members.map { memberId ->
                                         val userDoc = db.collection("users").document(memberId).get().await()
                                         val role = if (teamData.createdBy == memberId) "Admin" else "Member"
 
-                                        // Hitung tugas aktif (status BUKAN 2/Done)
+                                        // Hitung tugas aktif (status != 2)
                                         val activeTaskCount = teamTasksFromDb.count { taskDb ->
                                             taskDb.status != 2 && taskDb.uid.contains(memberId)
                                         }
@@ -87,7 +86,7 @@ class TeamDetailViewModel : ViewModel() {
                                             name = userDoc.getString("username") ?: "Unknown Member",
                                             role = role,
                                             activeTasks = activeTaskCount,
-                                            tasksCompleted = completedTaskCount // ✅ TAMBAHKAN HASIL HITUNGAN
+                                            tasksCompleted = completedTaskCount
                                         )
                                     }.sortedBy { it.name }
 
@@ -119,23 +118,22 @@ class TeamDetailViewModel : ViewModel() {
                                             description = teamData.description,
                                             category = teamData.category,
                                             colorScheme = teamData.colorSchemeEnum,
-                                            members = memberProfilesWithTaskCount, // Gunakan list yang baru
-                                            tasks = sortedUiTasks, // ✅ GUNAKAN LIST YANG SUDAH DISORTIR
+                                            members = memberProfilesWithTaskCount,
+                                            tasks = sortedUiTasks,
                                             currentUserRole = if (teamData.createdBy == currentUserId) "Admin" else "Member",
                                             currentUserId = currentUserId,
                                             inviteCode = teamData.inviteCode
                                         )
                                     } else {
-                                        // Perbarui daftar tugas DAN daftar member (dengan hitungan baru)
                                         _teamDetail.value = currentDetail.copy(
-                                            tasks = sortedUiTasks, // ✅ GUNAKAN LIST YANG SUDAH DISORTIR
+                                            tasks = sortedUiTasks,
                                             members = memberProfilesWithTaskCount
                                         )
                                     }
                                 } catch (ex: Exception) {
                                     _error.value = "Failed to process task update: ${ex.message}"
                                 } finally {
-                                    _isLoading.value = false // Set loading false setelah data awal diterima dan diproses
+                                    _isLoading.value = false
                                 }
                             }
                         }

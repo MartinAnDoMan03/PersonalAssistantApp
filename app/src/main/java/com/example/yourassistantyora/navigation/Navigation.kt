@@ -219,7 +219,6 @@ fun AppNavigation(
             )
         }
 
-        // ✅ BARU: Tambahkan route untuk TaskDetailScreen
         /**
          * Task Detail Screen - Menampilkan detail dan form edit
          * Route: "task_detail/{taskId}"
@@ -396,7 +395,6 @@ fun AppNavigation(
             )
         }
 
-        // ✅✅✅ TAMBAHKAN ROUTE BARU INI ✅✅✅
         /**
          * Team Progress Screen
          */
@@ -460,7 +458,6 @@ fun AppNavigation(
             arguments = listOf(navArgument("teamId") { type = NavType.StringType })
         ) { backStackEntry ->
             val teamId = backStackEntry.arguments?.getString("teamId") ?: ""
-            // ✅ Panggil TeamDetailScreen yang sudah diperbarui
             TeamDetailScreen(
                 teamId = teamId,
                 navController = navController

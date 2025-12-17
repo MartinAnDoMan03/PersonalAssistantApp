@@ -19,11 +19,11 @@ class CreateTaskViewModel : ViewModel() {
     val selectedStatus = mutableStateOf("To do")     // Waiting / To do / Done / Hold On / In Progress
     val selectedReminder = mutableStateOf("Tidak ada pengingat")
 
-    // ✅ date & time (biar CreateTaskScreen kamu jalan)
+    // date & time
     val selectedDate = mutableStateOf<Date?>(null)
     val selectedTime = mutableStateOf<Calendar?>(null)
 
-    // ✅ multi category (LIST STRING) — TANPA mutableStateListOf
+    // multi category (LIST STRING)
     val selectedCategories = mutableStateOf<List<String>>(emptyList())
 
     // -------- system state --------
@@ -59,7 +59,7 @@ class CreateTaskViewModel : ViewModel() {
             return
         }
 
-        // ✅ gabung date + time -> Timestamp (kalau belum pilih, boleh null)
+        //  gabung date + time
         val deadlineTs: Timestamp? = buildDeadlineTimestamp(
             selectedDate.value,
             selectedTime.value
@@ -82,21 +82,20 @@ class CreateTaskViewModel : ViewModel() {
 
         val reminderInt = reminderToInt(selectedReminder.value)
 
-        // legacy single category: isi dari pilihan pertama kalau dikenal, kalau custom -> -1
+        // legacy single category
         val firstCat = selectedCategories.value.firstOrNull()
         val legacyCategoryInt = if (firstCat == null) 0 else categoryNameToIdOrMinus1(firstCat)
 
         val data = hashMapOf(
             "Title" to t,
             "Description" to description.value.trim(),
-            "Deadline" to deadlineTs, // Timestamp? (Firestore bisa simpan null)
+            "Deadline" to deadlineTs,
 
             "Priority" to priorityInt,
 
-            // legacy (optional)
+            // legacy
             "Category" to legacyCategoryInt,
 
-            // ✅ ini yang dipakai untuk tampilkan semua category yang dipilih
             "CategoryNames" to selectedCategories.value,
 
             "Status" to statusInt,
@@ -109,7 +108,6 @@ class CreateTaskViewModel : ViewModel() {
 
         isLoading.value = true
 
-        // ✅ pakai .document() biar id bisa kita simpan juga
         val docRef = db.collection("tasks").document()
         data["id"] = docRef.id
 
